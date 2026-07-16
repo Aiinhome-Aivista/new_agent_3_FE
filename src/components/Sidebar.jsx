@@ -36,8 +36,8 @@ const Sidebar = () => {
   ];
 
   const roleAccess = {
-    'Delivery / Engagement Manager': ['Dashboard', 'Stakeholders', 'KT Plan', 'Tracking', 'Risks', 'Reports', 'Chatbot'],
-    'Outgoing SME (Knowledge Giver)': ['Dashboard', 'KT Plan', 'Schedule', 'Tracking', 'Chatbot'],
+    'Delivery / Engagement Manager': ['Dashboard', 'Stakeholders', 'KT Plan', 'Tracking', 'Risks', 'Assessment', 'Reports', 'Chatbot'],
+    'Outgoing SME (Knowledge Giver)': ['Dashboard', 'KT Plan', 'Schedule', 'Tracking', 'Assessment', 'Chatbot'],
     'Incoming Team Member (Knowledge Receiver)': ['Dashboard', 'Schedule', 'Assessment', 'Chatbot'],
     'PwC Leadership': ['Dashboard', 'Reports', 'Assessment', 'Chatbot'],
   };

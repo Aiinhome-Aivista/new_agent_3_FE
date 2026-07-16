@@ -73,6 +73,17 @@ const PlanPage = () => {
   const canGenerate = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
   const canApprove = user?.role === 'Delivery / Engagement Manager';
 
+  const parseMarkdown = (text) => {
+    if (!text) return { __html: '' };
+    let html = text.replace(/```markdown\n?/g, '').replace(/```\n?/g, '');
+    html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-gray-800 mt-4">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-gray-800 mt-6 mb-2">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-blue-600 mt-2 mb-4 border-b pb-2">$1</h1>');
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="text-gray-900 font-semibold">$1</strong>');
+    html = html.replace(/^\s*\-\s+(.*$)/gim, '<div class="ml-4 flex"><span class="mr-2">•</span><span>$1</span></div>');
+    return { __html: html };
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">KT Plans</h2>
@@ -198,9 +209,10 @@ const PlanPage = () => {
               )}
             </div>
             <div className="p-6">
-              <div className="prose prose-sm max-w-none text-gray-600 whitespace-pre-wrap">
-                {plan.generated_content}
-              </div>
+              <div 
+                className="prose prose-sm max-w-none text-gray-600 whitespace-pre-wrap"
+                dangerouslySetInnerHTML={parseMarkdown(plan.generated_content)}
+              />
             </div>
           </div>
         ))}

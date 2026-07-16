@@ -90,7 +90,7 @@ const AssessmentPage = () => {
 
   if (loading) return <Loader />;
 
-  const canSetup = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
+  const canSetup = user?.role === 'Incoming Team Member (Knowledge Receiver)';
   const canSubmit = user?.role === 'Incoming Team Member (Knowledge Receiver)';
 
   return (
@@ -99,9 +99,9 @@ const AssessmentPage = () => {
         <FileQuestion className="mr-2 text-indigo-500" /> AI Assessments
       </h2>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-6">
-          {canSetup && (
+      <div className={`grid grid-cols-1 ${canSetup ? 'lg:grid-cols-2' : ''} gap-6`}>
+        {canSetup && (
+          <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Setup Assessment</h3>
               <div className="space-y-4">
@@ -124,59 +124,59 @@ const AssessmentPage = () => {
                 </button>
               </div>
             </div>
-          )}
 
-          {questions.length > 0 && canSubmit && (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Submit Answer</h3>
-              <form onSubmit={handleSubmitAnswer} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Stakeholder</label>
-                  <select
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                    value={selectedStakeholderId}
-                    onChange={(e) => setSelectedStakeholderId(e.target.value)}
+            {questions.length > 0 && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Submit Answer</h3>
+                <form onSubmit={handleSubmitAnswer} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Stakeholder</label>
+                    <select
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                      value={selectedStakeholderId}
+                      onChange={(e) => setSelectedStakeholderId(e.target.value)}
+                    >
+                      {stakeholders.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role.replace('_',' ')})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Select Question</label>
+                    <select
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                      value={currentQuestion}
+                      onChange={(e) => setCurrentQuestion(e.target.value)}
+                    >
+                      {questions.map((q, i) => <option key={i} value={q}>{q}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Your Answer</label>
+                    <textarea
+                      required
+                      rows="4"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                    ></textarea>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none disabled:opacity-50"
                   >
-                    {stakeholders.map(s => <option key={s.id} value={s.id}>{s.name} ({s.role.replace('_',' ')})</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Select Question</label>
-                  <select
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                    value={currentQuestion}
-                    onChange={(e) => setCurrentQuestion(e.target.value)}
-                  >
-                    {questions.map((q, i) => <option key={i} value={q}>{q}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Your Answer</label>
-                  <textarea
-                    required
-                    rows="4"
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                  ></textarea>
-                </div>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none disabled:opacity-50"
-                >
-                  {submitting ? 'Scoring...' : 'Submit for AI Scoring'}
-                </button>
-              </form>
-            </div>
-          )}
-        </div>
+                    {submitting ? 'Scoring...' : 'Submit for AI Scoring'}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Assessment Results</h3>
           <div className="space-y-4">
             {results.map(r => (
-              <div key={r.id} className="p-4 border rounded-lg bg-gray-50">
+              <div key={r.id} className="p-4 border rounded-lg bg-gray-50 flex flex-col">
                 <div className="flex justify-between items-start mb-2">
                   <span className="font-semibold text-sm text-gray-900">{r.stakeholder_name}</span>
                   <span className={`px-2 py-1 rounded text-xs font-bold ${r.ai_score >= 8 ? 'bg-green-100 text-green-800' : r.ai_score >= 5 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
@@ -184,14 +184,14 @@ const AssessmentPage = () => {
                   </span>
                 </div>
                 <p className="text-sm text-gray-800 font-medium mb-1">Q: {r.question}</p>
-                <p className="text-sm text-gray-600 mb-3 italic">A: {r.answer}</p>
-                <div className="bg-white p-3 rounded border text-sm text-gray-700">
+                <p className="text-sm text-gray-600 mb-3 italic flex-grow">A: {r.answer}</p>
+                <div className="bg-white p-3 rounded border text-sm text-gray-700 mt-2">
                   <strong>AI Feedback:</strong> {r.feedback}
                 </div>
               </div>
             ))}
             {results.length === 0 && (
-              <div className="text-center text-gray-500 py-8">No results yet for this plan.</div>
+              <div className={`text-center text-gray-500 py-8 ${!canSetup ? 'col-span-full' : ''}`}>No results yet for this plan.</div>
             )}
           </div>
         </div>
