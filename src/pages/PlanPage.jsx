@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getPlans, generatePlan, approvePlan, runFullWorkflow } from '../api/api';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const PlanPage = () => {
@@ -11,7 +11,7 @@ const PlanPage = () => {
   const [generating, setGenerating] = useState(false);
   const [runningWorkflow, setRunningWorkflow] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
-  const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT' });
+  const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
 
   const fetchPlans = async () => {
     try {
@@ -33,7 +33,7 @@ const PlanPage = () => {
     setGenerating(true);
     try {
       await generatePlan(formData);
-      setFormData({ application_name: '', scope_description: '', plan_type: 'KT' });
+      setFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
       fetchPlans();
     } catch (err) {
       alert('Error generating plan');
@@ -110,6 +110,20 @@ const PlanPage = () => {
                 <option value="Reverse-KT">Reverse-KT</option>
               </select>
             </div>
+            
+            {formData.plan_type === 'Reverse-KT' && (
+              <div className="md:col-span-4">
+                <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
+                <input
+                  type="text" required
+                  placeholder="e.g. Test incident resolution or backend deployment"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  value={formData.reverse_kt_focus}
+                  onChange={(e) => setFormData({...formData, reverse_kt_focus: e.target.value})}
+                />
+              </div>
+            )}
+
             <div className="md:col-span-4 flex justify-end mt-2 space-x-3">
               <button
                 type="button"
@@ -139,12 +153,25 @@ const PlanPage = () => {
           >
             <X size={20} />
           </button>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Workflow Run Complete</h3>
-          <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+          <h3 className="text-lg font-bold text-purple-700 mb-6 flex items-center">
+            <Play className="mr-2" /> Multi-Agent Workflow Orchestration Complete
+          </h3>
+          <div className="relative border-l-2 border-purple-200 ml-3 space-y-6">
             {workflowResult.logs?.map((log, idx) => (
-              <li key={idx}>{log}</li>
+              <div key={idx} className="relative flex items-start">
+                <span className="absolute -left-3.5 bg-white p-1 rounded-full text-purple-600">
+                  <CheckCircle size={20} className="fill-current text-white" />
+                </span>
+                <div className="ml-6 bg-purple-50 px-4 py-3 rounded-lg shadow-sm w-full border border-purple-100">
+                  <span className="text-sm font-medium text-purple-900 flex items-center">
+                    Step {idx + 1}
+                    <ArrowRight size={14} className="mx-2 text-purple-400" />
+                    {log}
+                  </span>
+                </div>
+              </div>
             ))}
-          </ol>
+          </div>
         </div>
       )}
 

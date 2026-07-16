@@ -10,6 +10,7 @@ const SchedulePage = () => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ plan_id: '', title: '', scheduled_at: '' });
+  const [notifiedId, setNotifiedId] = useState(null);
 
   const fetchData = async () => {
     try {
@@ -56,7 +57,8 @@ const SchedulePage = () => {
   const handleNotify = async (id) => {
     try {
       await notifyMeeting(id);
-      alert('Notification sent!');
+      setNotifiedId(id);
+      setTimeout(() => setNotifiedId(null), 3000);
     } catch (err) {
       alert('Error sending notification');
     }
@@ -139,12 +141,18 @@ const SchedulePage = () => {
                   </span>
                 </td>
                 {canManage && (
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
                     {m.status === 'scheduled' && (
                       <>
-                        <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900">
-                          <Bell size={18} className="inline mr-1" /> Notify
-                        </button>
+                        {notifiedId === m.id ? (
+                          <span className="text-green-600 flex items-center mr-4 transition-all duration-300">
+                            <CheckCircle size={16} className="mr-1" /> Sent!
+                          </span>
+                        ) : (
+                          <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900 mr-4">
+                            <Bell size={18} className="inline mr-1" /> Notify
+                          </button>
+                        )}
                         <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900">
                           <CheckCircle size={18} className="inline mr-1" /> Complete
                         </button>
