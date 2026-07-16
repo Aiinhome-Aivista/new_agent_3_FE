@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, getStakeholders } from '../api/api';
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const SchedulePage = () => {
+  const { user } = useAuth();
   const [meetings, setMeetings] = useState([]);
   const [plans, setPlans] = useState([]);
   const [stakeholders, setStakeholders] = useState([]);
@@ -89,6 +91,8 @@ const SchedulePage = () => {
   };
 
   if (loading) return <Loader />;
+
+  const canManage = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
 
   return (
     <div className="space-y-6">
@@ -196,6 +200,53 @@ const SchedulePage = () => {
           </div>
         </form>
       </div>
+      {canManage && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Schedule New Meeting</h3>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Select Plan</label>
+              <select
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                value={formData.plan_id}
+                onChange={(e) => setFormData({...formData, plan_id: e.target.value})}
+                required
+              >
+                <option value="">-- Select Plan --</option>
+                {plans.map(p => (
+                  <option key={p.id} value={p.id}>{p.application_name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Meeting Title</label>
+              <input
+                type="text" required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Date & Time</label>
+              <input
+                type="datetime-local" required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                value={formData.scheduled_at}
+                onChange={(e) => setFormData({...formData, scheduled_at: e.target.value})}
+              />
+            </div>
+            <div className="md:col-span-4 flex justify-end mt-2">
+              <button
+                type="submit"
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Schedule
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="min-w-full divide-y divide-gray-200">
@@ -204,7 +255,7 @@ const SchedulePage = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -217,18 +268,20 @@ const SchedulePage = () => {
                     {m.status}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                  {m.status === 'scheduled' && (
-                    <>
-                      <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900">
-                        <Bell size={18} className="inline mr-1" /> Notify
-                      </button>
-                      <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900">
-                        <CheckCircle size={18} className="inline mr-1" /> Complete
-                      </button>
-                    </>
-                  )}
-                </td>
+                {canManage && (
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                    {m.status === 'scheduled' && (
+                      <>
+                        <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900">
+                          <Bell size={18} className="inline mr-1" /> Notify
+                        </button>
+                        <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900">
+                          <CheckCircle size={18} className="inline mr-1" /> Complete
+                        </button>
+                      </>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

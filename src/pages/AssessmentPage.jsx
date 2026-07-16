@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { getPlans, getStakeholders, generateQuestions, submitAnswer, getResults } from '../api/api';
 import Loader from '../components/Loader';
 import { FileQuestion, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const AssessmentPage = () => {
+  const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [stakeholders, setStakeholders] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
@@ -88,6 +90,9 @@ const AssessmentPage = () => {
 
   if (loading) return <Loader />;
 
+  const canSetup = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
+  const canSubmit = user?.role === 'Incoming Team Member (Knowledge Receiver)';
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 flex items-center">
@@ -96,30 +101,32 @@ const AssessmentPage = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Setup Assessment</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Select Plan</label>
-                <select
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                  value={selectedPlanId}
-                  onChange={(e) => setSelectedPlanId(e.target.value)}
+          {canSetup && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Setup Assessment</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Select Plan</label>
+                  <select
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                    value={selectedPlanId}
+                    onChange={(e) => setSelectedPlanId(e.target.value)}
+                  >
+                    {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
+                  </select>
+                </div>
+                <button
+                  onClick={handleGenerateQuestions}
+                  disabled={generating}
+                  className="w-full inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
-                </select>
+                  {generating ? 'Generating...' : 'Generate Questions with AI'}
+                </button>
               </div>
-              <button
-                onClick={handleGenerateQuestions}
-                disabled={generating}
-                className="w-full inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {generating ? 'Generating...' : 'Generate Questions with AI'}
-              </button>
             </div>
-          </div>
+          )}
 
-          {questions.length > 0 && (
+          {questions.length > 0 && canSubmit && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Submit Answer</h3>
               <form onSubmit={handleSubmitAnswer} className="space-y-4">

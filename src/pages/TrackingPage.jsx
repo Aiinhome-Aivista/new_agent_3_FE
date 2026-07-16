@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { getPlans, getPlanSummary, getPlanTopics, updateCompletion } from '../api/api';
 import Loader from '../components/Loader';
+import { useAuth } from '../context/AuthContext';
 
 const TrackingPage = () => {
+  const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [summary, setSummary] = useState(null);
@@ -68,6 +70,8 @@ const TrackingPage = () => {
 
   if (loading) return <Loader />;
 
+  const canManage = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Completion Tracking</h2>
@@ -115,37 +119,39 @@ const TrackingPage = () => {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Update Topic Progress</h3>
-          <form onSubmit={handleUpdateTopic} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Topic Name</label>
-              <input
-                type="text" required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={topicName}
-                onChange={(e) => setTopicName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Completion %</label>
-              <input
-                type="number" min="0" max="100" required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={completionPct}
-                onChange={(e) => setCompletionPct(e.target.value)}
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white rounded-md py-2 hover:bg-blue-700"
-            >
-              Save Progress
-            </button>
-          </form>
-        </div>
+        {canManage && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Update Topic Progress</h3>
+            <form onSubmit={handleUpdateTopic} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Topic Name</label>
+                <input
+                  type="text" required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  value={topicName}
+                  onChange={(e) => setTopicName(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Completion %</label>
+                <input
+                  type="number" min="0" max="100" required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  value={completionPct}
+                  onChange={(e) => setCompletionPct(e.target.value)}
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-blue-600 text-white rounded-md py-2 hover:bg-blue-700"
+              >
+                Save Progress
+              </button>
+            </form>
+          </div>
+        )}
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2">
+        <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${canManage ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Topics</h3>
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">

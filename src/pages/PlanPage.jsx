@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, generatePlan, approvePlan } from '../api/api';
+import { getPlans, generatePlan, approvePlan, runFullWorkflow } from '../api/api';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle } from 'lucide-react';
+import { FileText, CheckCircle, Play, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const PlanPage = () => {
+  const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [runningWorkflow, setRunningWorkflow] = useState(false);
+  const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT' });
 
   const fetchPlans = async () => {
@@ -38,6 +42,23 @@ const PlanPage = () => {
     }
   };
 
+  const handleRunWorkflow = async () => {
+    if (!formData.application_name || !formData.scope_description) {
+      alert('Please fill out App Name and Scope Description first');
+      return;
+    }
+    setRunningWorkflow(true);
+    try {
+      const res = await runFullWorkflow(formData);
+      setWorkflowResult(res.data);
+      fetchPlans();
+    } catch (err) {
+      alert('Error running workflow: ' + err.message);
+    } finally {
+      setRunningWorkflow(false);
+    }
+  };
+
   const handleApprove = async (id) => {
     try {
       await approvePlan(id);
@@ -49,53 +70,83 @@ const PlanPage = () => {
 
   if (loading) return <Loader />;
 
+  const canGenerate = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
+  const canApprove = user?.role === 'Delivery / Engagement Manager';
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">KT Plans</h2>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Plan with AI</h3>
-        <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">App Name</label>
-            <input
-              type="text" required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              value={formData.application_name}
-              onChange={(e) => setFormData({...formData, application_name: e.target.value})}
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700">Scope Description</label>
-            <input
-              type="text" required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              value={formData.scope_description}
-              onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Plan Type</label>
-            <select
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              value={formData.plan_type}
-              onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
-            >
-              <option value="KT">KT</option>
-              <option value="Reverse-KT">Reverse-KT</option>
-            </select>
-          </div>
-          <div className="md:col-span-4 flex justify-end mt-2">
-            <button
-              type="submit"
-              disabled={generating}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-            >
-              {generating ? 'Generating...' : 'Generate Plan'}
-            </button>
-          </div>
-        </form>
-      </div>
+      {canGenerate && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Plan with AI</h3>
+          <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">App Name</label>
+              <input
+                type="text" required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                value={formData.application_name}
+                onChange={(e) => setFormData({...formData, application_name: e.target.value})}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Scope Description</label>
+              <input
+                type="text" required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                value={formData.scope_description}
+                onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Plan Type</label>
+              <select
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                value={formData.plan_type}
+                onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
+              >
+                <option value="KT">KT</option>
+                <option value="Reverse-KT">Reverse-KT</option>
+              </select>
+            </div>
+            <div className="md:col-span-4 flex justify-end mt-2 space-x-3">
+              <button
+                type="button"
+                onClick={handleRunWorkflow}
+                disabled={runningWorkflow}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+              >
+                {runningWorkflow ? 'Running Workflow...' : <><Play size={16} className="mr-2" /> Run Full Workflow</>}
+              </button>
+              <button
+                type="submit"
+                disabled={generating}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+              >
+                {generating ? 'Generating...' : 'Generate Plan'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {workflowResult && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative">
+          <button 
+            onClick={() => setWorkflowResult(null)} 
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          >
+            <X size={20} />
+          </button>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Workflow Run Complete</h3>
+          <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+            {workflowResult.logs?.map((log, idx) => (
+              <li key={idx}>{log}</li>
+            ))}
+          </ol>
+        </div>
+      )}
 
       <div className="space-y-6">
         {plans.map((plan) => (
@@ -110,7 +161,7 @@ const PlanPage = () => {
                   {plan.status.toUpperCase()}
                 </span>
               </div>
-              {plan.status === 'draft' && (
+              {plan.status === 'draft' && canApprove && (
                 <button
                   onClick={() => handleApprove(plan.id)}
                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700"

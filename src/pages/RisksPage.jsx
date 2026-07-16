@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { getPlans, getRisks, detectRisks, escalateRisk } from '../api/api';
 import Loader from '../components/Loader';
 import { AlertTriangle, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const RisksPage = () => {
+  const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [risks, setRisks] = useState([]);
@@ -77,6 +79,8 @@ const RisksPage = () => {
 
   if (loading) return <Loader />;
 
+  const isManager = user?.role === 'Delivery / Engagement Manager';
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 flex items-center">
@@ -96,13 +100,15 @@ const RisksPage = () => {
             ))}
           </select>
         </div>
-        <button
-          onClick={handleDetectRisks}
-          disabled={detecting || !selectedPlanId}
-          className="mt-6 inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {detecting ? 'Analyzing Data...' : 'Run AI Risk Detection'}
-        </button>
+        {isManager && (
+          <button
+            onClick={handleDetectRisks}
+            disabled={detecting || !selectedPlanId}
+            className="mt-6 inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {detecting ? 'Analyzing Data...' : 'Run AI Risk Detection'}
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -117,7 +123,7 @@ const RisksPage = () => {
             <p className="text-sm font-medium mb-4 leading-relaxed">{risk.description}</p>
             <div className="flex justify-between items-center border-t pt-3 border-black border-opacity-10">
               <span className="text-xs font-semibold capitalize opacity-75">Status: {risk.status}</span>
-              {risk.status === 'open' && (
+              {risk.status === 'open' && isManager && (
                 <button
                   onClick={() => handleEscalate(risk.id)}
                   className="inline-flex items-center px-3 py-1 text-xs font-medium rounded bg-white hover:bg-gray-50 shadow-sm"
@@ -130,7 +136,7 @@ const RisksPage = () => {
         ))}
         {risks.length === 0 && (
           <div className="col-span-full p-8 text-center text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
-            No risks detected for this plan. Run AI detection to analyze tracking data.
+            No risks detected for this plan. Run AI detection to analyze tracking data, uploaded knowledge documents, and related tickets to flag risks.
           </div>
         )}
       </div>
