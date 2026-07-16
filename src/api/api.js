@@ -68,7 +68,20 @@ export const generateFinalReport = (planId) => api.post('/reports/final', { plan
 export const getReports = () => api.get('/reports/');
 
 // Chatbot
-export const askChatbot = (sessionId, question) => api.post('/chat/ask', { session_id: sessionId, question });
+export const askChatbot = (sessionId, question, planId = null) => 
+  api.post('/chat/ask', { session_id: sessionId, question, ...(planId ? { plan_id: planId } : {}) });
 export const getChatHistory = (sessionId) => api.get(`/chat/history/${sessionId}`);
+
+// Knowledge Base
+export const uploadKnowledgeDocument = (formData) => api.post('/knowledge/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const getKnowledgeDocuments = (planId) => api.get(`/knowledge/plan/${planId}`);
+
+// Guardrails
+export const getGuardrailLogs = () => api.get('/guardrails/');
+
+// Orchestrator / Full Workflow
+export const runFullWorkflow = (data) => api.post('/plans/workflow', data);
 
 export default api;

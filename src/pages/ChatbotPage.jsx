@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { askChatbot, getChatHistory } from '../api/api';
+import { askChatbot, getChatHistory, getPlans } from '../api/api';
 import { Send, Bot, User } from 'lucide-react';
 
 const ChatbotPage = () => {
@@ -7,6 +7,8 @@ const ChatbotPage = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [plans, setPlans] = useState([]);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
   
   const messagesEndRef = useRef(null);
 
@@ -35,6 +37,18 @@ const ChatbotPage = () => {
       }
     };
     fetchHistory();
+
+    // Fetch approved plans
+    const fetchPlans = async () => {
+      try {
+        const res = await getPlans();
+        const approvedPlans = res.data.data.filter(p => p.status === 'approved');
+        setPlans(approvedPlans);
+      } catch (err) {
+        console.error("Error fetching plans", err);
+      }
+    };
+    fetchPlans();
   }, []);
 
   const scrollToBottom = () => {
@@ -55,7 +69,8 @@ const ChatbotPage = () => {
     setLoading(true);
     
     try {
-      const res = await askChatbot(sessionId, userMsg);
+      const planIdToPass = selectedPlanId || null;
+      const res = await askChatbot(sessionId, userMsg, planIdToPass);
       setMessages(prev => [...prev, { role: 'assistant', content: res.data.data.answer }]);
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error answering your question.' }]);
@@ -64,14 +79,33 @@ const ChatbotPage = () => {
     }
   };
 
+  const selectedPlanName = plans.find(p => p.id.toString() === selectedPlanId)?.application_name;
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Chat Header */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center">
-        <Bot className="text-blue-500 mr-3" size={24} />
-        <div>
-          <h2 className="text-lg font-bold text-gray-800">KT Assistant</h2>
-          <p className="text-xs text-gray-500">Ask questions about KT plans, risks, and progress.</p>
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+        <div className="flex items-center">
+          <Bot className="text-blue-500 mr-3" size={24} />
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">KT Assistant</h2>
+            <p className="text-xs text-gray-500">
+              {selectedPlanId ? `Answering with knowledge from: ${selectedPlanName}` : 'Ask questions about KT plans, risks, and progress.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-gray-600 font-medium">Context:</span>
+          <select
+            className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={selectedPlanId}
+            onChange={(e) => setSelectedPlanId(e.target.value)}
+          >
+            <option value="">All Plans / General</option>
+            {plans.map(plan => (
+              <option key={plan.id} value={plan.id}>{plan.application_name}</option>
+            ))}
+          </select>
         </div>
       </div>
       

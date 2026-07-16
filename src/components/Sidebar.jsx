@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 
 const Sidebar = () => {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -35,6 +35,17 @@ const Sidebar = () => {
     { name: 'Chatbot', path: '/chatbot', icon: <MessageSquare size={20} /> },
   ];
 
+  const roleAccess = {
+    'Delivery / Engagement Manager': ['Dashboard', 'Stakeholders', 'KT Plan', 'Tracking', 'Risks', 'Reports', 'Chatbot'],
+    'Outgoing SME (Knowledge Giver)': ['Dashboard', 'KT Plan', 'Schedule', 'Tracking', 'Chatbot'],
+    'Incoming Team Member (Knowledge Receiver)': ['Dashboard', 'Schedule', 'Assessment', 'Chatbot'],
+    'PwC Leadership': ['Dashboard', 'Reports', 'Assessment', 'Chatbot'],
+  };
+
+  const userRole = user?.role || 'Incoming Team Member (Knowledge Receiver)';
+  const allowedItems = roleAccess[userRole] || roleAccess['Incoming Team Member (Knowledge Receiver)'];
+  const filteredNavItems = navItems.filter(item => allowedItems.includes(item.name));
+
   return (
     <div className="flex flex-col w-64 bg-gray-900 text-white shadow-xl">
       <div className="flex items-center justify-center h-20 border-b border-gray-800">
@@ -44,7 +55,7 @@ const Sidebar = () => {
       </div>
       <div className="flex flex-col flex-1 overflow-y-auto">
         <nav className="flex-1 px-4 py-6 space-y-2">
-          {navItems.map((item) => (
+          {filteredNavItems.map((item) => (
             <NavLink
               key={item.name}
               to={item.path}
