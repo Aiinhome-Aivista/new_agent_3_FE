@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BookOpen, Users, BarChart3, ShieldCheck, Zap, CheckCircle2, FileText, ArrowDownRight } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const LandingPage = () => {
+  const { user } = useAuth();
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800">
       {/* Navbar */}
@@ -16,10 +18,10 @@ const LandingPage = () => {
           </span>
         </div>
         <div className="space-x-4">
-          <Link to="/dashboard" className="px-5 py-2.5 rounded-full text-indigo-600 font-medium hover:bg-indigo-50 transition-colors">
+          <Link to={user ? "/dashboard" : "/login"} className="px-5 py-2.5 rounded-full text-indigo-600 font-medium hover:bg-indigo-50 transition-colors">
             Log In
           </Link>
-          <Link to="/dashboard" className="px-5 py-2.5 rounded-full bg-indigo-600 text-white font-medium hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all">
+          <Link to={user ? "/dashboard" : "/login"} className="px-5 py-2.5 rounded-full bg-indigo-600 text-white font-medium hover:bg-indigo-700 shadow-md shadow-indigo-200 transition-all">
             Get Started
           </Link>
         </div>
@@ -51,7 +53,7 @@ const LandingPage = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center items-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <Link to="/dashboard" className="group px-8 py-4 rounded-full bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center transition-all">
+            <Link to={user ? "/dashboard" : "/login"} className="group px-8 py-4 rounded-full bg-indigo-600 text-white font-bold text-lg hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center transition-all">
               Start Free Trial 
               <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -185,7 +187,7 @@ const LandingPage = () => {
           <p className="text-indigo-100 text-xl mb-10 max-w-2xl mx-auto">
             Join thousands of enterprises that trust Virtual KT Manager to safeguard their critical operational knowledge.
           </p>
-          <Link to="/dashboard" className="inline-flex items-center px-8 py-4 rounded-full bg-white text-indigo-600 font-bold text-lg hover:bg-indigo-50 shadow-lg transition-all">
+          <Link to={user ? "/dashboard" : "/login"} className="inline-flex items-center px-8 py-4 rounded-full bg-white text-indigo-600 font-bold text-lg hover:bg-indigo-50 shadow-lg transition-all">
             Get Started Now
             <ArrowRight className="ml-2 h-5 w-5" />
           </Link>
