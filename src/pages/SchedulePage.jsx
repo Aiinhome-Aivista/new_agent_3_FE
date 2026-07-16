@@ -1,22 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting } from '../api/api';
+import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, getStakeholders } from '../api/api';
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle } from 'lucide-react';
 
 const SchedulePage = () => {
   const [meetings, setMeetings] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [stakeholders, setStakeholders] = useState([]);
+  const [selectedStakeholders, setSelectedStakeholders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({ plan_id: '', title: '', scheduled_at: '' });
+  const [formData, setFormData] = useState({ 
+    plan_id: '', 
+    title: '', 
+    scheduled_at: '',
+    organizer_id: '',
+    description: '',
+    meeting_link: ''
+  });
 
   const fetchData = async () => {
     try {
-      const [meetingsRes, plansRes] = await Promise.all([
+      const [meetingsRes, plansRes, stakeholdersRes] = await Promise.all([
         getMeetings(),
-        getPlans()
+        getPlans(),
+        getStakeholders()
       ]);
       setMeetings(meetingsRes.data.data);
       setPlans(plansRes.data.data.filter(p => p.status === 'approved'));
+      setStakeholders(stakeholdersRes.data.data);
       if (plansRes.data.data.length > 0 && !formData.plan_id) {
         setFormData(prev => ({ ...prev, plan_id: plansRes.data.data[0].id }));
       }
@@ -34,9 +45,26 @@ const SchedulePage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await createMeeting(formData);
-      setFormData({ ...formData, title: '', scheduled_at: '' });
+      await createMeeting({
+        plan_id: formData.plan_id,
+        title: formData.title,
+        scheduled_at: formData.scheduled_at,
+        organizer_id: formData.organizer_id || null,
+        description: formData.description,
+        meeting_link: formData.meeting_link,
+        stakeholder_ids: selectedStakeholders
+      });
+      setFormData({ 
+        plan_id: plans.length > 0 ? plans[0].id : '', 
+        title: '', 
+        scheduled_at: '', 
+        organizer_id: '', 
+        description: '', 
+        meeting_link: '' 
+      });
+      setSelectedStakeholders([]);
       fetchData();
+      alert('Meeting scheduled successfully! Notifications triggered.');
     } catch (err) {
       alert('Error creating meeting');
     }
@@ -83,6 +111,19 @@ const SchedulePage = () => {
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Organizer</label>
+            <select
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={formData.organizer_id}
+              onChange={(e) => setFormData({...formData, organizer_id: e.target.value})}
+            >
+              <option value="">-- Select Organizer --</option>
+              {stakeholders.map(s => (
+                <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
+              ))}
+            </select>
+          </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700">Meeting Title</label>
             <input
@@ -101,6 +142,50 @@ const SchedulePage = () => {
               onChange={(e) => setFormData({...formData, scheduled_at: e.target.value})}
             />
           </div>
+          <div className="md:col-span-3">
+            <label className="block text-sm font-medium text-gray-700">Meeting Link</label>
+            <input
+              type="url"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={formData.meeting_link}
+              onChange={(e) => setFormData({...formData, meeting_link: e.target.value})}
+              placeholder="https://meet.google.com/..."
+            />
+          </div>
+          <div className="md:col-span-4">
+            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <textarea
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              rows="2"
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              placeholder="Provide context or details about the KT session..."
+            />
+          </div>
+
+          <div className="md:col-span-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Participants</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 border border-gray-200 rounded-md bg-gray-50 max-h-40 overflow-y-auto">
+              {stakeholders.map(s => (
+                <label key={s.id} className="inline-flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                    checked={selectedStakeholders.includes(s.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedStakeholders(prev => [...prev, s.id]);
+                      } else {
+                        setSelectedStakeholders(prev => prev.filter(id => id !== s.id));
+                      }
+                    }}
+                  />
+                  <span>{s.name} ({s.role})</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="md:col-span-4 flex justify-end mt-2">
             <button
               type="submit"
