@@ -8,7 +8,7 @@ const ReportsPage = () => {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const [generatingType, setGeneratingType] = useState(null);
 
   useEffect(() => {
     const fetchInit = async () => {
@@ -38,7 +38,7 @@ const ReportsPage = () => {
 
   const handleGenerate = async (type) => {
     if (!selectedPlanId) return;
-    setGenerating(true);
+    setGeneratingType(type);
     try {
       if (type === 'weekly') {
         await generateWeeklyReport(selectedPlanId);
@@ -49,7 +49,7 @@ const ReportsPage = () => {
     } catch (err) {
       alert('Error generating report');
     } finally {
-      setGenerating(false);
+      setGeneratingType(null);
     }
   };
 
@@ -77,17 +77,17 @@ const ReportsPage = () => {
           <div className="flex gap-4 mt-4 md:mt-6">
             <button
               onClick={() => handleGenerate('weekly')}
-              disabled={generating || !selectedPlanId}
+              disabled={generatingType !== null || !selectedPlanId}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
-              {generating ? 'Generating...' : 'Generate Weekly Report'}
+              {generatingType === 'weekly' ? 'Generating...' : 'Generate Weekly Report'}
             </button>
             <button
               onClick={() => handleGenerate('final')}
-              disabled={generating || !selectedPlanId}
+              disabled={generatingType !== null || !selectedPlanId}
               className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
             >
-              {generating ? 'Generating...' : 'Generate Final Report'}
+              {generatingType === 'final' ? 'Generating...' : 'Generate Final Report'}
             </button>
           </div>
         </div>
