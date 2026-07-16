@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -9,12 +9,13 @@ import {
   AlertTriangle, 
   FileQuestion, 
   BarChart3, 
-  MessageSquare 
+  MessageSquare,
+  LogOut
 } from 'lucide-react';
 
 const Sidebar = () => {
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} /> },
+    { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Stakeholders', path: '/stakeholders', icon: <Users size={20} /> },
     { name: 'KT Plan', path: '/plans', icon: <FileText size={20} /> },
     { name: 'Schedule', path: '/schedule', icon: <Calendar size={20} /> },
@@ -51,6 +52,17 @@ const Sidebar = () => {
             </NavLink>
           ))}
         </nav>
+      </div>
+      <div className="p-4 border-t border-gray-800">
+        <Link
+          to="/"
+          className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-300 rounded-lg hover:bg-red-600 hover:text-white transition-colors duration-200"
+        >
+          <span className="mr-3">
+            <LogOut size={20} />
+          </span>
+          Log out
+        </Link>
       </div>
     </div>
   );
