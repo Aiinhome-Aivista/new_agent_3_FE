@@ -4,6 +4,24 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
 });
 
+// Request interceptor to inject the JWT access token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Auth
+export const loginUser = (data) => api.post('/auth/login', data);
+
+
 // Stakeholders
 export const getStakeholders = () => api.get('/stakeholders/');
 export const getStakeholder = (id) => api.get(`/stakeholders/${id}`);
