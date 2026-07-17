@@ -25,7 +25,7 @@ const SchedulePage = () => {
       const [meetingsRes, plansRes, stakeholdersRes] = await Promise.all([
         getMeetings(),
         getPlans(),
-        getStakeholders()
+        getStakeholders('Incoming Team Member (Knowledge Receiver)')
       ]);
       setMeetings(meetingsRes.data.data);
       setPlans(plansRes.data.data.filter(p => p.status === 'approved'));
@@ -46,6 +46,10 @@ const SchedulePage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (selectedStakeholders.length === 0) {
+      alert('Please select at least one participant.');
+      return;
+    }
     try {
       await createMeeting({
         plan_id: formData.plan_id,
@@ -165,31 +169,38 @@ const SchedulePage = () => {
 
             <div className="md:col-span-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Participants</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 border border-gray-200 rounded-md bg-gray-50 max-h-40 overflow-y-auto">
-                {stakeholders.map(s => (
-                  <label key={s.id} className="inline-flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="rounded text-blue-600 focus:ring-blue-500"
-                      checked={selectedStakeholders.includes(s.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedStakeholders(prev => [...prev, s.id]);
-                        } else {
-                          setSelectedStakeholders(prev => prev.filter(id => id !== s.id));
-                        }
-                      }}
-                    />
-                    <span>{s.name} ({s.role})</span>
-                  </label>
-                ))}
-              </div>
+              {stakeholders.length === 0 ? (
+                <div className="p-3 border border-gray-200 rounded-md bg-gray-100 text-sm text-gray-500">
+                  No Knowledge Receivers are available.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 border border-gray-200 rounded-md bg-gray-50 max-h-40 overflow-y-auto">
+                  {stakeholders.map(s => (
+                    <label key={s.id} className="inline-flex items-center space-x-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded text-blue-600 focus:ring-blue-500"
+                        checked={selectedStakeholders.includes(s.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStakeholders(prev => [...prev, s.id]);
+                          } else {
+                            setSelectedStakeholders(prev => prev.filter(id => id !== s.id));
+                          }
+                        }}
+                      />
+                      <span>{s.name} ({s.role})</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="md:col-span-4 flex justify-end mt-2">
               <button
                 type="submit"
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                disabled={selectedStakeholders.length === 0}
+                className={`inline-flex items-center px-4 py-2 text-white rounded-md ${selectedStakeholders.length === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
                 Schedule
               </button>

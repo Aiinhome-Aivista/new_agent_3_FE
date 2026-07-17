@@ -23,7 +23,7 @@ export const loginUser = (data) => api.post('/auth/login', data);
 
 
 // Stakeholders
-export const getStakeholders = () => api.get('/stakeholders/');
+export const getStakeholders = (role) => api.get(role ? `/stakeholders/?role=${encodeURIComponent(role)}` : '/stakeholders/');
 export const getStakeholder = (id) => api.get(`/stakeholders/${id}`);
 export const createStakeholder = (data) => api.post('/stakeholders/', data);
 export const updateStakeholder = (id, data) => api.put(`/stakeholders/${id}`, data);
