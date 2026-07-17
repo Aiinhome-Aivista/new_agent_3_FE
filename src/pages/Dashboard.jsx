@@ -28,8 +28,8 @@ const Dashboard = () => {
 
         const now = new Date();
         const upcoming = allMeetings
-          .filter(m => new Date(m.start_time) > now)
-          .sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+          .filter(m => new Date(m.scheduled_at) > now)
+          .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
         const active = allRisks.filter(r => r.status !== 'Resolved' && r.status !== 'Closed');
 
@@ -120,9 +120,9 @@ const Dashboard = () => {
                     <Clock size={16} />
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-gray-800">{meeting.topic || 'KT Session'}</h4>
+                    <h4 className="text-sm font-medium text-gray-800">{meeting.title || 'KT Session'}</h4>
                     <p className="text-xs text-gray-500 mt-1">
-                      {new Date(meeting.start_time).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {new Date(meeting.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                 </div>
