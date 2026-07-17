@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, getRisks, detectRisks, escalateRisk } from '../api/api';
+import { getPlans, getRisks, detectRisks, escalateRisk, getKnowledgeDocuments, uploadKnowledgeDocument } from '../api/api';
 import Loader from '../components/Loader';
-import { AlertTriangle, AlertCircle } from 'lucide-react';
+import { AlertTriangle, AlertCircle, FileText, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const RisksPage = () => {
@@ -9,8 +9,11 @@ const RisksPage = () => {
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [risks, setRisks] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detecting, setDetecting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
 
   useEffect(() => {
     const fetchInit = async () => {
@@ -33,6 +36,7 @@ const RisksPage = () => {
   useEffect(() => {
     if (selectedPlanId) {
       fetchRisks();
+      fetchDocuments();
     }
   }, [selectedPlanId]);
 
@@ -40,6 +44,15 @@ const RisksPage = () => {
     try {
       const res = await getRisks(selectedPlanId);
       setRisks(res.data.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchDocuments = async () => {
+    try {
+      const res = await getKnowledgeDocuments(selectedPlanId);
+      setDocuments(res.data.data);
     } catch (err) {
       console.error(err);
     }
@@ -55,6 +68,27 @@ const RisksPage = () => {
       alert('Error detecting risks');
     } finally {
       setDetecting(false);
+    }
+  };
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!selectedFile || !selectedPlanId) return;
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+    formData.append('plan_id', selectedPlanId);
+
+    setUploading(true);
+    try {
+      await uploadKnowledgeDocument(formData);
+      setSelectedFile(null);
+      e.target.reset();
+      fetchDocuments();
+    } catch (err) {
+      alert('Error uploading document');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -139,6 +173,61 @@ const RisksPage = () => {
             No risks detected for this plan. Run AI detection to analyze tracking data, uploaded knowledge documents, and related tickets to flag risks.
           </div>
         )}
+      </div>
+
+      <div className="mt-8 border-t border-gray-200 pt-8">
+        <h3 className="text-xl font-bold text-gray-800 flex items-center mb-6">
+          <FileText className="mr-2 text-blue-600" /> Knowledge Base Documents
+        </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {isManager && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1 h-fit">
+              <h4 className="text-md font-semibold text-gray-800 mb-4">Upload Document</h4>
+              <form onSubmit={handleUpload} className="space-y-4">
+                <div>
+                  <input
+                    type="file"
+                    required
+                    onChange={(e) => setSelectedFile(e.target.files[0])}
+                    className="block w-full text-sm text-gray-500
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-md file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-blue-700
+                      hover:file:bg-blue-100"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={uploading || !selectedFile}
+                  className="w-full inline-flex justify-center items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {uploading ? 'Uploading...' : <><Upload size={16} className="mr-2" /> Upload</>}
+                </button>
+              </form>
+            </div>
+          )}
+          <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${isManager ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+            <h4 className="text-md font-semibold text-gray-800 mb-4">Available Documents</h4>
+            {documents.length > 0 ? (
+              <ul className="divide-y divide-gray-200">
+                {documents.map((doc) => (
+                  <li key={doc.id} className="py-4 flex justify-between items-center">
+                    <div className="flex items-center">
+                      <FileText className="text-gray-400 mr-3" size={20} />
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{doc.filename}</p>
+                        <p className="text-xs text-gray-500">Uploaded on {new Date(doc.uploaded_at).toLocaleDateString()} &middot; {doc.chunk_count} chunks</p>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4 border border-dashed rounded-lg">No documents have been uploaded for this plan yet.</p>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
