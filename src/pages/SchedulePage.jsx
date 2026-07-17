@@ -16,7 +16,6 @@ const SchedulePage = () => {
     plan_id: '', 
     title: '', 
     scheduled_at: '',
-    organizer_id: '',
     description: '',
     meeting_link: ''
   });
@@ -52,7 +51,6 @@ const SchedulePage = () => {
         plan_id: formData.plan_id,
         title: formData.title,
         scheduled_at: formData.scheduled_at,
-        organizer_id: formData.organizer_id || null,
         description: formData.description,
         meeting_link: formData.meeting_link,
         stakeholder_ids: selectedStakeholders
@@ -61,7 +59,6 @@ const SchedulePage = () => {
         plan_id: plans.length > 0 ? plans[0].id : '', 
         title: '', 
         scheduled_at: '', 
-        organizer_id: '', 
         description: '', 
         meeting_link: '' 
       });
@@ -120,16 +117,12 @@ const SchedulePage = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Organizer</label>
-              <select
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={formData.organizer_id}
-                onChange={(e) => setFormData({...formData, organizer_id: e.target.value})}
-              >
-                <option value="">-- Select Organizer --</option>
-                {stakeholders.map(s => (
-                  <option key={s.id} value={s.id}>{s.name} ({s.role})</option>
-                ))}
-              </select>
+              <input
+                type="text"
+                disabled
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                value={user?.name ? `${user.name} (${user.role})` : ''}
+              />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700">Meeting Title</label>
