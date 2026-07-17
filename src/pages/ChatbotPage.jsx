@@ -13,15 +13,14 @@ const ChatbotPage = () => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Generate or retrieve session ID
-    let sid = sessionStorage.getItem('chatbot_session_id');
+    const key = `chatbot_session_id_${selectedPlanId || 'general'}`;
+    let sid = sessionStorage.getItem(key);
     if (!sid) {
       sid = crypto.randomUUID();
-      sessionStorage.setItem('chatbot_session_id', sid);
+      sessionStorage.setItem(key, sid);
     }
     setSessionId(sid);
     
-    // Fetch history
     const fetchHistory = async () => {
       try {
         const res = await getChatHistory(sid);
@@ -37,8 +36,9 @@ const ChatbotPage = () => {
       }
     };
     fetchHistory();
+  }, [selectedPlanId]);
 
-    // Fetch approved plans
+  useEffect(() => {
     const fetchPlans = async () => {
       try {
         const res = await getPlans();

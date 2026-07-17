@@ -8,6 +8,8 @@ const Stakeholders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const [formData, setFormData] = useState({ name: '', email: '', role: 'engagement_manager' });
 
@@ -28,12 +30,18 @@ const Stakeholders = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setSuccessMsg('');
     try {
       await createStakeholder(formData);
       setFormData({ name: '', email: '', role: 'engagement_manager' });
+      setSuccessMsg('Stakeholder added successfully!');
+      setTimeout(() => setSuccessMsg(''), 3000);
       fetchStakeholders();
     } catch (err) {
       alert('Error creating stakeholder');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -54,6 +62,7 @@ const Stakeholders = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Stakeholder</h3>
+          {successMsg && <div className="mb-4 p-3 text-sm text-green-700 bg-green-100 rounded-md">{successMsg}</div>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Name</label>
@@ -90,9 +99,10 @@ const Stakeholders = () => {
             </div>
             <button
               type="submit"
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isSubmitting}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              Add Stakeholder
+              {isSubmitting ? 'Adding...' : 'Add Stakeholder'}
             </button>
           </form>
         </div>

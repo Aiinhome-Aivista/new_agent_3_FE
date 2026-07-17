@@ -150,7 +150,7 @@ const PlanPage = () => {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Plan with AI</h3>
           <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">App Name</label>
+              <label className="block text-sm font-medium text-gray-700">Plan Name</label>
               <input
                 type="text" required
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
