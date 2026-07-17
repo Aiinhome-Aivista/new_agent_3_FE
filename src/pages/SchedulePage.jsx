@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, getStakeholders } from '../api/api';
+import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, getStakeholders, getAttendance, markAttendance } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const SchedulePage = () => {
@@ -19,6 +19,65 @@ const SchedulePage = () => {
     description: '',
     meeting_link: ''
   });
+
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [attendanceMeeting, setAttendanceMeeting] = useState(null);
+  const [attendees, setAttendees] = useState([]);
+  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [fetchingAttendees, setFetchingAttendees] = useState(false);
+
+  const handleOpenAttendanceModal = async (meeting) => {
+    setFetchingAttendees(meeting.id);
+    try {
+      const res = await getAttendance(meeting.id);
+      setAttendees(res.data.data || []);
+      setAttendanceMeeting(meeting);
+      setIsAttendanceModalOpen(true);
+    } catch (err) {
+      alert('Error fetching meeting participants');
+    } finally {
+      setFetchingAttendees(false);
+    }
+  };
+
+  const handleToggleAttendee = (stakeholderId) => {
+    setAttendees(prev => prev.map(a => 
+      a.stakeholder_id === stakeholderId 
+        ? { ...a, attended: a.attended ? 0 : 1 } 
+        : a
+    ));
+  };
+
+  const handleNotesChange = (stakeholderId, notes) => {
+    setAttendees(prev => prev.map(a => 
+      a.stakeholder_id === stakeholderId 
+        ? { ...a, notes: notes } 
+        : a
+    ));
+  };
+
+  const handleSaveAttendance = async () => {
+    setSavingAttendance(true);
+    try {
+      await Promise.all(attendees.map(a => 
+        markAttendance({
+          meeting_id: attendanceMeeting.id,
+          stakeholder_id: a.stakeholder_id,
+          attended: a.attended ? 1 : 0,
+          notes: a.notes || ''
+        })
+      ));
+      setIsAttendanceModalOpen(false);
+      setAttendanceMeeting(null);
+      setAttendees([]);
+      alert('Attendance saved successfully');
+      fetchData();
+    } catch (err) {
+      alert('Error saving attendance');
+    } finally {
+      setSavingAttendance(false);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -215,6 +274,7 @@ const SchedulePage = () => {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Attendance Rate</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>}
             </tr>
@@ -223,6 +283,10 @@ const SchedulePage = () => {
             {meetings.map((m) => (
               <tr key={m.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{m.title}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString()}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-semibold text-indigo-600">
+                  {m.attendance_rate_percent !== undefined ? `${m.attendance_rate_percent}%` : 'N/A'}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs rounded-full ${m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
@@ -233,6 +297,14 @@ const SchedulePage = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
                     {m.status === 'scheduled' && (
                       <>
+                        <button 
+                          onClick={() => handleOpenAttendanceModal(m)} 
+                          disabled={fetchingAttendees === m.id}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
+                        >
+                          <ClipboardList size={16} className="mr-1" />
+                          {fetchingAttendees === m.id ? 'Loading...' : 'Attendance'}
+                        </button>
                         {notifiedId === m.id ? (
                           <span className="text-green-600 flex items-center mr-4 transition-all duration-300">
                             <CheckCircle size={16} className="mr-1" /> Sent!
@@ -254,6 +326,91 @@ const SchedulePage = () => {
           </tbody>
         </table>
       </div>
+      {/* Attendance Modal */}
+      {isAttendanceModalOpen && attendanceMeeting && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-100 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center">
+              <h3 className="text-lg font-semibold">Mark Attendance: {attendanceMeeting.title}</h3>
+              <button 
+                onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); }}
+                className="text-white hover:text-gray-200 text-xl font-bold"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              <p className="text-sm text-gray-500">
+                Please check the box next to each participant who was present in this meeting.
+              </p>
+              
+              <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-white">
+                {attendees.map((attendee) => (
+                  <div key={attendee.stakeholder_id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    {/* Participant Details */}
+                    <div className="flex items-start space-x-3 flex-1">
+                      <input
+                        type="checkbox"
+                        id={`attendee-${attendee.stakeholder_id}`}
+                        className="mt-1 h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+                        checked={!!attendee.attended}
+                        onChange={() => handleToggleAttendee(attendee.stakeholder_id)}
+                      />
+                      <label 
+                        htmlFor={`attendee-${attendee.stakeholder_id}`}
+                        className="text-sm font-medium text-gray-800 cursor-pointer flex-1"
+                      >
+                        <span className="block">{attendee.stakeholder_name}</span>
+                        <span className="text-xs text-gray-500">{attendee.stakeholder_role}</span>
+                      </label>
+                    </div>
+
+                    {/* Notes Field */}
+                    <div className="w-full md:w-64">
+                      <input
+                        type="text"
+                        placeholder="Add notes..."
+                        className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        value={attendee.notes || ''}
+                        onChange={(e) => handleNotesChange(attendee.stakeholder_id, e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+                
+                {attendees.length === 0 && (
+                  <div className="p-6 text-center text-sm text-gray-500">
+                    No participants invited to this meeting.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                disabled={savingAttendance}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAttendance}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium disabled:bg-blue-400"
+                disabled={savingAttendance || attendees.length === 0}
+              >
+                {savingAttendance ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

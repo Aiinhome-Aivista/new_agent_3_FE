@@ -45,6 +45,7 @@ export const notifyMeeting = (id) => api.post(`/schedule/meetings/${id}/notify`)
 
 // Tracking
 export const markAttendance = (data) => api.post('/tracking/attendance', data);
+export const getAttendance = (meetingId) => api.get(`/tracking/attendance/${meetingId}`);
 export const updateCompletion = (data) => api.post('/tracking/completion', data);
 export const getPlanSummary = (planId) => api.get(`/tracking/plan/${planId}/summary`);
 export const getPlanTopics = (planId) => api.get(`/tracking/plan/${planId}/topics`);
