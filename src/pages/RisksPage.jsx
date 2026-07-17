@@ -156,7 +156,10 @@ const RisksPage = () => {
             </div>
             <p className="text-sm font-medium mb-4 leading-relaxed">{risk.description}</p>
             <div className="flex justify-between items-center border-t pt-3 border-black border-opacity-10">
-              <span className="text-xs font-semibold capitalize opacity-75">Status: {risk.status}</span>
+              <span className="text-xs font-semibold capitalize opacity-75">
+                Status: {risk.status}
+                {risk.jira_ticket_ref && ` | Jira: ${risk.jira_ticket_ref}`}
+              </span>
               {risk.status === 'open' && isManager && (
                 <button
                   onClick={() => handleEscalate(risk.id)}

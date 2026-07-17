@@ -153,6 +153,7 @@ const Dashboard = () => {
                       </span>
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                         Status: {risk.status || 'Open'}
+                        {risk.jira_ticket_ref && ` | Jira: ${risk.jira_ticket_ref}`}
                       </span>
                     </div>
                   </div>
