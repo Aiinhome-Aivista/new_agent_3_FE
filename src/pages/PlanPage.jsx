@@ -70,7 +70,7 @@ const PlanPage = () => {
 
   if (loading) return <Loader />;
 
-  const canGenerate = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
+  const canGenerate = user?.role === 'Outgoing SME (Knowledge Giver)';
   const canApprove = user?.role === 'Delivery / Engagement Manager';
 
   const parseMarkdown = (text) => {
