@@ -6,7 +6,7 @@ const Stakeholders = () => {
   const [stakeholders, setStakeholders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   const [formData, setFormData] = useState({ name: '', email: '', role: 'engagement_manager' });
 
   const fetchStakeholders = async () => {
@@ -40,7 +40,7 @@ const Stakeholders = () => {
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Stakeholders</h2>
-      
+
       {error && <div className="p-4 text-red-700 bg-red-100 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -54,7 +54,7 @@ const Stakeholders = () => {
                 required
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={formData.name}
-                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             <div>
@@ -64,7 +64,7 @@ const Stakeholders = () => {
                 required
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
             <div>
@@ -72,12 +72,13 @@ const Stakeholders = () => {
               <select
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={formData.role}
-                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               >
-                <option value="engagement_manager">Engagement Manager</option>
-                <option value="outgoing_sme">Outgoing SME</option>
-                <option value="incoming_member">Incoming Member</option>
-                <option value="leadership">Leadership</option>
+                <option value="Delivery / Engagement Manager">Delivery / Engagement Manager</option>
+                <option value="Outgoing SME (Knowledge Giver)">Outgoing SME (Knowledge Giver)'</option>
+                <option value="Incoming Team Member (Knowledge Receiver)">Incoming Team Member (Knowledge Receiver)
+                </option>
+                <option value="PwC Leadership">PwC Leadership</option>
               </select>
             </div>
             <button
