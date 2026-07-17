@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Users, BarChart3, ShieldCheck, Zap, CheckCircle2, FileText, ArrowDownRight } from 'lucide-react';
+import { ArrowRight, BookOpen, Users, BarChart3, ShieldCheck, Zap, CheckCircle2, FileText, ArrowDownRight, LayoutDashboard, FolderKanban, Settings, Clock, AlertCircle, TrendingUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const LandingPage = () => {
@@ -73,25 +73,138 @@ const LandingPage = () => {
               <div className="w-3 h-3 rounded-full bg-green-400"></div>
             </div>
             {/* App Mockup */}
-            <div className="bg-slate-50 flex h-[400px]">
+            <div className="bg-slate-50 flex h-[450px] text-left">
               {/* Sidebar Mockup */}
-              <div className="w-64 bg-white border-r border-slate-200 p-4 hidden md:block">
-                <div className="h-8 w-32 bg-slate-200 rounded-md mb-8"></div>
-                <div className="space-y-3">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className={`h-10 rounded-md ${i === 1 ? 'bg-indigo-50 w-full' : 'bg-slate-100 w-3/4'}`}></div>
-                  ))}
+              <div className="w-64 bg-white border-r border-slate-200 p-4 hidden md:block flex flex-col">
+                <div className="flex items-center space-x-2 mb-8 px-2 mt-2">
+                  <div className="bg-indigo-600 p-1.5 rounded-md">
+                    <BookOpen className="text-white h-4 w-4" />
+                  </div>
+                  <span className="font-bold text-slate-800 text-sm">KT Manager</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center space-x-3 px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg">
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span className="text-sm font-medium">Dashboard</span>
+                  </div>
+                  <div className="flex items-center space-x-3 px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <FolderKanban className="h-4 w-4" />
+                    <span className="text-sm font-medium">KT Plans</span>
+                  </div>
+                  <div className="flex items-center space-x-3 px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <Users className="h-4 w-4" />
+                    <span className="text-sm font-medium">Stakeholders</span>
+                  </div>
+                  <div className="flex items-center space-x-3 px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="text-sm font-medium">Reports</span>
+                  </div>
+                </div>
+                <div className="mt-24 pt-8">
+                  <div className="flex items-center space-x-3 px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                    <Settings className="h-4 w-4" />
+                    <span className="text-sm font-medium">Settings</span>
+                  </div>
                 </div>
               </div>
+              
               {/* Content Mockup */}
-              <div className="flex-1 p-8">
-                <div className="h-8 w-48 bg-slate-200 rounded-md mb-6"></div>
-                <div className="grid grid-cols-3 gap-6 mb-8">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-32 bg-white rounded-xl shadow-sm border border-slate-100"></div>
-                  ))}
+              <div className="flex-1 p-8 overflow-hidden flex flex-col">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-slate-800">Project Overview</h3>
+                  <div className="flex -space-x-2">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-xs font-bold text-blue-700 z-30">JD</div>
+                    <div className="w-8 h-8 rounded-full bg-purple-100 border-2 border-white flex items-center justify-center text-xs font-bold text-purple-700 z-20">AM</div>
+                    <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-white flex items-center justify-center text-xs font-bold text-slate-600 z-10">+3</div>
+                  </div>
                 </div>
-                <div className="h-48 bg-white rounded-xl shadow-sm border border-slate-100 w-full"></div>
+                
+                <div className="grid grid-cols-3 gap-6 mb-6">
+                  {/* Card 1 */}
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-medium text-slate-500">Active Plans</p>
+                      <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-md">
+                        <FolderKanban className="h-4 w-4" />
+                      </div>
+                    </div>
+                    <h4 className="text-2xl font-bold text-slate-800">12</h4>
+                    <p className="text-xs text-green-600 font-medium flex items-center mt-1">
+                      <TrendingUp className="h-3 w-3 mr-1" /> +2 this week
+                    </p>
+                  </div>
+                  {/* Card 2 */}
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-medium text-slate-500">Pending Sign-offs</p>
+                      <div className="p-1.5 bg-amber-50 text-amber-600 rounded-md">
+                        <Clock className="h-4 w-4" />
+                      </div>
+                    </div>
+                    <h4 className="text-2xl font-bold text-slate-800">5</h4>
+                    <p className="text-xs text-amber-600 font-medium flex items-center mt-1">
+                      Needs attention
+                    </p>
+                  </div>
+                  {/* Card 3 */}
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <p className="text-sm font-medium text-slate-500">Overall Progress</p>
+                      <div className="p-1.5 bg-green-50 text-green-600 rounded-md">
+                        <BarChart3 className="h-4 w-4" />
+                      </div>
+                    </div>
+                    <h4 className="text-2xl font-bold text-slate-800">68%</h4>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                      <div className="bg-green-500 h-1.5 rounded-full" style={{ width: '68%' }}></div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* List Area */}
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 flex-1 p-5 flex flex-col">
+                  <h4 className="text-sm font-bold text-slate-800 mb-4">Recent Activities</h4>
+                  <div className="space-y-4 flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                          <CheckCircle2 className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">Database Migration Module</p>
+                          <p className="text-xs text-slate-500">Signed off by Alex Morgan</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-400">2h ago</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                          <FileText className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">API Documentation Generated</p>
+                          <p className="text-xs text-slate-500">AI completed draft generation</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-400">5h ago</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-amber-600">
+                          <AlertCircle className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">Authentication Risk Identified</p>
+                          <p className="text-xs text-slate-500">Requires SME review</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-slate-400">1d ago</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

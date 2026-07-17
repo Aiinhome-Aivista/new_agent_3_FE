@@ -193,7 +193,7 @@ const LoginPage = () => {
         </div>
 
         {/* Demo Credentials Section */}
-        <div className="mt-6 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/50 p-5">
+        {/* <div className="mt-6 bg-white border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/50 p-5">
           <div className="flex items-center space-x-2 mb-3">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -220,7 +220,7 @@ const LoginPage = () => {
               </button>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
     </div>
   );

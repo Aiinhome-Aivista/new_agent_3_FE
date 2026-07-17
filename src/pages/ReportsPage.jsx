@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { getPlans, generateWeeklyReport, generateFinalReport, getReports } from '../api/api';
 import Loader from '../components/Loader';
 import { FileText, Download } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const ReportsPage = () => {
+  const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [reports, setReports] = useState([]);
@@ -75,20 +77,24 @@ const ReportsPage = () => {
             </select>
           </div>
           <div className="flex gap-4 mt-4 md:mt-6">
-            <button
-              onClick={() => handleGenerate('weekly')}
-              disabled={generatingType !== null || !selectedPlanId}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {generatingType === 'weekly' ? 'Generating...' : 'Generate Weekly Report'}
-            </button>
-            <button
-              onClick={() => handleGenerate('final')}
-              disabled={generatingType !== null || !selectedPlanId}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
-            >
-              {generatingType === 'final' ? 'Generating...' : 'Generate Final Report'}
-            </button>
+            {user?.role === 'Delivery / Engagement Manager' && (
+              <button
+                onClick={() => handleGenerate('weekly')}
+                disabled={generatingType !== null || !selectedPlanId}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                {generatingType === 'weekly' ? 'Generating...' : 'Generate Weekly Report'}
+              </button>
+            )}
+            {user?.role === 'PwC Leadership' && (
+              <button
+                onClick={() => handleGenerate('final')}
+                disabled={generatingType !== null || !selectedPlanId}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+              >
+                {generatingType === 'final' ? 'Generating...' : 'Generate Final Report'}
+              </button>
+            )}
           </div>
         </div>
       </div>
