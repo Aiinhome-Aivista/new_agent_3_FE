@@ -18,6 +18,20 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor to handle 401 Unauthorized errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // If unauthorized, clear local storage and force reload to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Auth
 export const loginUser = (data) => api.post('/auth/login', data);
 
@@ -45,6 +59,7 @@ export const notifyMeeting = (id) => api.post(`/schedule/meetings/${id}/notify`)
 
 // Tracking
 export const markAttendance = (data) => api.post('/tracking/attendance', data);
+export const getAttendance = (meetingId) => api.get(`/tracking/attendance/${meetingId}`);
 export const updateCompletion = (data) => api.post('/tracking/completion', data);
 export const getPlanSummary = (planId) => api.get(`/tracking/plan/${planId}/summary`);
 export const getPlanTopics = (planId) => api.get(`/tracking/plan/${planId}/topics`);

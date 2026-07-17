@@ -13,15 +13,14 @@ const ChatbotPage = () => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Generate or retrieve session ID
-    let sid = sessionStorage.getItem('chatbot_session_id');
+    const key = `chatbot_session_id_${selectedPlanId || 'general'}`;
+    let sid = sessionStorage.getItem(key);
     if (!sid) {
       sid = crypto.randomUUID();
-      sessionStorage.setItem('chatbot_session_id', sid);
+      sessionStorage.setItem(key, sid);
     }
     setSessionId(sid);
     
-    // Fetch history
     const fetchHistory = async () => {
       try {
         const res = await getChatHistory(sid);
@@ -37,8 +36,9 @@ const ChatbotPage = () => {
       }
     };
     fetchHistory();
+  }, [selectedPlanId]);
 
-    // Fetch approved plans
+  useEffect(() => {
     const fetchPlans = async () => {
       try {
         const res = await getPlans();
@@ -80,6 +80,17 @@ const ChatbotPage = () => {
   };
 
   const selectedPlanName = plans.find(p => p.id.toString() === selectedPlanId)?.application_name;
+
+  const parseMarkdown = (text) => {
+    if (!text) return { __html: '' };
+    let html = text.replace(/```markdown\n?/g, '').replace(/```\n?/g, '');
+    html = html.replace(/^### (.*$)/gim, '<h3 class="text-md font-bold mt-2 mb-1">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 class="text-lg font-bold mt-3 mb-2">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 class="text-xl font-bold mt-3 mb-2">$1</h1>');
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="font-semibold">$1</strong>');
+    html = html.replace(/^\s*\-\s+(.*$)/gim, '<div class="ml-4 flex"><span class="mr-2">•</span><span>$1</span></div>');
+    return { __html: html };
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -124,7 +135,14 @@ const ChatbotPage = () => {
                 {msg.role === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-gray-600" />}
               </div>
               <div className={`px-4 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none'}`}>
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                {msg.role === 'user' ? (
+                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                ) : (
+                  <div 
+                    className="text-sm whitespace-pre-wrap space-y-1"
+                    dangerouslySetInnerHTML={parseMarkdown(msg.content)}
+                  />
+                )}
               </div>
             </div>
           </div>
