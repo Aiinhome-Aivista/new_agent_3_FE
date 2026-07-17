@@ -18,6 +18,20 @@ api.interceptors.request.use(
   }
 );
 
+// Response interceptor to handle 401 Unauthorized errors globally
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // If unauthorized, clear local storage and force reload to login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Auth
 export const loginUser = (data) => api.post('/auth/login', data);
 
