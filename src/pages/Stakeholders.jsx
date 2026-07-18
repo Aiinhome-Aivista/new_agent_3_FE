@@ -11,7 +11,7 @@ const Stakeholders = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
-  const [formData, setFormData] = useState({ name: '', email: '', role: 'engagement_manager' });
+  const [formData, setFormData] = useState({ name: '', email: '', role: 'Delivery / Engagement Manager' });
 
   const fetchStakeholders = async () => {
     try {
@@ -34,7 +34,7 @@ const Stakeholders = () => {
     setSuccessMsg('');
     try {
       await createStakeholder(formData);
-      setFormData({ name: '', email: '', role: 'engagement_manager' });
+      setFormData({ name: '', email: '', role: 'Delivery / Engagement Manager' });
       setSuccessMsg('Stakeholder added successfully!');
       setTimeout(() => setSuccessMsg(''), 3000);
       fetchStakeholders();
