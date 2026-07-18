@@ -23,35 +23,12 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeho
               <FileText className="mr-2 text-blue-500" size={20} />
               {plan.application_name} ({plan.plan_type})
             </h3>
-            <span className={`inline-flex mt-2 items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-              {plan.status.toUpperCase()}
-            </span>
           </div>
         </div>
         <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
-          {!plan.created_by ? (
-            <div className="flex items-center space-x-2 mr-4">
-              <select 
-                className="text-xs border-gray-300 rounded px-2 py-1"
-                value={selectedManager}
-                onChange={(e) => setSelectedManager(e.target.value)}
-              >
-                <option value="">Select Manager...</option>
-                {stakeholders.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <button 
-                onClick={(e) => { e.stopPropagation(); selectedManager && onAssignManager(plan.id, selectedManager); }}
-                className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-              >
-                Save
-              </button>
-            </div>
-          ) : (
-            <div className="text-xs text-gray-500 mr-4 flex items-center">
-              <UserPlus size={14} className="mr-1" />
-              {manager ? manager.name : `ID: ${plan.created_by}`}
-            </div>
-          )}
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+            {plan.status.toUpperCase()}
+          </span>
           {plan.status === 'draft' && canApprove && (
             <button
               onClick={(e) => {

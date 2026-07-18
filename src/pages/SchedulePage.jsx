@@ -294,16 +294,16 @@ const SchedulePage = () => {
                 </td>
                 {canManage && (
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
+                    <button 
+                      onClick={() => handleOpenAttendanceModal(m)} 
+                      disabled={fetchingAttendees === m.id}
+                      className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
+                    >
+                      <ClipboardList size={16} className="mr-1" />
+                      {fetchingAttendees === m.id ? 'Loading...' : 'Attendance'}
+                    </button>
                     {m.status === 'scheduled' && (
                       <>
-                        <button 
-                          onClick={() => handleOpenAttendanceModal(m)} 
-                          disabled={fetchingAttendees === m.id}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
-                        >
-                          <ClipboardList size={16} className="mr-1" />
-                          {fetchingAttendees === m.id ? 'Loading...' : 'Attendance'}
-                        </button>
                         {notifiedId === m.id ? (
                           <span className="text-green-600 flex items-center mr-4 transition-all duration-300">
                             <CheckCircle size={16} className="mr-1" /> Sent!
@@ -331,7 +331,10 @@ const SchedulePage = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-100 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center">
-              <h3 className="text-lg font-semibold">Mark Attendance: {attendanceMeeting.title}</h3>
+              <h3 className="text-lg font-semibold">
+                {attendanceMeeting.status === 'completed' ? 'View Attendance: ' : 'Mark Attendance: '} 
+                {attendanceMeeting.title}
+              </h3>
               <button 
                 onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); }}
                 className="text-white hover:text-gray-200 text-xl font-bold"
@@ -343,7 +346,9 @@ const SchedulePage = () => {
             {/* Content */}
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
               <p className="text-sm text-gray-500">
-                Please check the box next to each participant who was present in this meeting.
+                {attendanceMeeting.status === 'completed' 
+                  ? 'Attendance is locked because the meeting is completed.'
+                  : 'Please check the box next to each participant who was present in this meeting.'}
               </p>
               
               <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-white">
@@ -354,9 +359,10 @@ const SchedulePage = () => {
                       <input
                         type="checkbox"
                         id={`attendee-${attendee.stakeholder_id}`}
-                        className="mt-1 h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+                        className={`mt-1 h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 ${attendanceMeeting.status === 'completed' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                         checked={!!attendee.attended}
                         onChange={() => handleToggleAttendee(attendee.stakeholder_id)}
+                        disabled={attendanceMeeting.status === 'completed'}
                       />
                       <label 
                         htmlFor={`attendee-${attendee.stakeholder_id}`}
@@ -372,9 +378,10 @@ const SchedulePage = () => {
                       <input
                         type="text"
                         placeholder="Add notes..."
-                        className="w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                        className={`w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 ${attendanceMeeting.status === 'completed' ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                         value={attendee.notes || ''}
                         onChange={(e) => handleNotesChange(attendee.stakeholder_id, e.target.value)}
+                        disabled={attendanceMeeting.status === 'completed'}
                       />
                     </div>
                   </div>
@@ -396,16 +403,18 @@ const SchedulePage = () => {
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
                 disabled={savingAttendance}
               >
-                Cancel
+                {attendanceMeeting.status === 'completed' ? 'Close' : 'Cancel'}
               </button>
-              <button
-                type="button"
-                onClick={handleSaveAttendance}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium disabled:bg-blue-400"
-                disabled={savingAttendance || attendees.length === 0}
-              >
-                {savingAttendance ? 'Saving...' : 'Save'}
-              </button>
+              {attendanceMeeting.status !== 'completed' && (
+                <button
+                  type="button"
+                  onClick={handleSaveAttendance}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium disabled:bg-blue-400"
+                  disabled={savingAttendance || attendees.length === 0}
+                >
+                  {savingAttendance ? 'Saving...' : 'Save'}
+                </button>
+              )}
             </div>
           </div>
         </div>
