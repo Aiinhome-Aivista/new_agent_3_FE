@@ -15,6 +15,7 @@ const TrackingPage = () => {
   // form state
   const [topicName, setTopicName] = useState('');
   const [completionPct, setCompletionPct] = useState(100);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -57,6 +58,14 @@ const TrackingPage = () => {
 
   const handleUpdateTopic = async (e) => {
     e.preventDefault();
+    setErrorMsg('');
+
+    const isTopicUpdated = topics.some(t => t.topic === topicName);
+    if (isTopicUpdated) {
+      setErrorMsg('This topic already updated');
+      return;
+    }
+
     try {
       await updateCompletion({
         plan_id: parseInt(selectedPlanId),
@@ -137,31 +146,28 @@ const TrackingPage = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Update Topic Progress</h3>
             <form onSubmit={handleUpdateTopic} className="space-y-4">
+              {errorMsg && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-100">
+                  {errorMsg}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Topic Name</label>
                 <select
                   required
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={topicName}
-                  onChange={(e) => setTopicName(e.target.value)}
+                  onChange={(e) => {
+                    setTopicName(e.target.value);
+                    setErrorMsg('');
+                  }}
                 >
                   <option value="">-- Select Topic --</option>
                   {topicOptions.map(t => (
                     <option key={t.id} value={t.topic_name}>{t.day_label && t.day_label !== 'General' ? `${t.day_label} — ` : ''}{t.topic_name}</option>
                   ))}
                 </select>
-                {topicOptions.length === 0 && selectedPlanId && (
-                  <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
-                    <span>No predefined topics found for this plan.</span>
-                    <button
-                      type="button"
-                      onClick={handleResyncTopics}
-                      className="ml-2 px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md text-gray-700 transition-colors"
-                    >
-                      Extract Topics from Plan
-                    </button>
-                  </div>
-                )}
+                {/* Message hidden as per request */}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Completion %</label>
