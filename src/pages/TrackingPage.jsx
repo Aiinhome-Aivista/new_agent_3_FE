@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, getPlanSummary, getPlanTopics, updateCompletion } from '../api/api';
+import { getPlans, getPlanSummary, getPlanTopics, updateCompletion, getPlanTopicOptions, resyncPlanTopics } from '../api/api';
 import Loader from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
 
@@ -10,10 +10,11 @@ const TrackingPage = () => {
   const [summary, setSummary] = useState(null);
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [topicOptions, setTopicOptions] = useState([]);
 
   // form state
   const [topicName, setTopicName] = useState('');
-  const [completionPct, setCompletionPct] = useState(0);
+  const [completionPct, setCompletionPct] = useState(100);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -41,12 +42,14 @@ const TrackingPage = () => {
 
   const fetchTrackingData = async () => {
     try {
-      const [sumRes, topRes] = await Promise.all([
+      const [sumRes, topRes, optRes] = await Promise.all([
         getPlanSummary(selectedPlanId),
-        getPlanTopics(selectedPlanId)
+        getPlanTopics(selectedPlanId),
+        getPlanTopicOptions(selectedPlanId)
       ]);
       setSummary(sumRes.data.data);
       setTopics(topRes.data.data);
+      setTopicOptions(optRes.data.data || []);
     } catch (err) {
       console.error(err);
     }
@@ -61,10 +64,19 @@ const TrackingPage = () => {
         completion_percent: parseInt(completionPct)
       });
       setTopicName('');
-      setCompletionPct(0);
+      setCompletionPct(100);
       fetchTrackingData();
     } catch (err) {
       alert('Error updating completion');
+    }
+  };
+
+  const handleResyncTopics = async () => {
+    try {
+      await resyncPlanTopics(selectedPlanId);
+      fetchTrackingData();
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -76,18 +88,20 @@ const TrackingPage = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Completion Tracking</h2>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
-        <select
-          className="block w-full max-w-md px-3 py-2 border border-gray-300 rounded-md"
-          value={selectedPlanId}
-          onChange={(e) => setSelectedPlanId(e.target.value)}
-        >
-          {plans.map(p => (
-            <option key={p.id} value={p.id}>{p.application_name}</option>
-          ))}
-        </select>
-      </div>
+      {user?.role !== 'PwC Leadership' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
+          <select
+            className="block w-full max-w-md px-3 py-2 border border-gray-300 rounded-md"
+            value={selectedPlanId}
+            onChange={(e) => setSelectedPlanId(e.target.value)}
+          >
+            {plans.map(p => (
+              <option key={p.id} value={p.id}>{p.application_name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -125,18 +139,35 @@ const TrackingPage = () => {
             <form onSubmit={handleUpdateTopic} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">Topic Name</label>
-                <input
-                  type="text" required
+                <select
+                  required
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={topicName}
                   onChange={(e) => setTopicName(e.target.value)}
-                />
+                >
+                  <option value="">-- Select Topic --</option>
+                  {topicOptions.map(t => (
+                    <option key={t.id} value={t.topic_name}>{t.day_label && t.day_label !== 'General' ? `${t.day_label} — ` : ''}{t.topic_name}</option>
+                  ))}
+                </select>
+                {topicOptions.length === 0 && selectedPlanId && (
+                  <div className="mt-2 text-xs text-gray-500 flex items-center justify-between">
+                    <span>No predefined topics found for this plan.</span>
+                    <button
+                      type="button"
+                      onClick={handleResyncTopics}
+                      className="ml-2 px-2 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md text-gray-700 transition-colors"
+                    >
+                      Extract Topics from Plan
+                    </button>
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Completion %</label>
                 <input
-                  type="number" min="0" max="100" required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  type="number" min="0" max="100" required disabled
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
                   value={completionPct}
                   onChange={(e) => setCompletionPct(e.target.value)}
                 />

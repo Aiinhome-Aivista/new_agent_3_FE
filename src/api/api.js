@@ -47,6 +47,8 @@ export const deleteStakeholder = (id) => api.delete(`/stakeholders/${id}`);
 export const generatePlan = (data) => api.post('/plans/generate', data);
 export const getPlans = () => api.get('/plans/');
 export const approvePlan = (id) => api.put(`/plans/${id}/approve`);
+export const getPlanTopicOptions = (planId) => api.get(`/plans/${planId}/topics`);
+export const resyncPlanTopics = (planId) => api.post(`/plans/${planId}/topics/resync`);
 
 // Schedule
 export const createMeeting = (data) => api.post('/schedule/meetings', data);
