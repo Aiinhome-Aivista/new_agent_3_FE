@@ -11,6 +11,7 @@ const TrackingPage = () => {
   const [summary, setSummary] = useState(null);
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(false);
   const [topicOptions, setTopicOptions] = useState([]);
 
   // form state
@@ -43,6 +44,7 @@ const TrackingPage = () => {
   }, [selectedPlanId]);
 
   const fetchTrackingData = async () => {
+    setLoadingData(true);
     try {
       const [sumRes, topRes, optRes] = await Promise.all([
         getPlanSummary(selectedPlanId),
@@ -54,6 +56,8 @@ const TrackingPage = () => {
       setTopicOptions(optRes.data.data || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoadingData(false);
     }
   };
 
@@ -122,8 +126,14 @@ const TrackingPage = () => {
         </div>
       )}
 
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {loadingData ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader />
+        </div>
+      ) : (
+        <>
+          {summary && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Overall Completion</h3>
             <div className="flex items-center">
@@ -230,6 +240,8 @@ const TrackingPage = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

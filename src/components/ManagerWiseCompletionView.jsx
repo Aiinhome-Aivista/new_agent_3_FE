@@ -33,7 +33,7 @@ const ManagerRow = ({ m }) => {
                   <table className="min-w-full divide-y divide-gray-200 bg-white">
                     <thead className="bg-gray-100">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Application Name</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Plan Name</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Status</th>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Completion %</th>
                       </tr>
