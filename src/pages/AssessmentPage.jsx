@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, getStakeholders, generateQuestions, submitAnswer, getResults } from '../api/api';
+import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults } from '../api/api';
 import Loader from '../components/Loader';
 import { FileQuestion, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +13,7 @@ const AssessmentPage = () => {
   
   const [questions, setQuestions] = useState([]);
   const [results, setResults] = useState([]);
+  const [meetings, setMeetings] = useState([]);
   
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -25,10 +26,11 @@ const AssessmentPage = () => {
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [plansRes, stRes] = await Promise.all([getPlans(), getStakeholders()]);
+        const [plansRes, stRes, meetingsRes] = await Promise.all([getPlans(), getStakeholders(), getMeetings()]);
         const appPlans = plansRes.data.data.filter(p => p.status === 'approved');
         setPlans(appPlans);
         setStakeholders(stRes.data.data);
+        setMeetings(meetingsRes.data.data || []);
         if (appPlans.length > 0) setSelectedPlanId(appPlans[0].id.toString());
         if (stRes.data.data.length > 0) setSelectedStakeholderId(stRes.data.data[0].id.toString());
       } catch (err) {
@@ -47,7 +49,12 @@ const AssessmentPage = () => {
   const fetchResults = async () => {
     try {
       const res = await getResults(selectedPlanId);
-      setResults(res.data.data);
+      const allResults = res.data.data || [];
+      if (user?.role === 'Incoming Team Member (Knowledge Receiver)') {
+        setResults(allResults.filter(r => r.stakeholder_name === user.name));
+      } else {
+        setResults(allResults);
+      }
     } catch (err) {
       console.error(err);
     }
@@ -93,6 +100,8 @@ const AssessmentPage = () => {
   const canSetup = user?.role === 'Incoming Team Member (Knowledge Receiver)';
   const canSubmit = user?.role === 'Incoming Team Member (Knowledge Receiver)';
 
+  const hasCompletedMeeting = meetings.some(m => String(m.plan_id) === String(selectedPlanId) && m.status?.toLowerCase() === 'completed');
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 flex items-center">
@@ -117,8 +126,9 @@ const AssessmentPage = () => {
                 </div>
                 <button
                   onClick={handleGenerateQuestions}
-                  disabled={generating}
+                  disabled={generating || !hasCompletedMeeting}
                   className="w-full inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                  title={!hasCompletedMeeting ? 'At least one meeting must be completed to generate questions' : ''}
                 >
                   {generating ? 'Generating...' : 'Generate Questions with AI'}
                 </button>

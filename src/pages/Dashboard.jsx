@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { getPlans, getStakeholders, getMeetings, getRisks } from '../api/api';
 import Loader from '../components/Loader';
 import { Users, FileText, Calendar, AlertTriangle, Clock } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState({ 
     plans: 0, 
     stakeholders: 0, 
@@ -28,10 +30,10 @@ const Dashboard = () => {
 
         const now = new Date();
         const upcoming = allMeetings
-          .filter(m => new Date(m.scheduled_at) > now)
+          .filter(m => new Date(m.scheduled_at) > now && m.status?.toLowerCase() !== 'completed')
           .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
-        const active = allRisks.filter(r => r.status !== 'Resolved' && r.status !== 'Closed');
+        const active = allRisks.filter(r => r.status?.toLowerCase() === 'open');
 
         setStats({
           plans: plansRes.data.data.length || 0,
@@ -50,6 +52,9 @@ const Dashboard = () => {
 
   if (loading) return <Loader />;
 
+  const highPriorityRisks = stats.activeRisks.filter(r => r.severity?.toLowerCase() === 'high');
+  const isKnowledgeReceiver = user?.role === 'Incoming Team Member (Knowledge Receiver)';
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
@@ -61,7 +66,7 @@ const Dashboard = () => {
       )}
 
       {/* Top Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${!isKnowledgeReceiver ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
           <div className="p-4 bg-blue-50 text-blue-600 rounded-lg mr-4">
             <FileText size={24} />
@@ -92,19 +97,21 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
-          <div className="p-4 bg-red-50 text-red-600 rounded-lg mr-4">
-            <AlertTriangle size={24} />
+        {!isKnowledgeReceiver && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+            <div className="p-4 bg-red-50 text-red-600 rounded-lg mr-4">
+              <AlertTriangle size={24} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Active Risks</p>
+              <h3 className="text-2xl font-bold text-gray-800">{stats.activeRisks.length}</h3>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-medium text-gray-500">Active Risks</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.activeRisks.length}</h3>
-          </div>
-        </div>
+        )}
       </div>
       
       {/* Detailed Dynamic Sections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+      <div className={`grid grid-cols-1 ${!isKnowledgeReceiver ? 'lg:grid-cols-2' : ''} gap-6 mt-8`}>
         {/* Upcoming Meetings Panel */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -132,15 +139,16 @@ const Dashboard = () => {
         </div>
 
         {/* Active Risks Panel */}
+        {!isKnowledgeReceiver && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-800">High Priority Risks</h3>
           </div>
           <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-            {stats.activeRisks.length === 0 ? (
-              <p className="text-sm text-gray-500">No active risks detected. You're on track!</p>
+            {highPriorityRisks.length === 0 ? (
+              <p className="text-sm text-gray-500">No high priority risks detected. You're on track!</p>
             ) : (
-              stats.activeRisks.map(risk => (
+              highPriorityRisks.map(risk => (
                 <div key={risk.id} className="flex items-start p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
                   <div className={`mt-1 mr-3 p-2 rounded-full ${risk.severity === 'high' || risk.severity === 'critical' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
                     <AlertTriangle size={16} />
@@ -162,6 +170,7 @@ const Dashboard = () => {
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
