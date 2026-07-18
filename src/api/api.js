@@ -75,7 +75,12 @@ export const escalateRisk = (id) => api.put(`/risks/${id}/escalate`);
 // Assessments
 export const generateQuestions = (planId) => api.post('/assessments/generate-questions', { plan_id: planId });
 export const submitAnswer = (data) => api.post('/assessments/submit', data);
-export const getResults = (planId) => api.get(`/assessments/plan/${planId}/results`);
+export const getResults = (planId, stakeholderId) => {
+  const url = `/assessments/plan/${planId}/results` + (stakeholderId ? `?stakeholder_id=${stakeholderId}` : '');
+  return api.get(url);
+};
+export const completeAssessment = (data) => api.post('/assessments/complete', data);
+export const getAttemptDetails = (asid) => api.get(`/assessments/attempt/${asid}/details`);
 
 // Reports
 export const generateWeeklyReport = (planId) => api.post('/reports/weekly', { plan_id: planId });
