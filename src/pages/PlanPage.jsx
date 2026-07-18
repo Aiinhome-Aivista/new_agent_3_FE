@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, generatePlan, approvePlan, runFullWorkflow } from '../api/api';
+import { getPlans, generatePlan, approvePlan, runFullWorkflow, getStakeholders, assignPlanManager } from '../api/api';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown }) => {
+const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeholders, onAssignManager }) => {
   const [expanded, setExpanded] = useState(false);
+  const [selectedManager, setSelectedManager] = useState('');
+
+  const manager = stakeholders.find(s => s.id == plan.created_by);
   
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -25,7 +28,30 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown }) => {
             </span>
           </div>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
+          {!plan.created_by ? (
+            <div className="flex items-center space-x-2 mr-4">
+              <select 
+                className="text-xs border-gray-300 rounded px-2 py-1"
+                value={selectedManager}
+                onChange={(e) => setSelectedManager(e.target.value)}
+              >
+                <option value="">Select Manager...</option>
+                {stakeholders.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <button 
+                onClick={(e) => { e.stopPropagation(); selectedManager && onAssignManager(plan.id, selectedManager); }}
+                className="inline-flex items-center px-2 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Save
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-gray-500 mr-4 flex items-center">
+              <UserPlus size={14} className="mr-1" />
+              {manager ? manager.name : `ID: ${plan.created_by}`}
+            </div>
+          )}
           {plan.status === 'draft' && canApprove && (
             <button
               onClick={(e) => {
@@ -62,6 +88,8 @@ const PlanPage = () => {
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
 
+  const [stakeholders, setStakeholders] = useState([]);
+
   const fetchPlans = async () => {
     try {
       const res = await getPlans();
@@ -73,9 +101,29 @@ const PlanPage = () => {
     }
   };
 
+  const fetchStakeholders = async () => {
+    try {
+      const res = await getStakeholders();
+      const filtered = res.data.data.filter(s => s.role === 'engagement_manager' || s.role === 'leadership');
+      setStakeholders(filtered);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchPlans();
+    fetchStakeholders();
   }, []);
+
+  const handleAssignManager = async (planId, stakeholderId) => {
+    try {
+      await assignPlanManager(planId, stakeholderId);
+      fetchPlans();
+    } catch (err) {
+      alert('Error assigning manager');
+    }
+  };
 
   const handleGenerate = async (e) => {
     e.preventDefault();
@@ -250,7 +298,9 @@ const PlanPage = () => {
             plan={plan} 
             canApprove={canApprove} 
             handleApproveClick={setPlanToApprove} 
-            parseMarkdown={parseMarkdown} 
+            parseMarkdown={parseMarkdown}
+            stakeholders={stakeholders}
+            onAssignManager={handleAssignManager}
           />
         ))}
         {plans.length === 0 && <p className="text-gray-500 text-center py-8">No plans generated yet.</p>}

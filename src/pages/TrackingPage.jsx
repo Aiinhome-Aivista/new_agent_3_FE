@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, getPlanSummary, getPlanTopics, updateCompletion } from '../api/api';
+import { getPlans, getPlanSummary, getPlanTopics, updateCompletion, getPlanTopicOptions, resyncPlanTopics } from '../api/api';
 import Loader from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
+import ManagerWiseCompletionView from '../components/ManagerWiseCompletionView';
 
 const TrackingPage = () => {
   const { user } = useAuth();
@@ -10,10 +11,13 @@ const TrackingPage = () => {
   const [summary, setSummary] = useState(null);
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(false);
+  const [topicOptions, setTopicOptions] = useState([]);
 
   // form state
   const [topicName, setTopicName] = useState('');
-  const [completionPct, setCompletionPct] = useState(0);
+  const [completionPct, setCompletionPct] = useState(100);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -40,20 +44,33 @@ const TrackingPage = () => {
   }, [selectedPlanId]);
 
   const fetchTrackingData = async () => {
+    setLoadingData(true);
     try {
-      const [sumRes, topRes] = await Promise.all([
+      const [sumRes, topRes, optRes] = await Promise.all([
         getPlanSummary(selectedPlanId),
-        getPlanTopics(selectedPlanId)
+        getPlanTopics(selectedPlanId),
+        getPlanTopicOptions(selectedPlanId)
       ]);
       setSummary(sumRes.data.data);
       setTopics(topRes.data.data);
+      setTopicOptions(optRes.data.data || []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoadingData(false);
     }
   };
 
   const handleUpdateTopic = async (e) => {
     e.preventDefault();
+    setErrorMsg('');
+
+    const isTopicUpdated = topics.some(t => t.topic === topicName);
+    if (isTopicUpdated) {
+      setErrorMsg('This topic already updated');
+      return;
+    }
+
     try {
       await updateCompletion({
         plan_id: parseInt(selectedPlanId),
@@ -61,14 +78,32 @@ const TrackingPage = () => {
         completion_percent: parseInt(completionPct)
       });
       setTopicName('');
-      setCompletionPct(0);
+      setCompletionPct(100);
       fetchTrackingData();
     } catch (err) {
       alert('Error updating completion');
     }
   };
 
+  const handleResyncTopics = async () => {
+    try {
+      await resyncPlanTopics(selectedPlanId);
+      fetchTrackingData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   if (loading) return <Loader />;
+
+  if (user?.role === 'leadership' || user?.role === 'PwC Leadership') {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-800">Completion Tracking</h2>
+        <ManagerWiseCompletionView />
+      </div>
+    );
+  }
 
   const canManage = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
 
@@ -76,21 +111,29 @@ const TrackingPage = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Completion Tracking</h2>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
-        <select
-          className="block w-full max-w-md px-3 py-2 border border-gray-300 rounded-md"
-          value={selectedPlanId}
-          onChange={(e) => setSelectedPlanId(e.target.value)}
-        >
-          {plans.map(p => (
-            <option key={p.id} value={p.id}>{p.application_name}</option>
-          ))}
-        </select>
-      </div>
+      {user?.role !== 'PwC Leadership' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
+          <select
+            className="block w-full max-w-md px-3 py-2 border border-gray-300 rounded-md"
+            value={selectedPlanId}
+            onChange={(e) => setSelectedPlanId(e.target.value)}
+          >
+            {plans.map(p => (
+              <option key={p.id} value={p.id}>{p.application_name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
-      {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {loadingData ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader />
+        </div>
+      ) : (
+        <>
+          {summary && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Overall Completion</h3>
             <div className="flex items-center">
@@ -123,20 +166,34 @@ const TrackingPage = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Update Topic Progress</h3>
             <form onSubmit={handleUpdateTopic} className="space-y-4">
+              {errorMsg && (
+                <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-100">
+                  {errorMsg}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Topic Name</label>
-                <input
-                  type="text" required
+                <select
+                  required
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                   value={topicName}
-                  onChange={(e) => setTopicName(e.target.value)}
-                />
+                  onChange={(e) => {
+                    setTopicName(e.target.value);
+                    setErrorMsg('');
+                  }}
+                >
+                  <option value="">-- Select Topic --</option>
+                  {topicOptions.map(t => (
+                    <option key={t.id} value={t.topic_name}>{t.day_label && t.day_label !== 'General' ? `${t.day_label} — ` : ''}{t.topic_name}</option>
+                  ))}
+                </select>
+                {/* Message hidden as per request */}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">Completion %</label>
                 <input
-                  type="number" min="0" max="100" required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  type="number" min="0" max="100" required disabled
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
                   value={completionPct}
                   onChange={(e) => setCompletionPct(e.target.value)}
                 />
@@ -183,6 +240,8 @@ const TrackingPage = () => {
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

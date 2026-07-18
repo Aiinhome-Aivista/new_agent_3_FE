@@ -47,6 +47,9 @@ export const deleteStakeholder = (id) => api.delete(`/stakeholders/${id}`);
 export const generatePlan = (data) => api.post('/plans/generate', data);
 export const getPlans = () => api.get('/plans/');
 export const approvePlan = (id) => api.put(`/plans/${id}/approve`);
+export const getPlanTopicOptions = (planId) => api.get(`/plans/${planId}/topics`);
+export const resyncPlanTopics = (planId) => api.post(`/plans/${planId}/topics/resync`);
+export const assignPlanManager = (planId, stakeholderId) => api.put(`/plans/${planId}/assign-manager`, { stakeholder_id: stakeholderId });
 
 // Schedule
 export const createMeeting = (data) => api.post('/schedule/meetings', data);
@@ -103,5 +106,8 @@ export const getGuardrailLogs = () => api.get('/guardrails/');
 
 // Orchestrator / Full Workflow
 export const runFullWorkflow = (data) => api.post('/plans/workflow', data);
+
+// Leadership
+export const getLeadershipCompletionSummary = () => api.get('/leadership/completion-summary');
 
 export default api;
