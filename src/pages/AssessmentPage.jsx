@@ -99,7 +99,7 @@ const AssessmentPage = () => {
     }
   }, [selectedPlanId, stakeholders, user]);
 
-  const fetchResults = async (planId = selectedPlanId, stakeholderId = null, stList = stakeholders) => {
+  const fetchResults = async (planId = selectedPlanId, stakeholderId = null, stList = stakeholders, limit = undefined) => {
     try {
       const resolvedPlanId = planId;
       if (!resolvedPlanId) return;
@@ -109,9 +109,9 @@ const AssessmentPage = () => {
       console.log("[DEV LOG] Current User Email:", user?.email);
       console.log("[DEV LOG] Current Stakeholder ID:", resolvedStakeholderId);
       console.log("[DEV LOG] Selected Plan ID:", resolvedPlanId);
-      console.log("[DEV LOG] Assessment API Request - planId:", resolvedPlanId, "stakeholderId:", resolvedStakeholderId);
+      console.log("[DEV LOG] Assessment API Request - planId:", resolvedPlanId, "stakeholderId:", resolvedStakeholderId, "limit:", limit);
       
-      const res = await getResults(resolvedPlanId, resolvedStakeholderId);
+      const res = await getResults(resolvedPlanId, resolvedStakeholderId, limit);
       const allResults = res.data.data || [];
       
       console.log("[DEV LOG] Assessment API Response:", allResults);
@@ -123,6 +123,12 @@ const AssessmentPage = () => {
           const isMatchId = resolvedStakeholderId ? Number(r.stakeholder_id) === Number(resolvedStakeholderId) : false;
           const isMatchName = user.name ? r.stakeholder_name === user.name : false;
           return isMatchId || isMatchName;
+        });
+      } else {
+        // For other personas (SME, Leadership, etc.), display ONLY Knowledge Receivers' assessments
+        filteredResults = allResults.filter(r => {
+          const stakeholder = stList.find(s => s.id === r.stakeholder_id);
+          return stakeholder && stakeholder.role === 'Incoming Team Member (Knowledge Receiver)';
         });
       }
       
@@ -140,7 +146,10 @@ const AssessmentPage = () => {
   const handleOpenHistory = async () => {
     setHistoryLoading(true);
     try {
-      await fetchResults();
+      // For Knowledge Receiver persona, fetch only the latest 5 assessments
+      const isKnowledgeReceiver = user?.role === 'Incoming Team Member (Knowledge Receiver)';
+      const limit = isKnowledgeReceiver ? 5 : undefined;
+      await fetchResults(selectedPlanId, null, stakeholders, limit);
     } catch (err) {
       console.error(err);
     } finally {
@@ -311,6 +320,8 @@ const AssessmentPage = () => {
 
   const isReceiver = user?.role === 'Incoming Team Member (Knowledge Receiver)';
   const isSME = user?.role === 'Outgoing SME (Knowledge Giver)';
+  // All roles that can only VIEW results (not take assessments)
+  const isViewer = !isReceiver && !isSME;
   const canSetup = isReceiver;
 
   return (
@@ -319,7 +330,7 @@ const AssessmentPage = () => {
       <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
         <h2 className="text-2xl font-bold text-gray-900 flex items-center">
           <FileQuestion className="mr-3 text-indigo-600 w-8 h-8" />
-          Conversational Assessments
+          {isReceiver ? 'Conversational Assessments' : 'Assessment Results'}
         </h2>
         {user && (
           <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
@@ -656,14 +667,16 @@ const AssessmentPage = () => {
           </div>
         )}
 
-        {/* Scenario 4: Outgoing SME (Knowledge Giver) Review Dashboard */}
-        {isSME && (
+        {/* Scenario 4: Non-Receiver personas – All Assessment Results Dashboard */}
+        {(isSME || isViewer) && (
           <div className="space-y-6">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Receiver Assessment Reviews</h3>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Knowledge Receivers Assessment Results
+                </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  View scores, overall evaluations, and detail breakdowns of conversational assessments.
+                  View scores, overall evaluations, and detail breakdowns of conversational assessments taken by Knowledge Receivers.
                 </p>
               </div>
             </div>
@@ -762,9 +775,9 @@ const AssessmentPage = () => {
                   <Award className="w-12 h-12 stroke-[1.5]" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-gray-800">No Receiver Assessments Found</h4>
+                  <h4 className="text-base font-bold text-gray-800">No Assessment Results Found</h4>
                   <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
-                    There are no completed receiver assessments for this Knowledge plan yet.
+                    There are no completed assessments for this Knowledge plan yet.
                   </p>
                 </div>
               </div>
@@ -778,10 +791,17 @@ const AssessmentPage = () => {
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-slideUp">
               {/* Modal Header */}
               <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Award className="text-indigo-600 w-6 h-6" />
-                  Assessment Results History
-                </h3>
+                <div className="flex flex-col gap-0.5">
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Award className="text-indigo-600 w-6 h-6" />
+                    {isReceiver ? 'Latest 5 Assessment Results' : 'Assessment Results History'}
+                  </h3>
+                  {isReceiver && (
+                    <p className="text-xs text-gray-500 ml-8 font-medium">
+                      Showing your most recent {groupedAttempts.length > 0 ? groupedAttempts.length : ''} assessment attempt{groupedAttempts.length !== 1 ? 's' : ''} for this plan
+                    </p>
+                  )}
+                </div>
                 <button 
                   onClick={() => setIsHistoryModalOpen(false)}
                   className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-semibold leading-none p-1"
@@ -805,7 +825,7 @@ const AssessmentPage = () => {
                           <div className="space-y-1 flex-1">
                             <div className="flex justify-between items-start gap-4">
                               <p className="text-sm font-semibold text-gray-800">
-                                Assessment Date: {new Date(attempt.created_at).toLocaleString()}
+                                Assessment Date: {new Date(attempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                               </p>
                               <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
                                 Score: {Math.round(attempt.overall_score)} / 50
@@ -894,7 +914,7 @@ const AssessmentPage = () => {
                             Candidate: {selectedAttempt.stakeholder_name || user?.name || 'Receiver'}
                           </h4>
                           <p className="text-xs text-gray-400">
-                            Completed on: {new Date(selectedAttempt.created_at).toLocaleString()}
+                            Completed on: {new Date(selectedAttempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                           </p>
                         </div>
                         <div className="bg-white px-5 py-3 rounded-xl border border-indigo-100 text-center shadow-sm min-w-[120px]">

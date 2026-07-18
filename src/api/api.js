@@ -78,9 +78,12 @@ export const escalateRisk = (id) => api.put(`/risks/${id}/escalate`);
 // Assessments
 export const generateQuestions = (planId) => api.post('/assessments/generate-questions', { plan_id: planId });
 export const submitAnswer = (data) => api.post('/assessments/submit', data);
-export const getResults = (planId, stakeholderId) => {
-  const url = `/assessments/plan/${planId}/results` + (stakeholderId ? `?stakeholder_id=${stakeholderId}` : '');
-  return api.get(url);
+export const getResults = (planId, stakeholderId, limit) => {
+  const params = new URLSearchParams();
+  if (stakeholderId) params.append('stakeholder_id', stakeholderId);
+  if (limit) params.append('limit', limit);
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return api.get(`/assessments/plan/${planId}/results${query}`);
 };
 export const completeAssessment = (data) => api.post('/assessments/complete', data);
 export const getAttemptDetails = (asid) => api.get(`/assessments/attempt/${asid}/details`);
