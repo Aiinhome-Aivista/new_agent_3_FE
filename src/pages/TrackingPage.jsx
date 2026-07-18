@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getPlans, getPlanSummary, getPlanTopics, updateCompletion, getPlanTopicOptions, resyncPlanTopics } from '../api/api';
 import Loader from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
+import ManagerWiseCompletionView from '../components/ManagerWiseCompletionView';
 
 const TrackingPage = () => {
   const { user } = useAuth();
@@ -81,6 +82,15 @@ const TrackingPage = () => {
   };
 
   if (loading) return <Loader />;
+
+  if (user?.role === 'leadership' || user?.role === 'PwC Leadership') {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-800">Completion Tracking</h2>
+        <ManagerWiseCompletionView />
+      </div>
+    );
+  }
 
   const canManage = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
 
