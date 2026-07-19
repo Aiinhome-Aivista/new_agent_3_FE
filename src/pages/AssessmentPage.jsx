@@ -104,7 +104,11 @@ const AssessmentPage = () => {
       const resolvedPlanId = planId;
       if (!resolvedPlanId) return;
 
-      const resolvedStakeholderId = stakeholderId || user?.stakeholder_id || stList.find(s => s.email?.toLowerCase() === user?.email?.toLowerCase())?.id;
+      const isReceiver = user?.role === 'Incoming Team Member (Knowledge Receiver)';
+      let resolvedStakeholderId = null;
+      if (isReceiver) {
+        resolvedStakeholderId = stakeholderId || user?.stakeholder_id || stList.find(s => s.email?.toLowerCase() === user?.email?.toLowerCase())?.id;
+      }
 
       console.log("[DEV LOG] Current User Email:", user?.email);
       console.log("[DEV LOG] Current Stakeholder ID:", resolvedStakeholderId);
@@ -118,7 +122,7 @@ const AssessmentPage = () => {
       console.log("[DEV LOG] Raw Results Length:", allResults.length);
 
       let filteredResults = allResults;
-      if (user?.role === 'Incoming Team Member (Knowledge Receiver)') {
+      if (isReceiver) {
         filteredResults = allResults.filter(r => {
           const isMatchId = resolvedStakeholderId ? Number(r.stakeholder_id) === Number(resolvedStakeholderId) : false;
           const isMatchName = user.name ? r.stakeholder_name === user.name : false;
