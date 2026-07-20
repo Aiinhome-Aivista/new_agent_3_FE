@@ -210,34 +210,36 @@ const TrackingPage = () => {
 
         <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${canManage ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Topics</h3>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Topic</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Completion</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Updated</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {topics.map((t) => (
-                <tr key={t.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{t.topic}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center">
-                      <span className="mr-2">{t.completion_percent}%</span>
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
-                        <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${t.completion_percent}%` }}></div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(t.last_updated).toLocaleDateString()}</td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Topic</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
                 </tr>
-              ))}
-              {topics.length === 0 && (
-                <tr><td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">No topics tracked yet.</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {topics.map((t) => (
+                  <tr key={t.id}>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words max-w-[200px]">{t.topic}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center min-w-[120px]">
+                        <span className="mr-2">{t.completion_percent}%</span>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${t.completion_percent}%` }}></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(t.last_updated).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {topics.length === 0 && (
+                  <tr><td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">No topics tracked yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
       </>

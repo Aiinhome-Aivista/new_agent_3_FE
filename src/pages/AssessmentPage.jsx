@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, completeAssessment, getAttemptDetails } from '../api/api';
 import Loader from '../components/Loader';
-import { FileQuestion, CheckCircle2, RefreshCw, Award, Sparkles, User, BookOpen } from 'lucide-react';
+import { FileQuestion, CheckCircle2, RefreshCw, Award, Sparkles, User, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 
@@ -40,6 +40,14 @@ const AssessmentPage = () => {
   const [attemptQuestions, setAttemptQuestions] = useState([]);
   const [attemptDetailsLoading, setAttemptDetailsLoading] = useState(false);
   const [completedTopics, setCompletedTopics] = useState([]);
+  
+  const [expandedAssessments, setExpandedAssessments] = useState({});
+  const [expandedQuestions, setExpandedQuestions] = useState({});
+  const [expandedAttemptQuestions, setExpandedAttemptQuestions] = useState({});
+
+  const toggleAssessmentExpand = (idx) => setExpandedAssessments(prev => ({ ...prev, [idx]: !prev[idx] }));
+  const toggleQuestionExpand = (idx) => setExpandedQuestions(prev => ({ ...prev, [idx]: !prev[idx] }));
+  const toggleAttemptQuestionExpand = (idx) => setExpandedAttemptQuestions(prev => ({ ...prev, [idx]: !prev[idx] }));
   
   const messagesEndRef = useRef(null);
 
@@ -630,32 +638,54 @@ const AssessmentPage = () => {
                 Question-Wise Report Breakdown
               </h4>
               
-              {sessionResults.map((result, idx) => (
-                <div key={idx} className="p-5 border border-gray-100 rounded-2xl bg-gray-50 space-y-3">
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full font-sans">
-                      Question {idx + 1}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
-                      result.score >= 8 
-                        ? 'bg-green-100 text-green-800 border border-green-200' 
-                        : result.score >= 5 
-                          ? 'bg-amber-100 text-amber-800 border border-amber-200' 
-                          : 'bg-red-100 text-red-800 border border-red-200'
-                    }`}>
-                      Score: {result.score}/10
-                    </span>
+              {sessionResults.map((result, idx) => {
+                const isExpanded = expandedQuestions[idx];
+                return (
+                  <div key={idx} className="border border-gray-100 rounded-2xl bg-white overflow-hidden shadow-sm">
+                    {/* Header Row */}
+                    <div 
+                      onClick={() => toggleQuestionExpand(idx)}
+                      className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 pr-4">
+                        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full font-sans whitespace-nowrap">
+                          Q {idx + 1}
+                        </span>
+                        <h5 className="text-sm font-bold text-gray-800 line-clamp-1">{result.question}</h5>
+                      </div>
+                      
+                      <div className="flex items-center gap-4 flex-shrink-0">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
+                          result.score >= 8 
+                            ? 'bg-green-100 text-green-800 border border-green-200' 
+                            : result.score >= 5 
+                              ? 'bg-amber-100 text-amber-800 border border-amber-200' 
+                              : 'bg-red-100 text-red-800 border border-red-200'
+                        }`}>
+                          Score: {result.score}/10
+                        </span>
+                        <div className="text-gray-400">
+                          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Collapsible Content */}
+                    {isExpanded && (
+                      <div className="p-5 pt-2 border-t border-gray-50 bg-gray-50/30 space-y-4">
+                        <div>
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Your Answer</p>
+                          <p className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-gray-100 italic">"{result.answer}"</p>
+                        </div>
+                        <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-50/50 text-sm text-gray-700">
+                          <p className="font-semibold text-xs text-indigo-500 uppercase tracking-wider mb-1.5">AI Evaluation Feedback</p>
+                          <p className="leading-relaxed font-medium">{result.feedback}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-gray-800">Q: {result.question}</h5>
-                    <p className="text-sm text-gray-600 mt-1 italic">Your Answer: "{result.answer}"</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-gray-100 text-sm text-gray-700 shadow-inner">
-                    <p className="font-semibold text-xs text-indigo-500 uppercase tracking-wider mb-1">AI Evaluation Feedback</p>
-                    <p className="leading-relaxed">{result.feedback}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Action buttons */}
@@ -686,89 +716,106 @@ const AssessmentPage = () => {
             </div>
 
             {groupedAttempts.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex flex-col space-y-4">
                 {groupedAttempts.map((attempt, idx) => {
                   const planName = plans.find(p => p.id.toString() === selectedPlanId.toString())?.application_name || 'Knowledge Transfer Plan';
+                  const isExpanded = expandedAssessments[idx];
                   
                   return (
-                    <div key={idx} className="bg-white rounded-2xl border border-gray-150 p-6 shadow-sm hover:shadow-md hover:border-gray-200 transition-all flex flex-col space-y-4 justify-between">
-                      {/* Plan Title & Score badge */}
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider font-sans">
-                            {planName}
-                          </span>
-                          <h4 className="text-base font-bold text-gray-900 mt-1.5">
-                            Receiver: {attempt.stakeholder_name}
-                          </h4>
-                          <p className="text-xs text-gray-400">
+                    <div key={idx} className="bg-white rounded-2xl border border-gray-150 shadow-sm hover:shadow-md hover:border-gray-200 transition-all flex flex-col overflow-hidden">
+                      {/* Header Row (Always visible) */}
+                      <div 
+                        onClick={() => toggleAssessmentExpand(idx)}
+                        className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 flex-1">
+                          <div className="flex flex-col space-y-1">
+                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider font-sans w-fit">
+                              {planName}
+                            </span>
+                            <h4 className="text-base font-bold text-gray-900 mt-1">
+                              Receiver: {attempt.stakeholder_name}
+                            </h4>
+                          </div>
+                          <p className="text-xs text-gray-400 sm:ml-4 flex-1">
                             {attempt.stakeholder_email}
                           </p>
                         </div>
 
-                        {/* Overall Score Progress layout */}
-                        <div className="flex flex-col items-center justify-center bg-gray-50 border border-gray-100 px-4 py-2.5 rounded-xl shadow-inner min-w-[90px]">
-                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">Score</span>
-                          <span className={`text-lg font-extrabold block mt-0.5 ${
-                            attempt.overall_score >= 40 
-                              ? 'text-green-600' 
-                              : attempt.overall_score >= 25 
-                                ? 'text-amber-600' 
-                                : 'text-red-600'
-                          }`}>
-                            {Math.round(attempt.overall_score)} / 50
-                          </span>
+                        <div className="flex items-center gap-6 ml-4">
+                          {/* Minimal Score display when collapsed or expanded */}
+                          <div className="text-right flex flex-col items-end">
+                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Score</span>
+                            <span className={`text-sm font-extrabold ${
+                              attempt.overall_score >= 40 
+                                ? 'text-green-600' 
+                                : attempt.overall_score >= 25 
+                                  ? 'text-amber-600' 
+                                  : 'text-red-600'
+                            }`}>
+                              {Math.round(attempt.overall_score)} / 50
+                            </span>
+                          </div>
+                          <div className="p-1.5 bg-gray-50 rounded-full text-gray-400 hover:text-gray-600">
+                            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                          </div>
                         </div>
                       </div>
+                      
+                      {/* Collapsible Content */}
+                      {isExpanded && (
+                        <div className="p-6 border-t border-gray-100 flex flex-col space-y-4 bg-gray-50/30">
+                          {/* Completed Topics list */}
+                          {completedTopics.length > 0 && (
+                            <div className="bg-white p-4 rounded-xl border border-gray-100 text-sm">
+                              <span className="font-bold text-gray-700 block mb-2 text-xs uppercase tracking-wider">Completed Topics Covered</span>
+                              <div className="flex flex-wrap gap-2">
+                                {completedTopics.map((topic, i) => (
+                                  <span key={i} className="px-2.5 py-1 bg-gray-50 border border-gray-100 rounded-md text-gray-600 font-medium text-xs">
+                                    {topic}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                      {/* Completed Topics list */}
-                      {completedTopics.length > 0 && (
-                        <div className="bg-gray-50/50 p-3 rounded-xl border border-gray-100/50 text-xs">
-                          <span className="font-bold text-gray-700 block mb-1.5">Completed Topics Covered:</span>
-                          <ul className="list-disc pl-4 space-y-1 text-gray-600 font-medium">
-                            {completedTopics.map((topic, i) => (
-                              <li key={i}>{topic}</li>
-                            ))}
-                          </ul>
+                          {/* Performance Feedback */}
+                          <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-50/50">
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1.5">Overall Performance Feedback</span>
+                            <p className="text-sm text-gray-700 leading-relaxed italic font-medium">
+                              "{attempt.feedback}"
+                            </p>
+                          </div>
+
+                          {/* Metrics Summary panel */}
+                          <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                              <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Attempted</span>
+                              <span className="text-sm font-bold text-gray-700 mt-1 block">5 / 5 Qs</span>
+                            </div>
+                            <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                              <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Completion</span>
+                              <span className="text-sm font-bold text-gray-700 mt-1 block">100%</span>
+                            </div>
+                            <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                              <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Date</span>
+                              <span className="text-sm font-bold text-gray-700 mt-1 block">
+                                {new Date(attempt.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 flex justify-end">
+                            <button
+                              onClick={() => handleViewDetails(attempt)}
+                              className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-xl transition-all text-sm shadow-md flex items-center gap-2"
+                            >
+                              <Award className="w-4 h-4" />
+                              View Full Report
+                            </button>
+                          </div>
                         </div>
                       )}
-
-                      {/* Performance Feedback */}
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Overall Performance Feedback</span>
-                        <p className="text-sm text-gray-700 leading-relaxed italic font-medium">
-                          "{attempt.feedback}"
-                        </p>
-                      </div>
-
-                      {/* Metrics Summary panel */}
-                      <div className="pt-3 border-t border-gray-100 grid grid-cols-3 gap-2 text-center">
-                        <div className="p-2 bg-gray-50 rounded-lg">
-                          <span className="text-[9px] text-gray-400 block font-semibold uppercase tracking-wider">Attempted</span>
-                          <span className="text-xs font-bold text-gray-700 mt-0.5 block">5 / 5 Qs</span>
-                        </div>
-                        <div className="p-2 bg-gray-50 rounded-lg">
-                          <span className="text-[9px] text-gray-400 block font-semibold uppercase tracking-wider">Completion</span>
-                          <span className="text-xs font-bold text-gray-700 mt-0.5 block">100%</span>
-                        </div>
-                        <div className="p-2 bg-gray-50 rounded-lg">
-                          <span className="text-[9px] text-gray-400 block font-semibold uppercase tracking-wider">Overall Score</span>
-                          <span className="text-xs font-bold text-gray-700 mt-0.5 block">{Math.round(attempt.overall_score)} / 50</span>
-                        </div>
-                      </div>
-
-                      {/* Assessment Date & View Full Report */}
-                      <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-4">
-                        <span className="text-xs text-gray-400 font-medium">
-                          Date: {new Date(attempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                        </span>
-                        <button
-                          onClick={() => handleViewDetails(attempt)}
-                          className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-xl transition-all text-xs shadow-md"
-                        >
-                          View Full Report
-                        </button>
-                      </div>
                     </div>
                   );
                 })}
@@ -941,19 +988,34 @@ const AssessmentPage = () => {
                         Question-by-Question Breakdown
                       </h4>
                       
-                      {attemptQuestions.map((result, idx) => (
-                        <div key={idx} className="p-5 border border-gray-100 rounded-2xl bg-white space-y-3 shadow-sm">
-                          <div className="flex justify-between items-start">
-                            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full font-sans">
-                              Question {idx + 1}
-                            </span>
+                      {attemptQuestions.map((result, idx) => {
+                        const isExpanded = expandedAttemptQuestions[idx];
+                        return (
+                          <div key={idx} className="border border-gray-100 rounded-2xl bg-white shadow-sm overflow-hidden">
+                            <div 
+                              onClick={() => toggleAttemptQuestionExpand(idx)}
+                              className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50/50 transition-colors"
+                            >
+                              <div className="flex items-center gap-3 flex-1 pr-4">
+                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full font-sans whitespace-nowrap">
+                                  Q {idx + 1}
+                                </span>
+                                <h5 className="text-sm font-bold text-gray-800 line-clamp-1">{result.question}</h5>
+                              </div>
+                              <div className="text-gray-400 flex-shrink-0">
+                                {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                              </div>
+                            </div>
+                            
+                            {isExpanded && (
+                              <div className="p-5 pt-2 border-t border-gray-50 bg-gray-50/30">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Answer</p>
+                                <p className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-gray-100 italic">"{result.answer}"</p>
+                              </div>
+                            )}
                           </div>
-                          <div>
-                            <h5 className="text-sm font-bold text-gray-800">Q: {result.question}</h5>
-                            <p className="text-sm text-gray-600 mt-1 italic">Answer: "{result.answer}"</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </>
                 )}
