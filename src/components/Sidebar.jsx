@@ -11,7 +11,8 @@ import {
   FileQuestion, 
   BarChart3, 
   MessageSquare,
-  LogOut
+  LogOut,
+  Database
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -32,12 +33,13 @@ const Sidebar = () => {
     { name: 'Risks', path: '/risks', icon: <AlertTriangle size={20} /> },
     { name: 'Assessment', path: '/assessment', icon: <FileQuestion size={20} /> },
     { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> },
+    { name: 'Knowledge Base', path: '/knowledge-base', icon: <Database size={20} /> },
     { name: 'Chatbot', path: '/chatbot', icon: <MessageSquare size={20} /> },
   ];
 
   const roleAccess = {
     'Delivery / Engagement Manager': ['Dashboard', 'Stakeholders', 'KT Plan', 'Schedule', 'Tracking', 'Risks', 'Assessment', 'Reports'],
-    'Outgoing SME (Knowledge Giver)': ['Dashboard', 'Assessment', 'Chatbot'],
+    'Outgoing SME (Knowledge Giver)': ['Dashboard', 'Assessment', 'Knowledge Base', 'Chatbot'],
     'Incoming Team Member (Knowledge Receiver)': ['Dashboard', 'Schedule', 'Assessment', 'Chatbot'],
     'PwC Leadership': ['Dashboard', 'Stakeholders', 'Reports', 'Tracking', 'Risks', 'Assessment'],
   };
