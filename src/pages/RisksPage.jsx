@@ -3,6 +3,7 @@ import { getPlans, getRisks, detectRisks, escalateRisk, getKnowledgeDocuments, u
 import Loader from '../components/Loader';
 import { AlertTriangle, AlertCircle, FileText, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import ManagerWiseRiskView from '../components/ManagerWiseRiskView';
 
 const RisksPage = () => {
   const { user } = useAuth();
@@ -112,6 +113,43 @@ const RisksPage = () => {
   };
 
   if (loading) return <Loader />;
+
+  if (user?.role === 'leadership' || user?.role === 'PwC Leadership') {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+          <AlertTriangle className="mr-2 text-red-500" /> AI Risk Detection & Oversight
+        </h2>
+
+        <ManagerWiseRiskView 
+          refreshTrigger={detecting} 
+          renderHeader={() => (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center h-full">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Analyze</label>
+              <div className="flex items-center justify-between w-full">
+                <select
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md mr-4"
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
+                >
+                  {plans.map(p => (
+                    <option key={p.id} value={p.id}>{p.application_name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleDetectRisks}
+                  disabled={detecting || !selectedPlanId}
+                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {detecting ? 'Analyzing...' : 'Run AI Risk Detection'}
+                </button>
+              </div>
+            </div>
+          )}
+        />
+      </div>
+    );
+  }
 
   const isManager = user?.role === 'Delivery / Engagement Manager';
 

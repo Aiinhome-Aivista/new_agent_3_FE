@@ -16,6 +16,7 @@ const ReportsPage = () => {
   const [isAllTopicsCovered, setIsAllTopicsCovered] = useState(false);
   const [viewingReport, setViewingReport] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [planCompletionStatus, setPlanCompletionStatus] = useState({});
 
   useEffect(() => {
     const fetchInit = async () => {
@@ -70,6 +71,38 @@ const ReportsPage = () => {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    const fetchPlanStatuses = async () => {
+      const uniquePlanIds = [...new Set(reports.map(r => r.plan_id))];
+      const statuses = { ...planCompletionStatus };
+      let updated = false;
+
+      for (const id of uniquePlanIds) {
+        if (statuses[id] === undefined) {
+          try {
+            const res = await getPlanSummary(id);
+            if (res.data && res.data.success) {
+              statuses[id] = (res.data.data.avg_completion_percent === 100);
+            } else {
+              statuses[id] = false;
+            }
+          } catch (err) {
+             statuses[id] = false;
+          }
+          updated = true;
+        }
+      }
+      
+      if (updated) {
+        setPlanCompletionStatus(statuses);
+      }
+    };
+    
+    if (reports.length > 0) {
+      fetchPlanStatuses();
+    }
+  }, [reports]);
 
   const handleViewReport = async (reportId) => {
     setViewLoading(true);
@@ -175,11 +208,22 @@ const ReportsPage = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {currentReports.map((r) => (
+            {currentReports.map((r) => {
+              const isPlanComplete = planCompletionStatus[r.plan_id] === true;
+              let displayType = r.report_type;
+              if (r.report_type === 'final' && !isPlanComplete) {
+                displayType = 'draft';
+              }
+
+              return (
               <tr key={r.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${r.report_type === 'final' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
-                    {r.report_type}
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    displayType === 'draft' ? 'bg-amber-100 text-amber-800' : 
+                    displayType === 'final' ? 'bg-purple-100 text-purple-800' : 
+                    'bg-blue-100 text-blue-800'
+                  }`}>
+                    {displayType === 'draft' ? 'Draft Report' : displayType === 'final' ? 'Final Report' : r.report_type}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
@@ -197,17 +241,23 @@ const ReportsPage = () => {
                   >
                     <Eye size={16} className="mr-1" /> View
                   </button>
-                  <a
-                    href={`${baseURL}/reports/download/${r.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:text-blue-900 inline-flex items-center"
-                  >
-                    <Download size={16} className="mr-1" /> Download
-                  </a>
+                  {displayType === 'draft' ? (
+                    <span className="text-gray-400 inline-flex items-center cursor-not-allowed" title="KT Plan not 100% complete">
+                      <Download size={16} className="mr-1" /> Download
+                    </span>
+                  ) : (
+                    <a
+                      href={`${baseURL}/reports/download/${r.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-900 inline-flex items-center"
+                    >
+                      <Download size={16} className="mr-1" /> Download
+                    </a>
+                  )}
                 </td>
               </tr>
-            ))}
+            )})}
             {reports.length === 0 && (
               <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No reports generated yet.</td></tr>
             )}
