@@ -344,10 +344,10 @@ const SchedulePage = () => {
                 type="submit"
                 disabled={scheduling || (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${scheduling
-                    ? 'bg-blue-400 cursor-not-allowed'
-                    : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-700'
+                  ? 'bg-blue-400 cursor-not-allowed'
+                  : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
                   }`}
               >
                 {scheduling ? (
@@ -379,7 +379,12 @@ const SchedulePage = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Title</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Link</th>
+                {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Link</th>
+                )}
+                {user?.role === 'Delivery / Engagement Manager' && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
@@ -399,26 +404,33 @@ const SchedulePage = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{m.title}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {m.meeting_link ? (
-                        <div className="relative group inline-block">
-                          <a
-                            href={m.meeting_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                          >
-                            Join Meeting
-                          </a>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
-                            {m.meeting_link}
-                            <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
+                    {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {m.meeting_link ? (
+                          <div className="relative group inline-block">
+                            <a
+                              href={m.meeting_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                            >
+                              Join Meeting
+                            </a>
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
+                              {m.meeting_link}
+                              <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
+                            </div>
                           </div>
-                        </div>
-                      ) : (
-                        'N/A'
-                      )}
-                    </td>
+                        ) : (
+                          'N/A'
+                        )}
+                      </td>
+                    )}
+                    {user?.role === 'Delivery / Engagement Manager' && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-semibold text-indigo-600">
+                        {m.attendance_rate_percent !== undefined ? `${m.attendance_rate_percent}%` : 'N/A'}
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs rounded-full ${m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
                         {m.status}
