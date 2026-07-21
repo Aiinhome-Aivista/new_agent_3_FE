@@ -125,6 +125,7 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   }
 
   const { managers = [], total_risks = 0 } = data;
+  const filteredManagers = managers.filter(m => m.manager_name !== 'Unassigned');
 
   return (
     <div className="space-y-6">
@@ -151,10 +152,10 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {managers.map((m, idx) => (
+            {filteredManagers.map((m, idx) => (
               <ManagerRow key={idx} m={m} />
             ))}
-            {managers.length === 0 && (
+            {filteredManagers.length === 0 && (
               <tr><td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">No data available yet.</td></tr>
             )}
           </tbody>
