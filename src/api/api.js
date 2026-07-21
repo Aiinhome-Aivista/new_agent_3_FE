@@ -59,6 +59,7 @@ export const getMeetings = (planId) => {
 };
 export const updateMeetingStatus = (id, status) => api.put(`/schedule/meetings/${id}/status`, { status });
 export const notifyMeeting = (id) => api.post(`/schedule/meetings/${id}/notify`);
+export const rescheduleMeeting = (id, data) => api.put(`/schedule/meetings/${id}/reschedule`, data);
 
 // Tracking
 export const markAttendance = (data) => api.post('/tracking/attendance', data);
