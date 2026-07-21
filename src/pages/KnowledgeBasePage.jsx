@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, uploadKnowledgeDocument, getKnowledgeDocuments, getPlanTopicOptions } from '../api/api';
+import { getPlans, uploadKnowledgeDocument, getKnowledgeDocuments, getPlanTopicOptions, extractVideoTranscript, uploadTranscript } from '../api/api';
 import Loader from '../components/Loader';
-import { Upload, FileText, Database } from 'lucide-react';
+import { Upload, FileText, Database, Video } from 'lucide-react';
 
 const KnowledgeBasePage = () => {
   const [plans, setPlans] = useState([]);
@@ -14,6 +14,12 @@ const KnowledgeBasePage = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [topicOptions, setTopicOptions] = useState([]);
+
+  // Transcript states
+  const [videoUrl, setVideoUrl] = useState('');
+  const [extracting, setExtracting] = useState(false);
+  const [extractedTranscript, setExtractedTranscript] = useState('');
+  const [uploadingTranscript, setUploadingTranscript] = useState(false);
 
   useEffect(() => {
     fetchPlans();
@@ -102,6 +108,65 @@ const KnowledgeBasePage = () => {
       setErrorMsg(err.response?.data?.message || 'Failed to upload document.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleExtractTranscript = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+    setExtractedTranscript('');
+
+    if (!videoUrl) {
+      setErrorMsg('Please enter a video URL.');
+      return;
+    }
+
+    setExtracting(true);
+    try {
+      const res = await extractVideoTranscript({ url: videoUrl });
+      setExtractedTranscript(res.data.data.transcript);
+      setSuccessMsg('Transcript extracted successfully. You can now edit and upload it.');
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.message || 'Failed to extract transcript.');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleUploadTranscript = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    if (!extractedTranscript) {
+      setErrorMsg('No transcript to upload.');
+      return;
+    }
+    if (!ktDay.trim()) {
+      setErrorMsg('Please enter a Day (e.g., Day 1) before uploading transcript.');
+      return;
+    }
+
+    setUploadingTranscript(true);
+    try {
+      await uploadTranscript({
+        plan_id: selectedPlanId,
+        kt_day: ktDay,
+        text: extractedTranscript,
+        url: videoUrl
+      });
+      setSuccessMsg('Transcript uploaded and processed successfully.');
+      setExtractedTranscript('');
+      setVideoUrl('');
+      setKtDay('');
+      fetchDocuments();
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.message || 'Failed to upload transcript.');
+    } finally {
+      setUploadingTranscript(false);
     }
   };
 
@@ -205,10 +270,60 @@ const KnowledgeBasePage = () => {
                     Uploading & Indexing...
                   </>
                 ) : (
-                  'Upload to Vector DB'
+                  'Upload to Knowledgebase'
                 )}
               </button>
             </form>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+              <Video className="mr-2" size={20} />
+              Extract Video Transcript
+            </h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Video Link (e.g., AwesomeScreenshot, MS Teams)</label>
+                <input
+                  type="url"
+                  placeholder="Paste video link here"
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                />
+              </div>
+
+              <button
+                onClick={handleExtractTranscript}
+                disabled={extracting || !videoUrl}
+                className={`w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                  extracting || !videoUrl ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex justify-center items-center`}
+              >
+                {extracting ? 'Extracting...' : 'Extract Transcript'}
+              </button>
+
+              {extractedTranscript && (
+                <div className="mt-4 space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">Edit Transcript</label>
+                  <textarea
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 h-32"
+                    value={extractedTranscript}
+                    onChange={(e) => setExtractedTranscript(e.target.value)}
+                  />
+                  <button
+                    onClick={handleUploadTranscript}
+                    disabled={uploadingTranscript}
+                    className={`w-full py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-colors duration-200 ${
+                      uploadingTranscript ? 'bg-indigo-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                    } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex justify-center items-center`}
+                  >
+                    {uploadingTranscript ? 'Uploading...' : 'Upload to Knowledgebase'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2">
