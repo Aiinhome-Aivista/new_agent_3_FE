@@ -369,6 +369,8 @@ const SchedulePage = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Title</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
@@ -377,9 +379,15 @@ const SchedulePage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {meetings.map((m) => (
+              {meetings.map((m) => {
+                const dayStr = m.day_label || '-';
+                const cleanTitle = m.title.replace(/^.*?(Day\s*\d+[^:-]*[:-]\s*)/i, '').replace(/^Day\s*\d+\s*/i, '');
+
+                return (
                 <tr key={m.id}>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{m.title}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 break-words min-w-[150px] max-w-[200px]">{m.plan_name || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">{dayStr}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{cleanTitle || m.title}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-semibold text-indigo-600">
                   {m.attendance_rate_percent !== undefined ? `${m.attendance_rate_percent}%` : 'N/A'}
@@ -395,39 +403,47 @@ const SchedulePage = () => {
                       onClick={() => handleOpenAttendanceModal(m)} 
                       disabled={fetchingAttendees === m.id}
                       className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
+                      title="Attendance"
                     >
-                      <ClipboardList size={16} className="mr-1" />
-                      {fetchingAttendees === m.id ? 'Loading...' : 'Attendance'}
+                      {fetchingAttendees === m.id ? (
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                        </svg>
+                      ) : (
+                        <ClipboardList size={20} />
+                      )}
                     </button>
                     {m.status === 'scheduled' && (
                       <>
                         {notifiedId === m.id ? (
-                          <span className="text-green-600 flex items-center mr-4 transition-all duration-300">
-                            <CheckCircle size={16} className="mr-1" /> Sent!
+                          <span className="text-green-600 flex items-center mr-4 transition-all duration-300" title="Sent!">
+                            <CheckCircle size={20} />
                           </span>
                         ) : (
-                          <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900 mr-4">
-                            <Bell size={18} className="inline mr-1" /> Notify
+                          <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900 mr-4" title="Notify">
+                            <Bell size={20} />
                           </button>
                         )}
                         {user?.role === 'Delivery / Engagement Manager' && (
                           <button
                             onClick={() => handleOpenRescheduleModal(m)}
                             className="text-amber-600 hover:text-amber-800 mr-4 inline-flex items-center"
-                            title="Reschedule meeting time on the same date"
+                            title="Reschedule"
                           >
-                            <Clock size={18} className="inline mr-1" /> Reschedule
+                            <Clock size={20} />
                           </button>
                         )}
-                        <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900">
-                          <CheckCircle size={18} className="inline mr-1" /> Complete
+                        <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900" title="Complete">
+                          <CheckCircle size={20} />
                         </button>
                       </>
                     )}
                   </td>
                 )}
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
         </div>
