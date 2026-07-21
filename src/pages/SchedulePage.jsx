@@ -21,7 +21,7 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder }
   return (
     <div className="relative" ref={dropdownRef}>
       <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div 
+      <div
         className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white cursor-pointer flex justify-between items-center"
         onClick={() => setIsOpen(!isOpen)}
       >
@@ -72,8 +72,8 @@ const SchedulePage = () => {
   const [loading, setLoading] = useState(true);
   const [scheduling, setScheduling] = useState(false);
   const [notifiedId, setNotifiedId] = useState(null);
-  const [formData, setFormData] = useState({ 
-    plan_id: '', 
+  const [formData, setFormData] = useState({
+    plan_id: '',
     scheduled_at: '',
     meeting_link: ''
   });
@@ -142,17 +142,17 @@ const SchedulePage = () => {
   };
 
   const handleToggleAttendee = (stakeholderId) => {
-    setAttendees(prev => prev.map(a => 
-      a.stakeholder_id === stakeholderId 
-        ? { ...a, attended: a.attended ? 0 : 1 } 
+    setAttendees(prev => prev.map(a =>
+      a.stakeholder_id === stakeholderId
+        ? { ...a, attended: a.attended ? 0 : 1 }
         : a
     ));
   };
 
   const handleNotesChange = (stakeholderId, notes) => {
-    setAttendees(prev => prev.map(a => 
-      a.stakeholder_id === stakeholderId 
-        ? { ...a, notes: notes } 
+    setAttendees(prev => prev.map(a =>
+      a.stakeholder_id === stakeholderId
+        ? { ...a, notes: notes }
         : a
     ));
   };
@@ -160,7 +160,7 @@ const SchedulePage = () => {
   const handleSaveAttendance = async () => {
     setSavingAttendance(true);
     try {
-      await Promise.all(attendees.map(a => 
+      await Promise.all(attendees.map(a =>
         markAttendance({
           meeting_id: attendanceMeeting.id,
           stakeholder_id: a.stakeholder_id,
@@ -227,10 +227,10 @@ const SchedulePage = () => {
         meeting_link: formData.meeting_link,
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders]
       });
-      setFormData({ 
-        plan_id: plans.length > 0 ? plans[0].id : '', 
-        scheduled_at: '', 
-        meeting_link: '' 
+      setFormData({
+        plan_id: plans.length > 0 ? plans[0].id : '',
+        scheduled_at: '',
+        meeting_link: ''
       });
       setSelectedStakeholders([]);
       setSelectedOrganizers([]);
@@ -279,7 +279,7 @@ const SchedulePage = () => {
               <select
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                 value={formData.plan_id}
-                onChange={(e) => setFormData({...formData, plan_id: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
                 required
               >
                 <option value="">-- Select Plan --</option>
@@ -315,7 +315,7 @@ const SchedulePage = () => {
                 type="date" required
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                 value={formData.scheduled_at}
-                onChange={(e) => setFormData({...formData, scheduled_at: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
               />
             </div>
             <div>
@@ -324,7 +324,7 @@ const SchedulePage = () => {
                 type="url"
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
                 value={formData.meeting_link}
-                onChange={(e) => setFormData({...formData, meeting_link: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
                 placeholder="https://meet.google.com/..."
               />
             </div>
@@ -343,13 +343,12 @@ const SchedulePage = () => {
               <button
                 type="submit"
                 disabled={scheduling || (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)}
-                className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
-                  scheduling
+                className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${scheduling
                     ? 'bg-blue-400 cursor-not-allowed'
                     : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-blue-600 hover:bg-blue-700'
-                }`}
+                  }`}
               >
                 {scheduling ? (
                   <>
@@ -386,82 +385,94 @@ const SchedulePage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {meetings.map((m) => (
-                <tr key={m.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
-                    {plans.find(p => p.id === m.plan_id)?.application_name || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {m.dayLabel || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{m.title}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {m.meeting_link ? (
-                      <div className="relative group inline-block">
-                        <a 
-                          href={m.meeting_link} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                        >
-                          Join Meeting
-                        </a>
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
-                          {m.meeting_link}
-                          <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
-                        </div>
-                      </div>
-                    ) : (
-                      'N/A'
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 text-xs rounded-full ${m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                    {m.status}
-                  </span>
-                </td>
-                {canManage && (
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
-                    <button 
-                      onClick={() => handleOpenAttendanceModal(m)} 
-                      disabled={fetchingAttendees === m.id}
-                      className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
-                    >
-                      <ClipboardList size={16} className="mr-1" />
-                      {fetchingAttendees === m.id ? 'Loading...' : 'Attendance'}
-                    </button>
-                    {m.status === 'scheduled' && (
-                      <>
-                        {notifiedId === m.id ? (
-                          <span className="text-green-600 flex items-center mr-4 transition-all duration-300">
-                            <CheckCircle size={16} className="mr-1" /> Sent!
-                          </span>
-                        ) : (
-                          <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900 mr-4">
-                            <Bell size={18} className="inline mr-1" /> Notify
-                          </button>
-                        )}
-                        {user?.role === 'Delivery / Engagement Manager' && (
-                          <button
-                            onClick={() => handleOpenRescheduleModal(m)}
-                            className="text-amber-600 hover:text-amber-800 mr-4 inline-flex items-center"
-                            title="Reschedule meeting time on the same date"
+              {meetings.map((m) => {
+                const dayStr = m.day_label || '-';
+                const cleanTitle = m.title.replace(/^.*?(Day\s*\d+[^:-]*[:-]\s*)/i, '').replace(/^Day\s*\d+\s*/i, '');
+
+                return (
+                  <tr key={m.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                      {plans.find(p => p.id === m.plan_id)?.application_name || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {m.dayLabel || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{m.title}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {m.meeting_link ? (
+                        <div className="relative group inline-block">
+                          <a
+                            href={m.meeting_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                           >
-                            <Clock size={18} className="inline mr-1" /> Reschedule
-                          </button>
-                        )}
-                        <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900">
-                          <CheckCircle size={18} className="inline mr-1" /> Complete
+                            Join Meeting
+                          </a>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
+                            {m.meeting_link}
+                            <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
+                          </div>
+                        </div>
+                      ) : (
+                        'N/A'
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {m.status}
+                      </span>
+                    </td>
+                    {canManage && (
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
+                        <button
+                          onClick={() => handleOpenAttendanceModal(m)}
+                          disabled={fetchingAttendees === m.id}
+                          className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
+                          title="Attendance"
+                        >
+                          {fetchingAttendees === m.id ? (
+                            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                            </svg>
+                          ) : (
+                            <ClipboardList size={20} />
+                          )}
                         </button>
-                      </>
+                        {m.status === 'scheduled' && (
+                          <>
+                            {notifiedId === m.id ? (
+                              <span className="text-green-600 flex items-center mr-4 transition-all duration-300" title="Sent!">
+                                <CheckCircle size={20} />
+                              </span>
+                            ) : (
+                              <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900 mr-4" title="Notify">
+                                <Bell size={20} />
+                              </button>
+                            )}
+                            {user?.role === 'Delivery / Engagement Manager' && (
+                              <button
+                                onClick={() => handleOpenRescheduleModal(m)}
+                                className="text-amber-600 hover:text-amber-800 mr-4 inline-flex items-center"
+                                title="Reschedule"
+                              >
+                                <Clock size={20} />
+                              </button>
+                            )}
+                            <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900" title="Complete">
+                              <CheckCircle size={20} />
+                            </button>
+                          </>
+                        )}
+                      </td>
                     )}
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
       {/* Attendance Modal */}
@@ -471,10 +482,10 @@ const SchedulePage = () => {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center">
               <h3 className="text-lg font-semibold">
-                {attendanceMeeting.status === 'completed' ? 'View Attendance: ' : 'Mark Attendance: '} 
+                {attendanceMeeting.status === 'completed' ? 'View Attendance: ' : 'Mark Attendance: '}
                 {attendanceMeeting.title}
               </h3>
-              <button 
+              <button
                 onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); }}
                 className="text-white hover:text-gray-200 text-xl font-bold"
               >
@@ -485,11 +496,11 @@ const SchedulePage = () => {
             {/* Content */}
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
               <p className="text-sm text-gray-500">
-                {attendanceMeeting.status === 'completed' 
+                {attendanceMeeting.status === 'completed'
                   ? 'Attendance is locked because the meeting is completed.'
                   : 'Please check the box next to each participant who was present in this meeting.'}
               </p>
-              
+
               <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-white">
                 {attendees.map((attendee) => (
                   <div key={attendee.stakeholder_id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -503,7 +514,7 @@ const SchedulePage = () => {
                         onChange={() => handleToggleAttendee(attendee.stakeholder_id)}
                         disabled={attendanceMeeting.status === 'completed'}
                       />
-                      <label 
+                      <label
                         htmlFor={`attendee-${attendee.stakeholder_id}`}
                         className="text-sm font-medium text-gray-800 cursor-pointer flex-1"
                       >
@@ -525,7 +536,7 @@ const SchedulePage = () => {
                     </div>
                   </div>
                 ))}
-                
+
                 {attendees.length === 0 && (
                   <div className="p-6 text-center text-sm text-gray-500">
                     No participants invited to this meeting.

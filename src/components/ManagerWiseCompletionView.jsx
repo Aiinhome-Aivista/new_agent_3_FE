@@ -11,7 +11,7 @@ const ManagerRow = ({ m }) => {
       <tr onClick={() => setExpanded(!expanded)} className="cursor-pointer hover:bg-gray-50 transition-colors">
         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
           {expanded ? <ChevronUp size={16} className="mr-2 text-gray-500" /> : <ChevronDown size={16} className="mr-2 text-gray-500" />}
-          {m.manager_name}
+          {m.manager_name === 'Unassigned' ? 'Waiting for Approval' : m.manager_name}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{m.total_plans}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -27,7 +27,7 @@ const ManagerRow = ({ m }) => {
         <tr>
           <td colSpan="3" className="px-6 py-4 bg-gray-50 border-t border-gray-100">
             <div className="pl-6">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Plans under {m.manager_name}</h4>
+              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Plans under {m.manager_name === 'Unassigned' ? 'Waiting for Approval' : m.manager_name}</h4>
               {m.plans && m.plans.length > 0 ? (
                 <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-lg mb-2">
                   <table className="min-w-full divide-y divide-gray-200 bg-white">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getStakeholders, createStakeholder } from '../api/api';
+import { getStakeholders, createStakeholder, deleteStakeholder } from '../api/api';
 import Loader from '../components/Loader';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
 
 const Stakeholders = () => {
   const [stakeholders, setStakeholders] = useState([]);
@@ -10,6 +10,7 @@ const Stakeholders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [stakeholderToDelete, setStakeholderToDelete] = useState(null);
 
   const [formData, setFormData] = useState({ name: '', email: '', role: 'Delivery / Engagement Manager' });
 
@@ -42,6 +43,22 @@ const Stakeholders = () => {
       alert('Error creating stakeholder');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = (id) => {
+    setStakeholderToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!stakeholderToDelete) return;
+    try {
+      await deleteStakeholder(stakeholderToDelete);
+      setStakeholderToDelete(null);
+      fetchStakeholders();
+    } catch (err) {
+      alert('Error deleting stakeholder');
+      setStakeholderToDelete(null);
     }
   };
 
@@ -115,6 +132,7 @@ const Stakeholders = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -123,11 +141,20 @@ const Stakeholders = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{person.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{person.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">{person.role.replace('_', ' ')}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => handleDelete(person.id)}
+                      className="text-red-600 hover:text-red-900 focus:outline-none transition-colors"
+                      title="Delete Stakeholder"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {stakeholders.length === 0 && (
                 <tr>
-                  <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">No stakeholders found.</td>
+                  <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">No stakeholders found.</td>
                 </tr>
               )}
             </tbody>
@@ -196,6 +223,37 @@ const Stakeholders = () => {
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {stakeholderToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 transform transition-all">
+            <div className="flex items-center justify-center mb-4 text-red-500">
+              <div className="p-3 bg-red-100 rounded-full">
+                <AlertTriangle size={32} />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-center text-gray-800 mb-2">Delete Stakeholder</h3>
+            <p className="text-center text-gray-600 mb-6">
+              Are you sure you want to delete this stakeholder? This action cannot be undone.
+            </p>
+            <div className="flex justify-center space-x-3">
+              <button
+                onClick={() => setStakeholderToDelete(null)}
+                className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors focus:outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-5 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors focus:outline-none"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

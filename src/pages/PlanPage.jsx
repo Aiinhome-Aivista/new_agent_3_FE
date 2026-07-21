@@ -186,7 +186,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeho
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center ${showTopicsView ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}
               >
                 <List size={14} className="mr-1" />
-                Database Topics ({topics.length})
+                Plan Topics ({topics.length})
               </button>
             </div>
             {showTopicsView && (
@@ -225,7 +225,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeho
             </div>
           ) : (
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-gray-800">Topics Stored in Database (`plan_topics`)</h4>
+              <h4 className="text-sm font-semibold text-gray-800">Plan Topic</h4>
               {loadingTopics ? (
                 <p className="text-xs text-gray-500">Loading topics...</p>
               ) : topics.length === 0 ? (
@@ -242,22 +242,51 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeho
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 bg-white">
-                      {topics.map((t) => (
-                        <tr key={t.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{t.day_label || 'General'}</td>
-                          <td className="px-4 py-2.5 font-medium text-gray-900">{t.topic_name}</td>
-                          <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{t.estimated_duration_hours || 'N/A'}</td>
-                          <td className="px-4 py-2.5 text-right whitespace-nowrap">
-                            <button
-                              onClick={() => handleDeleteTopic(t.id)}
-                              className="text-red-600 hover:text-red-800 inline-flex items-center p-1 rounded"
-                              title="Delete Topic"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {(() => {
+                        const rowSpans = [];
+                        for (let i = 0; i < topics.length; i++) {
+                          if (i === 0 || topics[i].day_label !== topics[i-1].day_label) {
+                            let span = 1;
+                            for (let j = i + 1; j < topics.length; j++) {
+                              if (topics[j].day_label === topics[i].day_label) {
+                                span++;
+                              } else {
+                                break;
+                              }
+                            }
+                            rowSpans[i] = span;
+                          } else {
+                            rowSpans[i] = 0;
+                          }
+                        }
+
+                        return topics.map((t, index) => {
+                          const rSpan = rowSpans[index];
+                          return (
+                            <tr key={t.id} className="hover:bg-gray-50">
+                              {rSpan > 0 && (
+                                <td 
+                                  rowSpan={rSpan} 
+                                  className="px-4 py-2.5 text-gray-700 whitespace-nowrap font-semibold align-middle border-r border-gray-100"
+                                >
+                                  {t.day_label || 'General'}
+                                </td>
+                              )}
+                              <td className="px-4 py-2.5 font-medium text-gray-900">{t.topic_name}</td>
+                              <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{t.estimated_duration_hours || 'N/A'}</td>
+                              <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                                <button
+                                  onClick={() => handleDeleteTopic(t.id)}
+                                  className="text-red-600 hover:text-red-800 inline-flex items-center p-1 rounded"
+                                  title="Delete Topic"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
