@@ -110,6 +110,8 @@ export const uploadKnowledgeDocument = (formData) => api.post('/knowledge/upload
   headers: { 'Content-Type': 'multipart/form-data' }
 });
 export const getKnowledgeDocuments = (planId) => api.get(`/knowledge/plan/${planId}`);
+export const extractVideoTranscript = (data) => api.post('/knowledge/extract-transcript', data);
+export const uploadTranscript = (data) => api.post('/knowledge/upload-transcript', data);
 
 // Guardrails
 export const getGuardrailLogs = () => api.get('/guardrails/');
