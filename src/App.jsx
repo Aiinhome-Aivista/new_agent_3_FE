@@ -14,6 +14,7 @@ import AssessmentPage from './pages/AssessmentPage';
 import ReportsPage from './pages/ReportsPage';
 import ChatbotPage from './pages/ChatbotPage';
 import LoginPage from './pages/LoginPage';
+import KnowledgeBasePage from './pages/KnowledgeBasePage';
 
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
               <Route path="/risks" element={<RisksPage />} />
               <Route path="/assessment" element={<AssessmentPage />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
               <Route path="/chatbot" element={<ChatbotPage />} />
             </Route>
           </Route>

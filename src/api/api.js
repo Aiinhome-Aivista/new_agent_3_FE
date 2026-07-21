@@ -64,6 +64,7 @@ export const getMeetings = (planId) => {
 };
 export const updateMeetingStatus = (id, status) => api.put(`/schedule/meetings/${id}/status`, { status });
 export const notifyMeeting = (id) => api.post(`/schedule/meetings/${id}/notify`);
+export const rescheduleMeeting = (id, data) => api.put(`/schedule/meetings/${id}/reschedule`, data);
 
 // Tracking
 export const markAttendance = (data) => api.post('/tracking/attendance', data);
@@ -118,5 +119,6 @@ export const runFullWorkflow = (data) => api.post('/plans/workflow', data);
 
 // Leadership
 export const getLeadershipCompletionSummary = () => api.get('/leadership/completion-summary');
+export const getLeadershipRiskSummary = () => api.get('/leadership/risk-summary');
 
 export default api;
