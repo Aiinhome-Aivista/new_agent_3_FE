@@ -47,9 +47,14 @@ export const deleteStakeholder = (id) => api.delete(`/stakeholders/${id}`);
 export const generatePlan = (data) => api.post('/plans/generate', data);
 export const getPlans = () => api.get('/plans/');
 export const approvePlan = (id) => api.put(`/plans/${id}/approve`);
+export const editPlan = (id, data) => api.put(`/plans/${id}/edit`, data);
 export const getPlanTopicOptions = (planId) => api.get(`/plans/${planId}/topics`);
 export const resyncPlanTopics = (planId) => api.post(`/plans/${planId}/topics/resync`);
 export const assignPlanManager = (planId, stakeholderId) => api.put(`/plans/${planId}/assign-manager`, { stakeholder_id: stakeholderId });
+export const addPlanTopic = (planId, data) => api.post(`/plans/${planId}/topics`, data);
+export const updatePlanTopic = (topicId, data) => api.put(`/plans/topics/${topicId}`, data);
+export const deletePlanTopic = (topicId) => api.delete(`/plans/topics/${topicId}`);
+
 
 // Schedule
 export const createMeeting = (data) => api.post('/schedule/meetings', data);

@@ -1,12 +1,109 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, generatePlan, approvePlan, runFullWorkflow, getStakeholders, assignPlanManager } from '../api/api';
+import { getPlans, generatePlan, approvePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic } from '../api/api';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeholders, onAssignManager }) => {
+const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
   const [expanded, setExpanded] = useState(false);
   const [selectedManager, setSelectedManager] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(plan.generated_content || '');
+  const [saving, setSaving] = useState(false);
+
+  const [topics, setTopics] = useState([]);
+  const [loadingTopics, setLoadingTopics] = useState(false);
+  const [showTopicsView, setShowTopicsView] = useState(false);
+  const [newDayLabel, setNewDayLabel] = useState('Day 1');
+  const [newTopicName, setNewTopicName] = useState('');
+  const [newDuration, setNewDuration] = useState('1 hour');
+
+  useEffect(() => {
+    setEditedContent(plan.generated_content || '');
+  }, [plan.generated_content]);
+
+  const fetchTopics = async () => {
+    setLoadingTopics(true);
+    try {
+      const res = await getPlanTopicOptions(plan.id);
+      setTopics(res.data.data || []);
+    } catch (err) {
+      console.error("Error fetching topics:", err);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
+
+  useEffect(() => {
+    if (expanded) {
+      fetchTopics();
+    }
+  }, [expanded, plan.id]);
+
+  const handleEditClick = (e) => {
+    e.stopPropagation();
+    setEditedContent(plan.generated_content || '');
+    setIsEditing(true);
+    setExpanded(true);
+  };
+
+  const handleSaveClick = async (e) => {
+    e.stopPropagation();
+    setSaving(true);
+    try {
+      await onPlanUpdate(plan.id, editedContent);
+      setIsEditing(false);
+      await fetchTopics();
+    } catch (err) {
+      alert('Error updating plan: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancelClick = (e) => {
+    e.stopPropagation();
+    setEditedContent(plan.generated_content || '');
+    setIsEditing(false);
+  };
+
+  const handleAddTopic = async (e) => {
+    e.preventDefault();
+    if (!newTopicName.trim()) return;
+    try {
+      await addPlanTopic(plan.id, {
+        day_label: newDayLabel,
+        topic_name: newTopicName,
+        estimated_duration_hours: newDuration
+      });
+      setNewTopicName('');
+      await fetchTopics();
+    } catch (err) {
+      alert('Error adding topic: ' + err.message);
+    }
+  };
+
+  const handleDeleteTopic = async (topicId) => {
+    if (!window.confirm("Are you sure you want to delete this topic from the database?")) return;
+    try {
+      await deletePlanTopic(topicId);
+      await fetchTopics();
+    } catch (err) {
+      alert('Error deleting topic: ' + err.message);
+    }
+  };
+
+  const handleResync = async () => {
+    setLoadingTopics(true);
+    try {
+      await resyncPlanTopics(plan.id);
+      await fetchTopics();
+    } catch (err) {
+      alert('Error resyncing topics: ' + err.message);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
 
   const manager = stakeholders.find(s => s.id == plan.created_by);
   
@@ -29,6 +126,35 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeho
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
             {plan.status.toUpperCase()}
           </span>
+          {plan.status === 'draft' && (
+            <>
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleSaveClick}
+                    disabled={saving}
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={handleCancelClick}
+                    disabled={saving}
+                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleEditClick}
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Edit
+                </button>
+              )}
+            </>
+          )}
           {plan.status === 'draft' && canApprove && (
             <button
               onClick={(e) => {
@@ -43,16 +169,140 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeho
         </div>
       </div>
       {expanded && (
-        <div className="p-6">
-          <div 
-            className="prose prose-sm max-w-none text-gray-600 whitespace-pre-wrap"
-            dangerouslySetInnerHTML={parseMarkdown(plan.generated_content)}
-          />
+        <div className="p-6 space-y-6" onClick={(e) => e.stopPropagation()}>
+          {/* Sub-header view switcher */}
+          <div className="flex justify-between items-center border-b pb-3">
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => setShowTopicsView(false)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!showTopicsView ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                Plan Document
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTopicsView(true)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center ${showTopicsView ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}
+              >
+                <List size={14} className="mr-1" />
+                Database Topics ({topics.length})
+              </button>
+            </div>
+            {showTopicsView && (
+              <button
+                type="button"
+                onClick={handleResync}
+                disabled={loadingTopics}
+                className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+              >
+                <RefreshCw size={12} className={`mr-1 ${loadingTopics ? 'animate-spin' : ''}`} />
+                Re-sync from Plan
+              </button>
+            )}
+          </div>
+
+          {!showTopicsView ? (
+            <div>
+              {isEditing ? (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">
+                    💡 Tip: Editing and saving this plan document will automatically re-extract and update the topics in the database (<code className="bg-gray-100 px-1 rounded">plan_topics</code> table).
+                  </p>
+                  <textarea
+                    value={editedContent}
+                    onChange={(e) => setEditedContent(e.target.value)}
+                    className="w-full h-96 p-4 border border-gray-300 rounded-lg text-sm font-mono text-gray-800 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    placeholder="Edit your markdown plan here..."
+                  />
+                </div>
+              ) : (
+                <div 
+                  className="prose prose-sm max-w-none text-gray-600 whitespace-pre-wrap"
+                  dangerouslySetInnerHTML={parseMarkdown(plan.generated_content)}
+                />
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-gray-800">Topics Stored in Database (`plan_topics`)</h4>
+              {loadingTopics ? (
+                <p className="text-xs text-gray-500">Loading topics...</p>
+              ) : topics.length === 0 ? (
+                <p className="text-xs text-gray-500 italic">No topics stored yet. Click "Re-sync from Plan" or add a topic below.</p>
+              ) : (
+                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200 text-xs">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Day / Section</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Topic / Sub-topic Name</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Duration</th>
+                        <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {topics.map((t) => (
+                        <tr key={t.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2.5 text-gray-700 whitespace-nowrap">{t.day_label || 'General'}</td>
+                          <td className="px-4 py-2.5 font-medium text-gray-900">{t.topic_name}</td>
+                          <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{t.estimated_duration_hours || 'N/A'}</td>
+                          <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => handleDeleteTopic(t.id)}
+                              className="text-red-600 hover:text-red-800 inline-flex items-center p-1 rounded"
+                              title="Delete Topic"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Add Topic Form */}
+              <form onSubmit={handleAddTopic} className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-700">Add Topic:</span>
+                <input
+                  type="text"
+                  placeholder="Day (e.g. Day 1)"
+                  value={newDayLabel}
+                  onChange={(e) => setNewDayLabel(e.target.value)}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded shadow-sm w-28 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  required
+                  placeholder="Main topic or sub-topic name"
+                  value={newTopicName}
+                  onChange={(e) => setNewTopicName(e.target.value)}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded shadow-sm flex-1 min-w-[200px] focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Duration (e.g. 1 hour)"
+                  value={newDuration}
+                  onChange={(e) => setNewDuration(e.target.value)}
+                  className="px-2 py-1 text-xs border border-gray-300 rounded shadow-sm w-32 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex items-center px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded shadow-sm"
+                >
+                  <Plus size={12} className="mr-1" /> Add
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
+
 
 const PlanPage = () => {
   const { user } = useAuth();
@@ -144,9 +394,15 @@ const PlanPage = () => {
     }
   };
 
+  const handlePlanUpdate = async (planId, content) => {
+    await editPlan(planId, { generated_content: content });
+    setPlans(prevPlans => prevPlans.map(p => p.id === planId ? { ...p, generated_content: content } : p));
+    await fetchPlans();
+  };
+
   if (loading) return <Loader />;
 
-  const canGenerate = user?.role === 'Outgoing SME (Knowledge Giver)';
+  const canGenerate = user?.role === 'Outgoing SME (Knowledge Giver)' || user?.role === 'Delivery / Engagement Manager';
   const canApprove = user?.role === 'Delivery / Engagement Manager';
 
   const parseMarkdown = (text) => {
@@ -278,6 +534,7 @@ const PlanPage = () => {
             parseMarkdown={parseMarkdown}
             stakeholders={stakeholders}
             onAssignManager={handleAssignManager}
+            onPlanUpdate={handlePlanUpdate}
           />
         ))}
         {plans.length === 0 && <p className="text-gray-500 text-center py-8">No plans generated yet.</p>}
