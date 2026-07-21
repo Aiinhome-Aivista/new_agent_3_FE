@@ -188,7 +188,14 @@ const SchedulePage = () => {
         getStakeholders('Incoming Team Member (Knowledge Receiver)'),
         getStakeholders('Outgoing SME (Knowledge Giver)')
       ]);
-      setMeetings(meetingsRes.data.data);
+      const fetchedMeetings = meetingsRes.data.data;
+      const planCounts = {};
+      const processedMeetings = fetchedMeetings.map(m => {
+        if (!planCounts[m.plan_id]) planCounts[m.plan_id] = 1;
+        else planCounts[m.plan_id]++;
+        return { ...m, dayLabel: `Day ${planCounts[m.plan_id]}` };
+      });
+      setMeetings(processedMeetings);
       setPlans(plansRes.data.data.filter(p => p.status === 'approved'));
       setStakeholders(receiversRes.data.data);
       setKnowledgeGivers(giversRes.data.data);
@@ -369,9 +376,11 @@ const SchedulePage = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Title</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Title</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Link</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
               </tr>
@@ -379,12 +388,35 @@ const SchedulePage = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {meetings.map((m) => (
                 <tr key={m.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                    {plans.find(p => p.id === m.plan_id)?.application_name || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {m.dayLabel || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{m.title}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-semibold text-indigo-600">
-                  {m.attendance_rate_percent !== undefined ? `${m.attendance_rate_percent}%` : 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {m.meeting_link ? (
+                      <div className="relative group inline-block">
+                        <a 
+                          href={m.meeting_link} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                        >
+                          Join Meeting
+                        </a>
+                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
+                          {m.meeting_link}
+                          <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0"/></svg>
+                        </div>
+                      </div>
+                    ) : (
+                      'N/A'
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs rounded-full ${m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
                     {m.status}
                   </span>
