@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, generatePlan, approvePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic } from '../api/api';
+import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic } from '../api/api';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
@@ -314,6 +314,11 @@ const PlanPage = () => {
   const [runningWorkflow, setRunningWorkflow] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
+  const [docFormData, setDocFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [analyzingDoc, setAnalyzingDoc] = useState(false);
+  const [generatingDocPlan, setGeneratingDocPlan] = useState(false);
+  const [isDocExtracted, setIsDocExtracted] = useState(false);
 
   const [stakeholders, setStakeholders] = useState([]);
 
@@ -363,6 +368,51 @@ const PlanPage = () => {
       alert('Error generating plan');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleDocFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setAnalyzingDoc(true);
+    setIsDocExtracted(false);
+    try {
+      const uploadData = new FormData();
+      uploadData.append('file', file);
+      const res = await extractPlanInfoFromDoc(uploadData);
+      if (res.data?.success && res.data?.data) {
+        setDocFormData(prev => ({
+          ...prev,
+          application_name: res.data.data.application_name || '',
+          scope_description: res.data.data.scope_description || ''
+        }));
+        setIsDocExtracted(true);
+      }
+    } catch (err) {
+      alert('Error analyzing document: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setAnalyzingDoc(false);
+    }
+  };
+
+  const handleGenerateWithDoc = async (e) => {
+    e.preventDefault();
+    if (!docFormData.application_name || !docFormData.scope_description) {
+      alert('Please fill out Plan Name and Scope Description or upload a document to auto-extract them.');
+      return;
+    }
+    setGeneratingDocPlan(true);
+    try {
+      await generatePlan(docFormData);
+      setDocFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
+      setSelectedFile(null);
+      setIsDocExtracted(false);
+      fetchPlans();
+    } catch (err) {
+      alert('Error generating plan from document: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setGeneratingDocPlan(false);
     }
   };
 
@@ -427,70 +477,180 @@ const PlanPage = () => {
       <h2 className="text-2xl font-bold text-gray-800">KT Plans</h2>
 
       {canGenerate && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Plan with AI</h3>
-          <form onSubmit={handleGenerate} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Plan Name</label>
-              <input
-                type="text" required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                value={formData.application_name}
-                onChange={(e) => setFormData({...formData, application_name: e.target.value})}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700">Scope Description</label>
-              <input
-                type="text" required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                value={formData.scope_description}
-                onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Plan Type</label>
-              <select
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                value={formData.plan_type}
-                onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
-              >
-                <option value="KT">KT</option>
-                <option value="Reverse-KT">Reverse-KT</option>
-              </select>
-            </div>
-            
-            {formData.plan_type === 'Reverse-KT' && (
-              <div className="md:col-span-4">
-                <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
-                <input
-                  type="text" required
-                  placeholder="e.g. Test incident resolution or backend deployment"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                  value={formData.reverse_kt_focus}
-                  onChange={(e) => setFormData({...formData, reverse_kt_focus: e.target.value})}
-                />
-              </div>
-            )}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
+          {/* Card 1: Generate Plan with AI */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
+            <div className="flex-1 flex flex-col justify-between">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Plan with AI</h3>
+              <form onSubmit={handleGenerate} className="flex-1 flex flex-col justify-between space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Plan Name</label>
+                    <input
+                      type="text" required
+                      placeholder="e.g. Payment Gateway Service"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      value={formData.application_name}
+                      onChange={(e) => setFormData({...formData, application_name: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Plan Type</label>
+                    <select
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      value={formData.plan_type}
+                      onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
+                    >
+                      <option value="KT">KT</option>
+                      <option value="Reverse-KT">Reverse-KT</option>
+                    </select>
+                  </div>
 
-            <div className="md:col-span-4 flex justify-end mt-2 space-x-3">
-              {/* <button
-                type="button"
-                onClick={handleRunWorkflow}
-                disabled={runningWorkflow}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-              >
-                {runningWorkflow ? 'Running Workflow...' : <><Play size={16} className="mr-2" /> Run Full Workflow</>}
-              </button> */}
-              <button
-                type="submit"
-                disabled={generating}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-              >
-                {generating ? 'Generating...' : 'Generate Plan'}
-              </button>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Scope Description</label>
+                    <textarea
+                      required
+                      rows={2}
+                      placeholder="Enter main topics or scope details"
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      value={formData.scope_description}
+                      onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
+                    />
+                  </div>
+
+                  {formData.plan_type === 'Reverse-KT' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
+                      <input
+                        type="text" required
+                        placeholder="e.g. Test incident resolution or backend deployment"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        value={formData.reverse_kt_focus}
+                        onChange={(e) => setFormData({...formData, reverse_kt_focus: e.target.value})}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-4 mt-auto">
+                  <button
+                    type="submit"
+                    disabled={generating}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                  >
+                    {generating ? 'Generating...' : 'Generate Plan'}
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
+
+          {/* Card 2: Generate Plan with Document */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                    <FileUp className="mr-2 text-blue-600" size={20} />
+                    Generate Plan with Document
+                  </h3>
+                  <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium border border-blue-100">
+                    PDF / DOC File
+                  </span>
+                </div>
+
+                {/* Document Upload Option */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Document Upload (.pdf, .doc, .docx)</label>
+                  <div className="relative border-2 border-dashed border-blue-200 rounded-lg p-2.5 hover:border-blue-400 transition-colors bg-blue-50/40">
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx"
+                      onChange={handleDocFileChange}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <span className="flex items-center font-medium text-blue-800 truncate pr-2">
+                        <Upload className="mr-2 text-blue-600 flex-shrink-0" size={16} />
+                        {selectedFile ? selectedFile.name : 'Click or drop PDF / Word file here...'}
+                      </span>
+                      {analyzingDoc && (
+                        <span className="text-blue-600 animate-pulse font-semibold flex items-center flex-shrink-0">
+                          <RefreshCw className="mr-1 animate-spin" size={12} /> Extracting info...
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleGenerateWithDoc} className="flex-1 flex flex-col justify-between space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Plan Name</label>
+                    <input
+                      type="text" required
+                      disabled={!isDocExtracted || analyzingDoc}
+                      placeholder={isDocExtracted ? "Extracted Plan Name" : "Upload document to unlock"}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      value={docFormData.application_name}
+                      onChange={(e) => setDocFormData({...docFormData, application_name: e.target.value})}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Plan Type</label>
+                    <select
+                      disabled={!isDocExtracted || analyzingDoc}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      value={docFormData.plan_type}
+                      onChange={(e) => setDocFormData({...docFormData, plan_type: e.target.value})}
+                    >
+                      <option value="KT">KT</option>
+                      <option value="Reverse-KT">Reverse-KT</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700">Scope Description</label>
+                    <textarea
+                      required
+                      rows={2}
+                      disabled={!isDocExtracted || analyzingDoc}
+                      placeholder={isDocExtracted ? "Main topic names extracted from document" : "Upload document to unlock & auto-fill"}
+                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      value={docFormData.scope_description}
+                      onChange={(e) => setDocFormData({...docFormData, scope_description: e.target.value})}
+                    />
+                  </div>
+
+                  {docFormData.plan_type === 'Reverse-KT' && (
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
+                      <input
+                        type="text" required
+                        disabled={!isDocExtracted || analyzingDoc}
+                        placeholder="e.g. Test incident resolution or backend deployment"
+                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        value={docFormData.reverse_kt_focus}
+                        onChange={(e) => setDocFormData({...docFormData, reverse_kt_focus: e.target.value})}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end pt-4 mt-auto">
+                  <button
+                    type="submit"
+                    disabled={!isDocExtracted || generatingDocPlan || analyzingDoc}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {generatingDocPlan ? 'Generating...' : 'Generate Plan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         </div>
       )}
 

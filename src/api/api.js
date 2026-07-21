@@ -45,6 +45,9 @@ export const deleteStakeholder = (id) => api.delete(`/stakeholders/${id}`);
 
 // Plans
 export const generatePlan = (data) => api.post('/plans/generate', data);
+export const extractPlanInfoFromDoc = (formData) => api.post('/plans/extract-from-doc', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 export const getPlans = () => api.get('/plans/');
 export const approvePlan = (id) => api.put(`/plans/${id}/approve`);
 export const editPlan = (id, data) => api.put(`/plans/${id}/edit`, data);
