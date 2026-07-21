@@ -10,7 +10,8 @@ const Dashboard = () => {
     plans: 0, 
     stakeholders: 0, 
     upcomingMeetings: [], 
-    activeRisks: [] 
+    activeRisks: [],
+    plansMap: {}
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,6 +26,12 @@ const Dashboard = () => {
           getRisks()
         ]);
 
+        const plansData = plansRes.data.data || [];
+        const plansMap = {};
+        plansData.forEach(p => {
+          plansMap[p.id] = p.application_name;
+        });
+
         const allMeetings = meetingsRes.data.data || [];
         const allRisks = risksRes.data.data || [];
 
@@ -36,10 +43,11 @@ const Dashboard = () => {
         const active = allRisks.filter(r => r.status?.toLowerCase() === 'open');
 
         setStats({
-          plans: plansRes.data.data.length || 0,
+          plans: plansData.length,
           stakeholders: stakeholdersRes.data.data.length || 0,
           upcomingMeetings: upcoming,
-          activeRisks: active
+          activeRisks: active,
+          plansMap: plansMap
         });
       } catch (err) {
         setError('Failed to load dashboard data');
@@ -52,7 +60,7 @@ const Dashboard = () => {
 
   if (loading) return <Loader />;
 
-  const highPriorityRisks = stats.activeRisks.filter(r => r.severity?.toLowerCase() === 'high');
+  const highPriorityRisks = stats.activeRisks.filter(r => r.severity?.toLowerCase() === 'high' || r.severity?.toLowerCase() === 'critical');
   const isKnowledgeReceiver = user?.role === 'Incoming Team Member (Knowledge Receiver)';
 
   return (
@@ -122,16 +130,25 @@ const Dashboard = () => {
               <p className="text-sm text-gray-500">No upcoming meetings scheduled.</p>
             ) : (
               stats.upcomingMeetings.map(meeting => (
-                <div key={meeting.id} className="flex items-start p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div className="mt-1 mr-3 p-2 bg-blue-50 text-blue-600 rounded-full">
-                    <Clock size={16} />
+                <div key={meeting.id} className="flex items-start justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start">
+                    <div className="mt-1 mr-3 p-2 bg-blue-50 text-blue-600 rounded-full">
+                      <Clock size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-800">{meeting.title || 'KT Session'}</h4>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(meeting.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-800">{meeting.title || 'KT Session'}</h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(meeting.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
+                  {stats.plansMap && stats.plansMap[meeting.plan_id] && (
+                    <div className="ml-4 flex-shrink-0 mt-1">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 line-clamp-1 max-w-[150px]" title={stats.plansMap[meeting.plan_id]}>
+                        {stats.plansMap[meeting.plan_id]}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -142,7 +159,7 @@ const Dashboard = () => {
         {!isKnowledgeReceiver && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">High Priority Risks</h3>
+            <h3 className="text-lg font-semibold text-gray-800">High Priority and Critical Risks</h3>
           </div>
           <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
             {highPriorityRisks.length === 0 ? (

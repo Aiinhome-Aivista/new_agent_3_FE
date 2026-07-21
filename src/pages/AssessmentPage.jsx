@@ -737,9 +737,6 @@ const AssessmentPage = () => {
                               Receiver: {attempt.stakeholder_name}
                             </h4>
                           </div>
-                          <p className="text-xs text-gray-400 sm:ml-4 flex-1">
-                            {attempt.stakeholder_email}
-                          </p>
                         </div>
 
                         <div className="flex items-center gap-6 ml-4">
