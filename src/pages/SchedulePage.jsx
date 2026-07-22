@@ -379,7 +379,10 @@ const SchedulePage = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Title</th>
                 {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Link</th>
+                  <>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Link</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Status</th>
+                  </>
                 )}
                 {user?.role === 'Delivery / Engagement Manager' && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
@@ -404,34 +407,45 @@ const SchedulePage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{m.title}</td>
                     {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {m.meeting_link ? (
-                          <div className="relative group inline-block">
-                            {m.status === 'completed' ? (
-                              <span
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-gray-400 cursor-not-allowed"
-                              >
-                                Join Meeting
-                              </span>
-                            ) : (
-                              <a
-                                href={m.meeting_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                              >
-                                Join Meeting
-                              </a>
-                            )}
-                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
-                              {m.meeting_link}
-                              <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {m.meeting_link ? (
+                            <div className="relative group inline-block">
+                              {m.status === 'completed' ? (
+                                <span
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-gray-400 cursor-not-allowed"
+                                >
+                                  Join Meeting
+                                </span>
+                              ) : (
+                                <a
+                                  href={m.meeting_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                                >
+                                  Join Meeting
+                                </a>
+                              )}
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
+                                {m.meeting_link}
+                                <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          'N/A'
-                        )}
-                      </td>
+                          ) : (
+                            'N/A'
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {m.status === 'completed' ? (
+                            Number(m.attended) === 1 ? (
+                              <span className="text-green-600">attended</span>
+                            ) : (
+                              <span className="text-red-600">missing</span>
+                            )
+                          ) : null}
+                        </td>
+                      </>
                     )}
                     {user?.role === 'Delivery / Engagement Manager' && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-semibold text-indigo-600">
