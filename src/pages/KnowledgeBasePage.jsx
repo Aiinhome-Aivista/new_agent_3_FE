@@ -47,10 +47,30 @@ const KnowledgeBasePage = () => {
     try {
       const res = await getPlanTopicOptions(selectedPlanId);
       const topics = res.data.data || [];
-      const distinctDays = [...new Set(topics.map(t => t.day_label).filter(Boolean))];
+      const dayMap = {};
+      topics.forEach(t => {
+        if (!t.day_label) return;
+        if (!dayMap[t.day_label]) dayMap[t.day_label] = [];
+        if (t.topic_name) dayMap[t.day_label].push(t.topic_name);
+      });
+      
+      const distinctDays = Object.keys(dayMap).map(day => {
+        const names = dayMap[day].join(', ');
+        let label = names ? `${day} - ${names}` : day;
+        let fullLabel = label;
+        if (label.length > 45) {
+          label = label.substring(0, 42) + '...';
+        }
+        return {
+          value: day,
+          label: label,
+          fullLabel: fullLabel
+        };
+      });
+
       setTopicOptions(distinctDays);
       if (distinctDays.length > 0) {
-        setKtDay(distinctDays[0]);
+        setKtDay(distinctDays[0].value);
       } else {
         setKtDay('');
       }
@@ -264,11 +284,12 @@ const KnowledgeBasePage = () => {
                           className="appearance-none block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
                           value={ktDay}
                           onChange={(e) => setKtDay(e.target.value)}
+                          title={topicOptions.find(t => t.value === ktDay)?.fullLabel || ''}
                           required
                         >
                           <option value="">-- Select a Day --</option>
-                          {topicOptions.map((day, idx) => (
-                            <option key={idx} value={day} className="font-medium text-gray-700 py-1">{day}</option>
+                          {topicOptions.map((dayObj, idx) => (
+                            <option key={idx} value={dayObj.value} title={dayObj.fullLabel} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
                           ))}
                         </select>
                       ) : (
@@ -363,8 +384,8 @@ const KnowledgeBasePage = () => {
                       <td className="px-8 py-5 max-w-[260px]">
                         <div className="flex items-start gap-3">
                           <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
-                          <span className="text-sm font-semibold text-gray-700 leading-relaxed">
-                            {doc.kt_day || 'N/A'}
+                          <span className="text-sm font-semibold text-gray-700 leading-relaxed" title={topicOptions.find(t => t.value === doc.kt_day)?.fullLabel || doc.kt_day}>
+                            {topicOptions.find(t => t.value === doc.kt_day)?.fullLabel || doc.kt_day || 'N/A'}
                           </span>
                         </div>
                       </td>
