@@ -3,6 +3,7 @@ import { getPlans, getRisks, detectRisks, escalateRisk } from '../api/api';
 import Loader from '../components/Loader';
 import { AlertTriangle, AlertCircle, FileText, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOperations } from '../context/OperationsContext';
 import ManagerWiseRiskView from '../components/ManagerWiseRiskView';
 
 const RisksPage = () => {
@@ -11,7 +12,8 @@ const RisksPage = () => {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [risks, setRisks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [detecting, setDetecting] = useState(false);
+  const { activeOperations, startOperation, endOperation } = useOperations();
+  const detecting = activeOperations['risk-detection'];
 
   useEffect(() => {
     const fetchInit = async () => {
@@ -45,14 +47,14 @@ const RisksPage = () => {
 
   const handleDetectRisks = async () => {
     if (!selectedPlanId) return;
-    setDetecting(true);
+    startOperation('risk-detection');
     try {
       await detectRisks(selectedPlanId);
       fetchRisks();
     } catch (err) {
       alert('Error detecting risks');
     } finally {
-      setDetecting(false);
+      endOperation('risk-detection');
     }
   };
 

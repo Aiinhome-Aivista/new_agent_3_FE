@@ -3,6 +3,7 @@ import { getPlans, generateWeeklyReport, generateFinalReport, getReports, getPla
 import Loader from '../components/Loader';
 import { FileText, Download, ChevronLeft, ChevronRight, Eye, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOperations } from '../context/OperationsContext';
 
 const ReportsPage = () => {
   const { user } = useAuth();
@@ -12,7 +13,8 @@ const ReportsPage = () => {
   const [reports, setReports] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [generatingType, setGeneratingType] = useState(null);
+  const { activeOperations, startOperation, endOperation } = useOperations();
+  const generatingType = activeOperations['generate-report'] || null;
   const [isAllTopicsCovered, setIsAllTopicsCovered] = useState(false);
   const [viewingReport, setViewingReport] = useState(null);
   const [viewLoading, setViewLoading] = useState(false);
@@ -122,7 +124,7 @@ const ReportsPage = () => {
 
   const handleGenerate = async (type) => {
     if (!selectedPlanId) return;
-    setGeneratingType(type);
+    startOperation('generate-report', type);
     try {
       if (type === 'weekly') {
         await generateWeeklyReport(selectedPlanId);
@@ -133,7 +135,7 @@ const ReportsPage = () => {
     } catch (err) {
       alert('Error generating report');
     } finally {
-      setGeneratingType(null);
+      endOperation('generate-report');
     }
   };
 

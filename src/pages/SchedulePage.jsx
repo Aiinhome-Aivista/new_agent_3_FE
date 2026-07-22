@@ -3,6 +3,7 @@ import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeetin
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle, ClipboardList, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOperations } from '../context/OperationsContext';
 
 const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -70,7 +71,8 @@ const SchedulePage = () => {
   const [selectedStakeholders, setSelectedStakeholders] = useState([]);
   const [selectedOrganizers, setSelectedOrganizers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [scheduling, setScheduling] = useState(false);
+  const { activeOperations, startOperation, endOperation } = useOperations();
+  const scheduling = activeOperations['schedule-meeting'];
   const [notifiedId, setNotifiedId] = useState(null);
   const [formData, setFormData] = useState({
     plan_id: '',
@@ -89,7 +91,7 @@ const SchedulePage = () => {
   const [rescheduleTarget, setRescheduleTarget] = useState(null); // meeting being rescheduled
   const [rescheduleTime, setRescheduleTime] = useState(''); // HH:MM
   const [rescheduleReason, setRescheduleReason] = useState('');
-  const [rescheduling, setRescheduling] = useState(false);
+  const rescheduling = activeOperations['reschedule-meeting'];
 
   const handleOpenAttendanceModal = async (meeting) => {
     setFetchingAttendees(meeting.id);
@@ -121,7 +123,7 @@ const SchedulePage = () => {
       alert('Please select a new time.');
       return;
     }
-    setRescheduling(true);
+    startOperation('reschedule-meeting');
     try {
       await rescheduleMeeting(rescheduleTarget.id, {
         new_time: rescheduleTime,
@@ -137,7 +139,7 @@ const SchedulePage = () => {
       const msg = err?.response?.data?.message || 'Error rescheduling the meeting.';
       alert(msg);
     } finally {
-      setRescheduling(false);
+      endOperation('reschedule-meeting');
     }
   };
 
@@ -216,7 +218,7 @@ const SchedulePage = () => {
       alert('Please select at least one participant or organizer.');
       return;
     }
-    setScheduling(true);
+    startOperation('schedule-meeting');
     try {
       await createMeeting({
         plan_id: formData.plan_id,
@@ -236,7 +238,7 @@ const SchedulePage = () => {
     } catch (err) {
       alert('Error creating meeting');
     } finally {
-      setScheduling(false);
+      endOperation('schedule-meeting');
     }
   };
 

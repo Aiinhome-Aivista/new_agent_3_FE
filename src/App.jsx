@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { OperationsProvider } from './context/OperationsContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/AppLayout';
 import LandingPage from './pages/LandingPage';
@@ -20,8 +21,9 @@ import KnowledgeBasePage from './pages/KnowledgeBasePage';
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
+      <OperationsProvider>
+        <Router>
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -43,6 +45,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      </OperationsProvider>
     </AuthProvider>
   );
 }

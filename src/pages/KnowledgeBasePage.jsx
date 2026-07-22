@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getPlans, uploadKnowledgeDocument, getKnowledgeDocuments, getPlanTopicOptions, extractVideoTranscript, uploadTranscript } from '../api/api';
 import Loader from '../components/Loader';
 import { Upload, FileText, Database, Video } from 'lucide-react';
+import { useOperations } from '../context/OperationsContext';
 
 const KnowledgeBasePage = () => {
+  const fileInputRef = useRef(null);
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const { activeOperations, startOperation, endOperation } = useOperations();
+  const uploading = activeOperations['upload-document'];
   const [ktDay, setKtDay] = useState('');
   const [file, setFile] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -23,7 +26,7 @@ const KnowledgeBasePage = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [extractedTranscript, setExtractedTranscript] = useState('');
-  const [uploadingTranscript, setUploadingTranscript] = useState(false);
+  const uploadingTranscript = activeOperations['upload-transcript'];
 
   useEffect(() => {
     fetchPlans();
@@ -93,7 +96,7 @@ const KnowledgeBasePage = () => {
       return;
     }
 
-    setUploading(true);
+    startOperation('upload-document');
     const formData = new FormData();
     formData.append('file', file);
     formData.append('plan_id', selectedPlanId);
@@ -103,13 +106,14 @@ const KnowledgeBasePage = () => {
       await uploadKnowledgeDocument(formData);
       setSuccessMsg('Document uploaded and processed successfully.');
       setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setKtDay('');
       fetchDocuments();
     } catch (err) {
       console.error(err);
       setErrorMsg(err.response?.data?.message || 'Failed to upload document.');
     } finally {
-      setUploading(false);
+      endOperation('upload-document');
     }
   };
 
@@ -151,7 +155,7 @@ const KnowledgeBasePage = () => {
       return;
     }
 
-    setUploadingTranscript(true);
+    startOperation('upload-transcript');
     try {
       await uploadTranscript({
         plan_id: selectedPlanId,
@@ -168,7 +172,7 @@ const KnowledgeBasePage = () => {
       console.error(err);
       setErrorMsg(err.response?.data?.message || 'Failed to upload transcript.');
     } finally {
-      setUploadingTranscript(false);
+      endOperation('upload-transcript');
     }
   };
 
@@ -290,6 +294,7 @@ const KnowledgeBasePage = () => {
                     <div className="relative">
                       <input
                         type="file"
+                        ref={fileInputRef}
                         accept=".txt,.pdf,.doc,.docx,.ppt,.pptx"
                         className="block w-full text-sm text-gray-500 
                                   file:mr-4 file:py-2.5 file:px-4 

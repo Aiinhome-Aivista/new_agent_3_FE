@@ -3,7 +3,7 @@ import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer
 import Loader from '../components/Loader';
 import { FileQuestion, CheckCircle2, RefreshCw, Award, Sparkles, User, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
+import { useOperations } from '../context/OperationsContext';
 
 const AssessmentPage = () => {
   const { user } = useAuth();
@@ -12,7 +12,8 @@ const AssessmentPage = () => {
   const [meetings, setMeetings] = useState([]);
   
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const { activeOperations, startOperation, endOperation } = useOperations();
+  const generating = activeOperations['assessment-generation'];
   const [submitting, setSubmitting] = useState(false);
   
   // Chat / Conversational Assessment States
@@ -183,7 +184,7 @@ const AssessmentPage = () => {
 
   const handleGenerateQuestions = async () => {
     if (!selectedPlanId) return;
-    setGenerating(true);
+    startOperation('assessment-generation');
     try {
       const res = await generateQuestions(selectedPlanId);
       const generatedQs = res.data.data || [];
@@ -213,7 +214,7 @@ const AssessmentPage = () => {
       alert(msg);
       setWarningMsg(msg);
     } finally {
-      setGenerating(false);
+      endOperation('assessment-generation');
     }
   };
 

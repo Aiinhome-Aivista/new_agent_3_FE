@@ -3,6 +3,7 @@ import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, runFullWor
 import Loader from '../components/Loader';
 import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useOperations } from '../context/OperationsContext';
 
 const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
   const [expanded, setExpanded] = useState(false);
@@ -339,14 +340,15 @@ const PlanPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [planToApprove, setPlanToApprove] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
+  const { activeOperations, startOperation, endOperation } = useOperations();
+  const generating = activeOperations['create-plan'];
   const [runningWorkflow, setRunningWorkflow] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
   const [docFormData, setDocFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
   const [selectedFile, setSelectedFile] = useState(null);
   const [analyzingDoc, setAnalyzingDoc] = useState(false);
-  const [generatingDocPlan, setGeneratingDocPlan] = useState(false);
+  const generatingDocPlan = activeOperations['create-plan-doc'];
   const [isDocExtracted, setIsDocExtracted] = useState(false);
 
   const [stakeholders, setStakeholders] = useState([]);
@@ -388,7 +390,7 @@ const PlanPage = () => {
 
   const handleGenerate = async (e) => {
     e.preventDefault();
-    setGenerating(true);
+    startOperation('create-plan');
     try {
       await generatePlan(formData);
       setFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
@@ -396,7 +398,7 @@ const PlanPage = () => {
     } catch (err) {
       alert('Error generating plan');
     } finally {
-      setGenerating(false);
+      endOperation('create-plan');
     }
   };
 
@@ -431,7 +433,7 @@ const PlanPage = () => {
       alert('Please fill out Plan Name and Scope Description or upload a document to auto-extract them.');
       return;
     }
-    setGeneratingDocPlan(true);
+    startOperation('create-plan-doc');
     try {
       await generatePlan(docFormData);
       setDocFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
@@ -441,7 +443,7 @@ const PlanPage = () => {
     } catch (err) {
       alert('Error generating plan from document: ' + (err.response?.data?.message || err.message));
     } finally {
-      setGeneratingDocPlan(false);
+      endOperation('create-plan-doc');
     }
   };
 
