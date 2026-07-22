@@ -56,15 +56,12 @@ const KnowledgeBasePage = () => {
       
       const distinctDays = Object.keys(dayMap).map(day => {
         const names = dayMap[day].join(', ');
-        let label = names ? `${day} - ${names}` : day;
-        let fullLabel = label;
-        if (label.length > 45) {
-          label = label.substring(0, 42) + '...';
-        }
+        const fullLabel = names ? `${day} - ${names}` : day;
         return {
           value: day,
-          label: label,
-          fullLabel: fullLabel
+          label: day,
+          fullLabel: fullLabel,
+          topics: dayMap[day]
         };
       });
 
@@ -284,12 +281,11 @@ const KnowledgeBasePage = () => {
                           className="appearance-none block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
                           value={ktDay}
                           onChange={(e) => setKtDay(e.target.value)}
-                          title={topicOptions.find(t => t.value === ktDay)?.fullLabel || ''}
                           required
                         >
                           <option value="">-- Select a Day --</option>
                           {topicOptions.map((dayObj, idx) => (
-                            <option key={idx} value={dayObj.value} title={dayObj.fullLabel} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
+                            <option key={idx} value={dayObj.value} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
                           ))}
                         </select>
                       ) : (
@@ -308,6 +304,15 @@ const KnowledgeBasePage = () => {
                         </div>
                       )}
                     </div>
+                    {ktDay && topicOptions.find(t => t.value === ktDay)?.topics?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {topicOptions.find(t => t.value === ktDay).topics.map((topicName, idx) => (
+                          <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm">
+                            {topicName}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div>

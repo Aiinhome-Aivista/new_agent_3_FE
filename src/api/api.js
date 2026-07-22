@@ -82,7 +82,10 @@ export const getRisks = (planId) => {
     const url = planId ? `/risks/?plan_id=${planId}` : '/risks/';
     return api.get(url);
 };
-export const escalateRisk = (id) => api.put(`/risks/${id}/escalate`);
+export const escalateRisk = (id, assigned_to, initial_note) => api.put(`/risks/${id}/escalate`, { assigned_to, initial_note });
+export const getAssignedRisks = () => api.get('/risks/assigned');
+export const addRiskComment = (id, comment) => api.post(`/risks/${id}/comments`, { comment });
+export const updateRiskStatus = (id, status) => api.put(`/risks/${id}/status`, { status });
 
 // Assessments
 export const generateQuestions = (planId) => api.post('/assessments/generate-questions', { plan_id: planId });

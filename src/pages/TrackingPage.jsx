@@ -18,6 +18,8 @@ const TrackingPage = () => {
   const [topicName, setTopicName] = useState('');
   const [completionPct, setCompletionPct] = useState(100);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -61,6 +63,7 @@ const TrackingPage = () => {
   const handleUpdateTopic = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setSuccessMsg('');
 
     const isTopicUpdated = topics.some(t => t.topic === topicName);
     if (isTopicUpdated) {
@@ -68,6 +71,7 @@ const TrackingPage = () => {
       return;
     }
 
+    setIsSaving(true);
     try {
       await updateCompletion({
         plan_id: parseInt(selectedPlanId),
@@ -76,9 +80,16 @@ const TrackingPage = () => {
       });
       setTopicName('');
       setCompletionPct(100);
+      setSuccessMsg('Progress saved successfully!');
       fetchTrackingData();
+      
+      setTimeout(() => {
+        setSuccessMsg('');
+      }, 3000);
     } catch (err) {
       alert('Error updating completion');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -169,21 +180,40 @@ const TrackingPage = () => {
                   {errorMsg}
                 </div>
               )}
+              {successMsg && (
+                <div className="bg-green-50 text-green-600 p-3 rounded-md text-sm border border-green-100">
+                  {successMsg}
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Topic Name</label>
                 <select
                   required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="mt-1 block w-full px-3 py-1.5 border border-gray-300 rounded-md truncate text-sm"
                   value={topicName}
                   onChange={(e) => {
                     setTopicName(e.target.value);
                     setErrorMsg('');
+                    setSuccessMsg('');
                   }}
+                  title={topicOptions.find(t => t.topic_name === topicName) 
+                    ? (() => {
+                        const t = topicOptions.find(opt => opt.topic_name === topicName);
+                        return t.day_label && t.day_label !== 'General' ? `${t.day_label} — ${t.topic_name}` : t.topic_name;
+                      })() 
+                    : ''}
                 >
                   <option value="">-- Select Topic --</option>
-                  {topicOptions.map(t => (
-                    <option key={t.id} value={t.topic_name}>{t.day_label && t.day_label !== 'General' ? `${t.day_label} — ` : ''}{t.topic_name}</option>
-                  ))}
+                  {topicOptions.map(t => {
+                    const fullLabel = t.day_label && t.day_label !== 'General' ? `${t.day_label} — ${t.topic_name}` : t.topic_name;
+                    let displayLabel = fullLabel;
+                    if (displayLabel.length > 60) {
+                      displayLabel = displayLabel.substring(0, 57) + '...';
+                    }
+                    return (
+                      <option key={t.id} value={t.topic_name} title={fullLabel}>{displayLabel}</option>
+                    );
+                  })}
                 </select>
                 {/* Message hidden as per request */}
               </div>
@@ -191,16 +221,25 @@ const TrackingPage = () => {
                 <label className="block text-sm font-medium text-gray-700">Completion %</label>
                 <input
                   type="number" min="0" max="100" required disabled
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                  className="mt-1 block w-full px-3 py-1.5 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed text-sm"
                   value={completionPct}
                   onChange={(e) => setCompletionPct(e.target.value)}
                 />
               </div>
               <button
                 type="submit"
-                className="w-full bg-blue-600 text-white rounded-md py-2 hover:bg-blue-700"
+                disabled={isSaving}
+                className={`w-full text-white rounded-md py-2 transition-colors ${isSaving ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
               >
-                Save Progress
+                {isSaving ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </span>
+                ) : 'Save Progress'}
               </button>
             </form>
           </div>
