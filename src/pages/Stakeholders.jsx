@@ -12,7 +12,7 @@ const Stakeholders = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [stakeholderToDelete, setStakeholderToDelete] = useState(null);
 
-  const [formData, setFormData] = useState({ name: '', email: '', role: 'Delivery / Engagement Manager' });
+  const [formData, setFormData] = useState({ name: '', email: '', role: '' });
 
   const fetchStakeholders = async () => {
     try {
@@ -35,7 +35,7 @@ const Stakeholders = () => {
     setSuccessMsg('');
     try {
       await createStakeholder(formData);
-      setFormData({ name: '', email: '', role: 'Delivery / Engagement Manager' });
+      setFormData({ name: '', email: '', role: '' });
       setSuccessMsg('Stakeholder added successfully!');
       setTimeout(() => setSuccessMsg(''), 3000);
       fetchStakeholders();
@@ -107,7 +107,9 @@ const Stakeholders = () => {
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                required
               >
+                <option value="" disabled>---Select Role---</option>
                 <option value="Delivery / Engagement Manager">Delivery / Engagement Manager</option>
                 <option value="Outgoing SME (Knowledge Giver)">Outgoing SME (Knowledge Giver)</option>
                 <option value="Incoming Team Member (Knowledge Receiver)">Incoming Team Member (Knowledge Receiver)</option>

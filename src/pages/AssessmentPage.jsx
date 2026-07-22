@@ -61,11 +61,6 @@ const AssessmentPage = () => {
         setPlans(appPlans);
         setStakeholders(stList);
         setMeetings(meetingsRes.data.data || []);
-        
-        if (appPlans.length > 0) {
-          const defaultPlanId = appPlans[0].id.toString();
-          setSelectedPlanId(defaultPlanId);
-        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -363,6 +358,7 @@ const AssessmentPage = () => {
               onChange={(e) => setSelectedPlanId(e.target.value)}
               disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
             >
+              <option value="" disabled>---Select Plan---</option>
               {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
             </select>
           </div>

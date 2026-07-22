@@ -26,7 +26,6 @@ const ReportsPage = () => {
         setAllPlans(allPlansList);
         const appPlans = allPlansList.filter(p => p.status === 'approved');
         setPlans(appPlans);
-        if (appPlans.length > 0) setSelectedPlanId(appPlans[0].id.toString());
         setReports(reportsRes.data.data);
       } catch (err) {
         console.error(err);
@@ -162,6 +161,7 @@ const ReportsPage = () => {
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
             >
+              <option value="" disabled>---Select Plan---</option>
               {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
             </select>
           </div>

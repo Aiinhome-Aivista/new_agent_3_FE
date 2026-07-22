@@ -25,9 +25,6 @@ const TrackingPage = () => {
         const res = await getPlans();
         const approvedPlans = res.data.data.filter(p => p.status === 'approved');
         setPlans(approvedPlans);
-        if (approvedPlans.length > 0) {
-          setSelectedPlanId(approvedPlans[0].id.toString());
-        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -119,6 +116,7 @@ const TrackingPage = () => {
             value={selectedPlanId}
             onChange={(e) => setSelectedPlanId(e.target.value)}
           >
+            <option value="" disabled>---Select Plan---</option>
             {plans.map(p => (
               <option key={p.id} value={p.id}>{p.application_name}</option>
             ))}
