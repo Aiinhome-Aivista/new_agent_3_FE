@@ -346,7 +346,7 @@ const PlanPage = () => {
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
   const [docFormData, setDocFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
   const [analyzingDoc, setAnalyzingDoc] = useState(false);
   const generatingDocPlan = activeOperations['create-plan-doc'];
   const [isDocExtracted, setIsDocExtracted] = useState(false);
@@ -402,15 +402,17 @@ const PlanPage = () => {
     }
   };
 
-  const handleDocFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    setSelectedFile(file);
+  const analyzeFiles = async (filesToAnalyze) => {
+    if (!filesToAnalyze || filesToAnalyze.length === 0) {
+      alert('Please select at least one document file to extract info.');
+      return;
+    }
     setAnalyzingDoc(true);
-    setIsDocExtracted(false);
     try {
       const uploadData = new FormData();
-      uploadData.append('file', file);
+      filesToAnalyze.forEach(file => {
+        uploadData.append('files', file);
+      });
       const res = await extractPlanInfoFromDoc(uploadData);
       if (res.data?.success && res.data?.data) {
         setDocFormData(prev => ({
@@ -421,23 +423,51 @@ const PlanPage = () => {
         setIsDocExtracted(true);
       }
     } catch (err) {
-      alert('Error analyzing document: ' + (err.response?.data?.message || err.message));
+      alert('Error analyzing document(s): ' + (err.response?.data?.message || err.message));
     } finally {
       setAnalyzingDoc(false);
     }
   };
 
+  const handleDocFileChange = (e) => {
+    const newlySelected = Array.from(e.target.files || []);
+    if (newlySelected.length === 0) return;
+
+    const updatedList = [...selectedFiles];
+    newlySelected.forEach(file => {
+      if (!updatedList.some(f => f.name === file.name && f.size === file.size)) {
+        updatedList.push(file);
+      }
+    });
+
+    setSelectedFiles(updatedList);
+    e.target.value = null;
+  };
+
+  const handleRemoveFile = (indexToRemove) => {
+    const updatedList = selectedFiles.filter((_, idx) => idx !== indexToRemove);
+    setSelectedFiles(updatedList);
+    if (updatedList.length === 0) {
+      setIsDocExtracted(false);
+      setDocFormData(prev => ({ ...prev, application_name: '', scope_description: '' }));
+    }
+  };
+
+  const handleExtractFromDocs = () => {
+    analyzeFiles(selectedFiles);
+  };
+
   const handleGenerateWithDoc = async (e) => {
     e.preventDefault();
     if (!docFormData.application_name || !docFormData.scope_description) {
-      alert('Please fill out Plan Name and Scope Description or upload a document to auto-extract them.');
+      alert('Please fill out Plan Name and Scope Description or upload document(s) to auto-extract them.');
       return;
     }
     startOperation('create-plan-doc');
     try {
       await generatePlan(docFormData);
       setDocFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
-      setSelectedFile(null);
+      setSelectedFiles([]);
       setIsDocExtracted(false);
       fetchPlans();
     } catch (err) {
@@ -586,32 +616,83 @@ const PlanPage = () => {
                     Generate Plan with Document
                   </h3>
                   <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium border border-blue-100">
-                    PDF / DOC File
+                    PDF / DOCX File
                   </span>
                 </div>
 
                 {/* Document Upload Option */}
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Document Upload (.pdf, .doc, .docx)</label>
-                  <div className="relative border-2 border-dashed border-blue-200 rounded-lg p-2.5 hover:border-blue-400 transition-colors bg-blue-50/40">
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={handleDocFileChange}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                      <span className="flex items-center font-medium text-blue-800 truncate pr-2">
-                        <Upload className="mr-2 text-blue-600 flex-shrink-0" size={16} />
-                        {selectedFile ? selectedFile.name : 'Click or drop PDF / Word file here...'}
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Document Upload (.pdf, .docx)</label>
+                    {selectedFiles.length > 0 && (
+                      <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                        {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} selected
                       </span>
-                      {analyzingDoc && (
-                        <span className="text-blue-600 animate-pulse font-semibold flex items-center flex-shrink-0">
-                          <RefreshCw className="mr-1 animate-spin" size={12} /> Extracting info...
-                        </span>
-                      )}
-                    </div>
+                    )}
                   </div>
+                  
+                  {/* Upload Box & Extract Button Side-by-Side */}
+                  <div className="flex items-center space-x-2">
+                    <div className="relative flex-1 border-2 border-dashed border-blue-200 rounded-lg p-2 hover:border-blue-400 transition-colors bg-blue-50/40">
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        multiple
+                        onChange={handleDocFileChange}
+                        disabled={analyzingDoc}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                      />
+                      <div className="flex items-center justify-between text-xs text-gray-600">
+                        <span className="flex items-center font-medium text-blue-800 truncate pr-1">
+                          <Upload className="mr-1.5 text-blue-600 flex-shrink-0" size={15} />
+                          {selectedFiles.length === 0
+                            ? 'Click or drop PDF / Word file(s)...'
+                            : 'Click / drop to add more...'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleExtractFromDocs}
+                      disabled={selectedFiles.length === 0 || analyzingDoc}
+                      className="w-[115px] h-[38px] px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
+                    >
+                      {analyzingDoc ? (
+                        <>
+                          <RefreshCw className="mr-1 animate-spin" size={14} /> Extracting...
+                        </>
+                      ) : (
+                        <>
+                          <FileUp className="mr-1.5" size={14} /> Extract
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Selected files list */}
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-gray-50 rounded-md border border-gray-100">
+                      {selectedFiles.map((file, idx) => (
+                        <div
+                          key={`${file.name}-${idx}`}
+                          className="inline-flex items-center bg-white border border-blue-200 text-blue-900 text-xs px-2 py-1 rounded-md shadow-xs group"
+                        >
+                          <FileText size={12} className="mr-1 text-blue-500 flex-shrink-0" />
+                          <span className="max-w-[150px] truncate font-medium">{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFile(idx)}
+                            disabled={analyzingDoc}
+                            className="ml-1.5 text-gray-400 hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                            title="Remove file"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -622,7 +703,7 @@ const PlanPage = () => {
                     <input
                       type="text" required
                       disabled={!isDocExtracted || analyzingDoc}
-                      placeholder={isDocExtracted ? "Extracted Plan Name" : "Upload document to unlock"}
+                      placeholder={isDocExtracted ? "Extracted Plan Name" : "Upload document(s) to unlock"}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                       value={docFormData.application_name}
                       onChange={(e) => setDocFormData({...docFormData, application_name: e.target.value})}
@@ -648,7 +729,7 @@ const PlanPage = () => {
                       required
                       rows={2}
                       disabled={!isDocExtracted || analyzingDoc}
-                      placeholder={isDocExtracted ? "Main topic names extracted from document" : "Upload document to unlock & auto-fill"}
+                      placeholder={isDocExtracted ? "Main topic names extracted from document(s)" : "Upload document(s) to unlock & auto-fill"}
                       className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                       value={docFormData.scope_description}
                       onChange={(e) => setDocFormData({...docFormData, scope_description: e.target.value})}
