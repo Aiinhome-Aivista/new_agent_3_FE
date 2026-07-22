@@ -89,8 +89,10 @@ const SchedulePage = () => {
   // Reschedule modal state
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState(null); // meeting being rescheduled
+  const [rescheduleDate, setRescheduleDate] = useState(''); // YYYY-MM-DD
   const [rescheduleTime, setRescheduleTime] = useState(''); // HH:MM
   const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleSubsequent, setRescheduleSubsequent] = useState(false);
   const rescheduling = activeOperations['reschedule-meeting'];
 
   const handleOpenAttendanceModal = async (meeting) => {
@@ -110,31 +112,40 @@ const SchedulePage = () => {
   const handleOpenRescheduleModal = (meeting) => {
     // Pre-fill with existing time extracted from scheduled_at
     const existing = new Date(meeting.scheduled_at);
+    const yyyy = existing.getUTCFullYear();
+    const mm_date = String(existing.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(existing.getUTCDate()).padStart(2, '0');
     const hh = String(existing.getUTCHours()).padStart(2, '0');
-    const mm = String(existing.getUTCMinutes()).padStart(2, '0');
-    setRescheduleTime(`${hh}:${mm}`);
+    const min = String(existing.getUTCMinutes()).padStart(2, '0');
+    setRescheduleDate(`${yyyy}-${mm_date}-${dd}`);
+    setRescheduleTime(`${hh}:${min}`);
     setRescheduleReason('');
+    setRescheduleSubsequent(false);
     setRescheduleTarget(meeting);
     setIsRescheduleModalOpen(true);
   };
 
   const handleReschedule = async () => {
-    if (!rescheduleTime) {
-      alert('Please select a new time.');
+    if (!rescheduleDate || !rescheduleTime) {
+      alert('Please select a new date and time.');
       return;
     }
     startOperation('reschedule-meeting');
     try {
-      await rescheduleMeeting(rescheduleTarget.id, {
+      const res = await rescheduleMeeting(rescheduleTarget.id, {
+        new_date: rescheduleDate,
         new_time: rescheduleTime,
-        reason: rescheduleReason.trim()
+        reason: rescheduleReason.trim(),
+        reschedule_subsequent: rescheduleSubsequent
       });
       setIsRescheduleModalOpen(false);
       setRescheduleTarget(null);
+      setRescheduleDate('');
       setRescheduleTime('');
       setRescheduleReason('');
+      setRescheduleSubsequent(false);
       fetchData();
-      alert('Meeting rescheduled successfully! All participants have been notified via email.');
+      alert(res.data?.message || 'Meeting rescheduled successfully! All participants have been notified via email.');
     } catch (err) {
       const msg = err?.response?.data?.message || 'Error rescheduling the meeting.';
       alert(msg);
@@ -636,14 +647,17 @@ const SchedulePage = () => {
                 <span>All participants (Knowledge Giver &amp; Receiver) will be <strong>auto-notified via email</strong> with the new time once you save.</span>
               </div>
 
-              {/* Same-date label (read-only) */}
+              {/* New Date picker */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date <span className="text-xs text-gray-400">(unchanged)</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Date <span className="text-red-500">*</span>
+                </label>
                 <input
-                  type="text"
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-200 rounded-md bg-gray-50 text-gray-500 text-sm cursor-not-allowed"
-                  value={new Date(rescheduleTarget.scheduled_at).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' })}
+                  type="date"
+                  required
+                  className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-gray-800 text-sm"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
                 />
               </div>
 
@@ -673,6 +687,20 @@ const SchedulePage = () => {
                   value={rescheduleReason}
                   onChange={(e) => setRescheduleReason(e.target.value)}
                 />
+              </div>
+
+              {/* Reschedule Subsequent Checkbox */}
+              <div className="flex items-center mt-2">
+                <input
+                  id="reschedule-subsequent-checkbox"
+                  type="checkbox"
+                  className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                  checked={rescheduleSubsequent}
+                  onChange={(e) => setRescheduleSubsequent(e.target.checked)}
+                />
+                <label htmlFor="reschedule-subsequent-checkbox" className="ml-2 block text-sm text-gray-700">
+                  Reschedule all subsequent meetings for this plan
+                </label>
               </div>
             </div>
 
