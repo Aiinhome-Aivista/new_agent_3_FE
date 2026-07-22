@@ -61,9 +61,6 @@ const KnowledgeBasePage = () => {
       const res = await getPlans();
       const approvedPlans = res.data.data.filter(p => p.status === 'approved');
       setPlans(approvedPlans);
-      if (approvedPlans.length > 0) {
-        setSelectedPlanId(approvedPlans[0].id.toString());
-      }
     } catch (err) {
       console.error(err);
       setErrorMsg('Failed to fetch plans.');
@@ -209,7 +206,7 @@ const KnowledgeBasePage = () => {
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
             >
-              <option value="">-- Choose a Plan --</option>
+              <option value="" disabled>---Select Plan---</option>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.application_name}

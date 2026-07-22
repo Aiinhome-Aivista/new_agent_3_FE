@@ -199,9 +199,6 @@ const SchedulePage = () => {
       setPlans(plansRes.data.data.filter(p => p.status === 'approved'));
       setStakeholders(receiversRes.data.data);
       setKnowledgeGivers(giversRes.data.data);
-      if (plansRes.data.data.length > 0 && !formData.plan_id) {
-        setFormData(prev => ({ ...prev, plan_id: plansRes.data.data[0].id }));
-      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -228,7 +225,7 @@ const SchedulePage = () => {
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders]
       });
       setFormData({
-        plan_id: plans.length > 0 ? plans[0].id : '',
+        plan_id: '',
         scheduled_at: '',
         meeting_link: ''
       });
@@ -282,7 +279,7 @@ const SchedulePage = () => {
                 onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
                 required
               >
-                <option value="">-- Select Plan --</option>
+                <option value="" disabled>---Select Plan---</option>
                 {plans.map(p => (
                   <option key={p.id} value={p.id}>{p.application_name}</option>
                 ))}
