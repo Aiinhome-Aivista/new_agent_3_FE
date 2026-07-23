@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getLeadershipRiskSummary, escalateRisk } from '../api/api';
 import Loader from './Loader';
 import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
@@ -126,6 +126,7 @@ const ManagerRow = ({ m }) => {
 const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [planFilter, setPlanFilter] = useState('');
 
   const fetchSummary = async () => {
     try {
@@ -141,6 +142,13 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   useEffect(() => {
     fetchSummary();
   }, [refreshTrigger]);
+
+  const allPlanNames = useMemo(() => {
+    if (!data || !data.managers) return [];
+    return Array.from(new Set(
+      data.managers.filter(m => m.manager_name !== 'Unassigned').flatMap(m => m.plans || []).map(p => p.application_name)
+    )).sort();
+  }, [data]);
 
   const handleEscalate = async (id) => {
     try {
@@ -158,7 +166,47 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   }
 
   const { managers = [], total_open_risks = 0 } = data;
-  const filteredManagers = managers.filter(m => m.manager_name !== 'Unassigned');
+  let filteredManagers = managers.filter(m => m.manager_name !== 'Unassigned');
+
+  if (planFilter !== '') {
+    filteredManagers = filteredManagers.map(m => {
+      const matchingPlans = m.plans ? m.plans.filter(p => p.application_name === planFilter) : [];
+      
+      let open_risks = 0;
+      let total_risks = 0;
+      let severity_counts = { critical: 0, high: 0, medium: 0, low: 0, in_progress: 0, solved: 0 };
+      
+      matchingPlans.forEach(p => {
+         open_risks += p.open_risks || 0;
+         if (p.risks) {
+            p.risks.forEach(r => {
+                total_risks++;
+                const s = r.severity?.toLowerCase();
+                const st = r.status?.toLowerCase();
+                if (st === 'solved' || st === 'resolved') {
+                    severity_counts.solved++;
+                } else if (st === 'in_progress' || st === 'in progress' || st === 'in-progress') {
+                    severity_counts.in_progress++;
+                } else {
+                    if (s === 'critical') severity_counts.critical++;
+                    else if (s === 'high') severity_counts.high++;
+                    else if (s === 'medium') severity_counts.medium++;
+                    else if (s === 'low') severity_counts.low++;
+                }
+            });
+         }
+      });
+      
+      return {
+        ...m,
+        plans: matchingPlans,
+        total_plans: matchingPlans.length,
+        open_risks,
+        total_risks,
+        severity_counts
+      };
+    }).filter(m => m.plans.length > 0);
+  }
 
   return (
     <div className="space-y-6">
@@ -174,7 +222,21 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Risk Summary by Manager</h3>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2 md:mb-0">Risk Summary by Manager</h3>
+          <div className="w-full md:w-64">
+            <select
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+            >
+              <option value="">All Plans</option>
+              {allPlanNames.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>

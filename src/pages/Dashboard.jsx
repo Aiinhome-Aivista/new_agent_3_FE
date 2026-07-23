@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, getStakeholders, getMeetings, getRisks } from '../api/api';
+import { getPlans, getStakeholders, getMeetings, getRisks, getLeadershipCompletionSummary } from '../api/api';
 import Loader from '../components/Loader';
-import { Users, FileText, Calendar, AlertTriangle, Clock } from 'lucide-react';
+import { Users, FileText, Calendar, AlertTriangle, Clock, BarChart2, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
@@ -15,6 +15,7 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedPerfPlan, setSelectedPerfPlan] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -25,6 +26,14 @@ const Dashboard = () => {
           getMeetings(),
           getRisks()
         ]);
+
+        let perfData = null;
+        if (user?.role === 'leadership' || user?.role === 'PwC Leadership' || user?.role === 'Delivery / Engagement Manager') {
+            try {
+                const perfRes = await getLeadershipCompletionSummary();
+                perfData = perfRes.data.data;
+            } catch (e) { console.error(e); }
+        }
 
         const plansData = plansRes.data.data || [];
         const plansMap = {};
@@ -47,7 +56,8 @@ const Dashboard = () => {
           stakeholders: stakeholdersRes.data.data.length || 0,
           upcomingMeetings: upcoming,
           activeRisks: active,
-          plansMap: plansMap
+          plansMap: plansMap,
+          performanceData: perfData
         });
       } catch (err) {
         setError('Failed to load dashboard data');
@@ -57,6 +67,34 @@ const Dashboard = () => {
     };
     fetchData();
   }, []);
+
+  const allPerfPlans = React.useMemo(() => {
+    if (!stats.performanceData) return [];
+    return stats.performanceData.managers.flatMap(m => m.plans || []).sort((a, b) => b.wmo_score - a.wmo_score);
+  }, [stats.performanceData]);
+
+  const displayedPerf = React.useMemo(() => {
+    if (!stats.performanceData) return null;
+    if (selectedPerfPlan === '') {
+      return {
+        completion: stats.performanceData.combined_average_completion_percent,
+        attendance: stats.performanceData.combined_average_attendance_percent,
+        wmo: stats.performanceData.combined_average_wmo_score,
+        title: 'Overall Performance'
+      };
+    } else {
+      const plan = allPerfPlans.find(p => p.plan_id === selectedPerfPlan);
+      if (plan) {
+        return {
+          completion: plan.completion_percent,
+          attendance: plan.attendance_percent,
+          wmo: plan.wmo_score,
+          title: plan.application_name
+        };
+      }
+    }
+    return null;
+  }, [stats.performanceData, selectedPerfPlan, allPerfPlans]);
 
   if (loading) return <Loader />;
 
@@ -117,6 +155,89 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+
+      {/* Performance & Ranking Section */}
+      {!isKnowledgeReceiver && stats.performanceData && displayedPerf && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-8">
+          <div className="flex flex-col md:flex-row items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+              <BarChart2 className="mr-2 text-indigo-500" /> KT Performance & Ranking
+            </h3>
+            <div className="w-full md:w-64 mt-4 md:mt-0">
+              <select
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500"
+                value={selectedPerfPlan}
+                onChange={(e) => setSelectedPerfPlan(e.target.value)}
+              >
+                <option value="">All Plans (Overall)</option>
+                {allPerfPlans.map((p, idx) => (
+                  <option key={p.plan_id} value={p.plan_id}>#{idx + 1} - {p.application_name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-indigo-50 rounded-lg p-4 flex flex-col justify-center items-center border border-indigo-100">
+              <span className="text-indigo-800 text-sm font-medium mb-1">Completion (Weight 80%)</span>
+              <span className="text-3xl font-bold text-indigo-600">{displayedPerf.completion}%</span>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-4 flex flex-col justify-center items-center border border-blue-100">
+              <span className="text-blue-800 text-sm font-medium mb-1">Attendance (Weight 20%)</span>
+              <span className="text-3xl font-bold text-blue-600">{displayedPerf.attendance}%</span>
+            </div>
+            <div className="bg-emerald-50 rounded-lg p-4 flex flex-col justify-center items-center border border-emerald-100 shadow-sm">
+              <span className="text-emerald-800 text-sm font-medium mb-1 flex items-center">
+                <Award size={16} className="mr-1" /> W.M.O Score
+              </span>
+              <span className="text-3xl font-bold text-emerald-600">{displayedPerf.wmo}</span>
+            </div>
+          </div>
+
+          {selectedPerfPlan === '' && (
+            <div>
+              <h4 className="text-sm font-bold text-gray-700 uppercase mb-3">Plan Rankings (by W.M.O)</h4>
+              <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">WMO Score</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {allPerfPlans.map((p, idx) => (
+                      <tr key={p.plan_id} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-gray-50'}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                          #{idx + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {p.application_name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {p.completion_percent}%
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {p.attendance_percent}%
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600">
+                          {p.wmo_score}
+                        </td>
+                      </tr>
+                    ))}
+                    {allPerfPlans.length === 0 && (
+                      <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No plans available for ranking.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Detailed Dynamic Sections */}
       <div className={`grid grid-cols-1 ${!isKnowledgeReceiver ? 'lg:grid-cols-2' : ''} gap-6 mt-8`}>
