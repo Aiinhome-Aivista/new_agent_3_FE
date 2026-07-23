@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance } from '../api/api';
+import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
@@ -94,6 +94,68 @@ const SchedulePage = () => {
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [rescheduleSubsequent, setRescheduleSubsequent] = useState(false);
   const rescheduling = activeOperations['reschedule-meeting'];
+
+  // Feedback modal state
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackMeeting, setFeedbackMeeting] = useState(null);
+  const [feedbackGivers, setFeedbackGivers] = useState([]);
+  const [isAlreadySubmitted, setIsAlreadySubmitted] = useState(false);
+  const [fetchingFeedback, setFetchingFeedback] = useState(null);
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  const handleOpenFeedbackModal = async (meeting) => {
+    setFetchingFeedback(meeting.id);
+    try {
+      const res = await getMeetingFeedback(meeting.id);
+      if (res.data.success) {
+        setFeedbackMeeting(res.data.meeting || meeting);
+        setFeedbackGivers(res.data.givers || []);
+        setIsAlreadySubmitted(Boolean(res.data.already_submitted));
+        setIsFeedbackModalOpen(true);
+      } else {
+        alert(res.data.message || 'Error fetching feedback information.');
+      }
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Error fetching feedback details.');
+    } finally {
+      setFetchingFeedback(null);
+    }
+  };
+
+  const handleRatingChange = (giverId, rating) => {
+    setFeedbackGivers(prev => prev.map(g => g.id === giverId ? { ...g, rating } : g));
+  };
+
+  const handleFeedbackTextChange = (giverId, text) => {
+    setFeedbackGivers(prev => prev.map(g => g.id === giverId ? { ...g, feedback_text: text } : g));
+  };
+
+  const handleSubmitFeedback = async () => {
+    const unrated = feedbackGivers.filter(g => !g.rating || g.rating < 1);
+    if (unrated.length > 0) {
+      alert(`Please select a star rating (1 to 5) for ${unrated.map(u => u.name).join(', ')}.`);
+      return;
+    }
+    setSubmittingFeedback(true);
+    try {
+      const payload = {
+        feedbacks: feedbackGivers.map(g => ({
+          knowledge_giver_id: g.id,
+          rating: g.rating,
+          feedback_text: g.feedback_text || ''
+        }))
+      };
+      const res = await submitMeetingFeedback(feedbackMeeting.id, payload);
+      alert(res.data?.message || 'Feedback & rating submitted successfully!');
+      setIsFeedbackModalOpen(false);
+      setFeedbackMeeting(null);
+      setFeedbackGivers([]);
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Error submitting feedback.');
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
 
   const handleOpenAttendanceModal = async (meeting) => {
     setFetchingAttendees(meeting.id);
@@ -393,6 +455,7 @@ const SchedulePage = () => {
                   <>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Link</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feedback</th>
                   </>
                 )}
                 {user?.role === 'Delivery / Engagement Manager' && (
@@ -455,6 +518,32 @@ const SchedulePage = () => {
                               <span className="text-red-600">missing</span>
                             )
                           ) : null}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {m.status === 'completed' && Number(m.attended) === 1 ? (
+                            <button
+                              onClick={() => handleOpenFeedbackModal(m)}
+                              disabled={fetchingFeedback === m.id}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md hover:bg-amber-100 transition-colors text-xs font-semibold shadow-sm disabled:opacity-50"
+                              title="Give Feedback & Rating"
+                            >
+                              {fetchingFeedback === m.id ? (
+                                <svg className="animate-spin h-3.5 w-3.5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                </svg>
+                              ) : (
+                                <>
+                                  <Star size={14} className="fill-amber-400 text-amber-500" />
+                                  Feedback
+                                </>
+                              )}
+                            </button>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">
+                              {m.status !== 'completed' ? 'Available after KT' : 'Not eligible'}
+                            </span>
+                          )}
                         </td>
                       </>
                     )}
@@ -727,6 +816,141 @@ const SchedulePage = () => {
                   <><Clock size={15} className="mr-1" /> Save &amp; Notify</>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Feedback Modal ── */}
+      {isFeedbackModalOpen && feedbackMeeting && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full flex flex-col border border-gray-200 overflow-hidden max-h-[90vh]">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <Star size={20} className="fill-amber-300 text-amber-300" />
+                <h3 className="text-lg font-semibold">KT Session Feedback</h3>
+              </div>
+              <button
+                onClick={() => { setIsFeedbackModalOpen(false); setFeedbackMeeting(null); setFeedbackGivers([]); }}
+                className="text-white hover:text-gray-200 text-xl font-bold leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Meeting Info */}
+            <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Meeting Title</p>
+              <p className="text-sm font-medium text-gray-900">{feedbackMeeting.title}</p>
+            </div>
+
+            {isAlreadySubmitted && (
+              <div className="bg-amber-50 border-b border-amber-200 px-6 py-2.5 flex items-center space-x-2 text-xs font-semibold text-amber-800">
+                <CheckCircle size={16} className="text-amber-600 flex-shrink-0" />
+                <span>Feedback has already been submitted for this KT session. Changes are not allowed.</span>
+              </div>
+            )}
+
+            {/* Content List */}
+            <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">
+              {feedbackGivers.length === 0 ? (
+                <div className="text-center py-8 text-gray-500 text-sm">
+                  No Knowledge Givers associated with this KT meeting session.
+                </div>
+              ) : (
+                feedbackGivers.map((giver) => (
+                  <div key={giver.id} className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <span className="font-semibold text-gray-800 text-base">{giver.name}</span>
+                        <span className="ml-2 text-xs bg-indigo-100 text-indigo-700 font-medium px-2 py-0.5 rounded-full">
+                          Knowledge Giver
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">{giver.email}</div>
+                    </div>
+
+                    {/* Star Rating */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                        Rating (1 to 5 Stars) {!isAlreadySubmitted && <span className="text-red-500">*</span>}
+                      </label>
+                      <div className="flex items-center space-x-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            disabled={isAlreadySubmitted}
+                            onClick={() => !isAlreadySubmitted && handleRatingChange(giver.id, star)}
+                            className={`p-1 focus:outline-none transition-transform ${isAlreadySubmitted ? 'cursor-not-allowed' : 'hover:scale-110'}`}
+                            title={`${star} Star${star > 1 ? 's' : ''}`}
+                          >
+                            <Star
+                              size={24}
+                              className={
+                                star <= (giver.rating || 0)
+                                  ? "fill-amber-400 text-amber-500"
+                                  : "text-gray-300 hover:text-amber-300"
+                              }
+                            />
+                          </button>
+                        ))}
+                        <span className="ml-2 text-sm font-bold text-gray-700">
+                          {giver.rating ? `${giver.rating}/5` : 'Not Rated'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Written Feedback Textarea */}
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                        Detailed Feedback
+                      </label>
+                      <textarea
+                        rows={3}
+                        disabled={isAlreadySubmitted}
+                        readOnly={isAlreadySubmitted}
+                        placeholder={isAlreadySubmitted ? "No detailed feedback recorded." : `Share your feedback on the KT provided by ${giver.name}...`}
+                        value={giver.feedback_text || ''}
+                        onChange={(e) => !isAlreadySubmitted && handleFeedbackTextChange(giver.id, e.target.value)}
+                        className={`w-full p-2.5 text-sm border border-gray-300 rounded-md bg-white ${isAlreadySubmitted ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                      />
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => { setIsFeedbackModalOpen(false); setFeedbackMeeting(null); setFeedbackGivers([]); }}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                disabled={submittingFeedback}
+              >
+                Close
+              </button>
+              {feedbackGivers.length > 0 && !isAlreadySubmitted && (
+                <button
+                  type="button"
+                  onClick={handleSubmitFeedback}
+                  disabled={submittingFeedback}
+                  className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  {submittingFeedback ? (
+                    <><span className="animate-spin mr-2">&#x21BB;</span> Submitting...</>
+                  ) : (
+                    <><CheckCircle size={16} className="mr-1.5" /> Submit Feedback</>
+                  )}
+                </button>
+              )}
+              {isAlreadySubmitted && (
+                <span className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-md text-sm font-medium border border-green-200">
+                  <CheckCircle size={16} className="mr-1.5 text-green-600" /> Feedback Submitted
+                </span>
+              )}
             </div>
           </div>
         </div>
