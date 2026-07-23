@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getLeadershipRiskSummary, escalateRisk } from '../api/api';
 import Loader from './Loader';
 import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
@@ -32,6 +32,7 @@ const ManagerRow = ({ m }) => {
             {m.severity_counts.medium > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">{m.severity_counts.medium} Med</span>}
             {m.severity_counts.low > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{m.severity_counts.low} Low</span>}
             {m.severity_counts.in_progress > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{m.severity_counts.in_progress} In Progress</span>}
+            {m.severity_counts.waiting_for_approval > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">{m.severity_counts.waiting_for_approval} Pending Appr.</span>}
             {m.severity_counts.solved > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{m.severity_counts.solved} Solved</span>}
             {m.total_risks === 0 && <span className="text-gray-400">No Risks</span>}
           </div>
@@ -61,11 +62,12 @@ const ManagerRow = ({ m }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                           {plan.risks.map(risk => {
                             const isSolved = risk.status === 'solved' || risk.status === 'resolved';
+                            const isWaiting = risk.status === 'waiting_for_approval';
                             return (
-                            <div key={risk.id} className={`rounded-lg shadow-sm border p-3 ${isSolved ? 'bg-green-100 text-green-800 border-green-200' : getSeverityColor(risk.severity)} bg-opacity-30`}>
+                            <div key={risk.id} className={`rounded-lg shadow-sm border p-3 ${isSolved ? 'bg-green-100 text-green-800 border-green-200' : isWaiting ? 'bg-purple-100 text-purple-800 border-purple-200' : getSeverityColor(risk.severity)} bg-opacity-30`}>
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-white shadow-sm ${isSolved ? 'text-green-700' : ''}`}>
-                                        {isSolved ? 'SOLVED' : risk.severity}
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-white shadow-sm ${isSolved ? 'text-green-700' : isWaiting ? 'text-purple-700' : ''}`}>
+                                        {isSolved ? 'SOLVED' : isWaiting ? 'PENDING APPR.' : risk.severity}
                                     </span>
                                 </div>
                                 <p className="text-xs font-medium mb-3 leading-relaxed">{risk.description}</p>
@@ -98,8 +100,8 @@ const ManagerRow = ({ m }) => {
                                 )}
                                 
                                 <div className="flex justify-between items-center border-t pt-2 border-black border-opacity-5">
-                                    <span className={`text-[10px] font-semibold capitalize opacity-75 ${isSolved ? 'text-green-700' : ''}`}>
-                                        Status: {risk.status}
+                                    <span className={`text-[10px] font-semibold capitalize opacity-75 ${isSolved ? 'text-green-700' : isWaiting ? 'text-purple-700' : ''}`}>
+                                        Status: {risk.status.replace(/_/g, ' ')}
                                     </span>
                                 </div>
                             </div>
@@ -126,6 +128,7 @@ const ManagerRow = ({ m }) => {
 const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [planFilter, setPlanFilter] = useState('');
 
   const fetchSummary = async () => {
     try {
@@ -141,6 +144,13 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   useEffect(() => {
     fetchSummary();
   }, [refreshTrigger]);
+
+  const allPlanNames = useMemo(() => {
+    if (!data || !data.managers) return [];
+    return Array.from(new Set(
+      data.managers.filter(m => m.manager_name !== 'Unassigned').flatMap(m => m.plans || []).map(p => p.application_name)
+    )).sort();
+  }, [data]);
 
   const handleEscalate = async (id) => {
     try {
@@ -158,7 +168,47 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   }
 
   const { managers = [], total_open_risks = 0 } = data;
-  const filteredManagers = managers.filter(m => m.manager_name !== 'Unassigned');
+  let filteredManagers = managers.filter(m => m.manager_name !== 'Unassigned');
+
+  if (planFilter !== '') {
+    filteredManagers = filteredManagers.map(m => {
+      const matchingPlans = m.plans ? m.plans.filter(p => p.application_name === planFilter) : [];
+      
+      let open_risks = 0;
+      let total_risks = 0;
+      let severity_counts = { critical: 0, high: 0, medium: 0, low: 0, in_progress: 0, solved: 0 };
+      
+      matchingPlans.forEach(p => {
+         open_risks += p.open_risks || 0;
+         if (p.risks) {
+            p.risks.forEach(r => {
+                total_risks++;
+                const s = r.severity?.toLowerCase();
+                const st = r.status?.toLowerCase();
+                if (st === 'solved' || st === 'resolved') {
+                    severity_counts.solved++;
+                } else if (st === 'in_progress' || st === 'in progress' || st === 'in-progress') {
+                    severity_counts.in_progress++;
+                } else {
+                    if (s === 'critical') severity_counts.critical++;
+                    else if (s === 'high') severity_counts.high++;
+                    else if (s === 'medium') severity_counts.medium++;
+                    else if (s === 'low') severity_counts.low++;
+                }
+            });
+         }
+      });
+      
+      return {
+        ...m,
+        plans: matchingPlans,
+        total_plans: matchingPlans.length,
+        open_risks,
+        total_risks,
+        severity_counts
+      };
+    }).filter(m => m.plans.length > 0);
+  }
 
   return (
     <div className="space-y-6">
@@ -174,7 +224,21 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Risk Summary by Manager</h3>
+        <div className="flex flex-col md:flex-row justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-800 mb-2 md:mb-0">Risk Summary by Manager</h3>
+          <div className="w-full md:w-64">
+            <select
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+            >
+              <option value="">All Plans</option>
+              {allPlanNames.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
