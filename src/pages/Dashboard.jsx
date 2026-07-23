@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, getStakeholders, getMeetings, getRisks, getLeadershipCompletionSummary } from '../api/api';
+import { getPlans, getStakeholders, getMeetings, getRisks, getLeadershipCompletionSummary, getLeadershipGiverSummary } from '../api/api';
 import Loader from '../components/Loader';
-import { Users, FileText, Calendar, AlertTriangle, Clock, BarChart2, Award } from 'lucide-react';
+import { Users, FileText, Calendar, AlertTriangle, Clock, BarChart2, Award, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPerfPlan, setSelectedPerfPlan] = useState('');
+  const [rankingTab, setRankingTab] = useState('receivers');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -28,10 +29,15 @@ const Dashboard = () => {
         ]);
 
         let perfData = null;
+        let giverData = null;
         if (user?.role === 'leadership' || user?.role === 'PwC Leadership' || user?.role === 'Delivery / Engagement Manager') {
             try {
-                const perfRes = await getLeadershipCompletionSummary();
+                const [perfRes, giverRes] = await Promise.all([
+                  getLeadershipCompletionSummary(),
+                  getLeadershipGiverSummary()
+                ]);
                 perfData = perfRes.data.data;
+                giverData = giverRes.data.data;
             } catch (e) { console.error(e); }
         }
 
@@ -57,7 +63,8 @@ const Dashboard = () => {
           upcomingMeetings: upcoming,
           activeRisks: active,
           plansMap: plansMap,
-          performanceData: perfData
+          performanceData: perfData,
+          giverData: giverData
         });
       } catch (err) {
         setError('Failed to load dashboard data');
@@ -70,8 +77,45 @@ const Dashboard = () => {
 
   const allPerfPlans = React.useMemo(() => {
     if (!stats.performanceData) return [];
-    return stats.performanceData.managers.flatMap(m => m.plans || []).sort((a, b) => b.wmo_score - a.wmo_score);
+    return stats.performanceData.managers
+      .flatMap(m => m.plans || [])
+      .filter(p => p.status && !['draft', 'waiting_for_approval'].includes(p.status.toLowerCase()))
+      .sort((a, b) => b.wmo_score - a.wmo_score);
   }, [stats.performanceData]);
+
+  React.useEffect(() => {
+    if (selectedPerfPlan === '' && allPerfPlans.length > 0) {
+      setSelectedPerfPlan(allPerfPlans[0].plan_id.toString());
+    }
+  }, [allPerfPlans, selectedPerfPlan]);
+
+  const receiverRankings = React.useMemo(() => {
+    const plans = selectedPerfPlan ? allPerfPlans.filter(p => p.plan_id.toString() === selectedPerfPlan.toString()) : allPerfPlans;
+    const receiverMap = {};
+    plans.forEach(p => {
+        const receivers = p.receiver_name ? p.receiver_name.split(',').map(s => s.trim()) : ['Unassigned'];
+        receivers.forEach(r => {
+            if (!receiverMap[r]) receiverMap[r] = { name: r, plans: [], totalWmo: 0, totalComp: 0, totalAtt: 0 };
+            receiverMap[r].plans.push(p);
+            receiverMap[r].totalWmo += p.wmo_score;
+            receiverMap[r].totalComp += p.completion_percent;
+            receiverMap[r].totalAtt += p.attendance_percent;
+        });
+    });
+    
+    const result = Object.values(receiverMap).map(r => {
+        const count = r.plans.length;
+        return {
+            receiver_name: r.name,
+            completion_percent: Math.round(r.totalComp / count),
+            attendance_percent: Math.round(r.totalAtt / count),
+            wmo_score: Math.round(r.totalWmo / count),
+            application_name: r.plans.map(p => p.application_name).join(', ')
+        };
+    });
+    
+    return result.sort((a, b) => b.wmo_score - a.wmo_score);
+  }, [allPerfPlans, selectedPerfPlan]);
 
   const displayedPerf = React.useMemo(() => {
     if (!stats.performanceData) return null;
@@ -83,7 +127,7 @@ const Dashboard = () => {
         title: 'Overall Performance'
       };
     } else {
-      const plan = allPerfPlans.find(p => p.plan_id === selectedPerfPlan);
+      const plan = allPerfPlans.find(p => p.plan_id.toString() === selectedPerfPlan.toString());
       if (plan) {
         return {
           completion: plan.completion_percent,
@@ -95,6 +139,24 @@ const Dashboard = () => {
     }
     return null;
   }, [stats.performanceData, selectedPerfPlan, allPerfPlans]);
+
+  const displayedGivers = React.useMemo(() => {
+    if (!stats.giverData || !stats.giverData.knowledge_givers) return [];
+    if (!selectedPerfPlan) return stats.giverData.knowledge_givers;
+    
+    const filtered = [];
+    stats.giverData.knowledge_givers.forEach(g => {
+        const planData = g.plans.find(p => p.plan_id.toString() === selectedPerfPlan.toString());
+        if (planData) {
+            filtered.push({
+                ...g,
+                total_feedbacks: planData.total_feedbacks,
+                average_rating: planData.average_rating
+            });
+        }
+    });
+    return filtered.sort((a, b) => b.average_rating - a.average_rating);
+  }, [stats.giverData, selectedPerfPlan]);
 
   if (loading) return <Loader />;
 
@@ -157,19 +219,37 @@ const Dashboard = () => {
       </div>
 
       {/* Performance & Ranking Section */}
-      {!isKnowledgeReceiver && stats.performanceData && displayedPerf && (
+      {!isKnowledgeReceiver && (stats.performanceData || stats.giverData) && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-8">
           <div className="flex flex-col md:flex-row items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-800 flex items-center">
               <BarChart2 className="mr-2 text-indigo-500" /> KT Performance & Ranking
             </h3>
-            <div className="w-full md:w-64 mt-4 md:mt-0">
+            
+            {/* Tabs */}
+            <div className="flex space-x-1 mt-4 md:mt-0 bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setRankingTab('receivers')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${rankingTab === 'receivers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Knowledge Receivers
+              </button>
+              <button
+                onClick={() => setRankingTab('givers')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${rankingTab === 'givers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Knowledge Givers
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end mb-6">
+            <div className="w-full md:w-64">
               <select
                 className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500"
                 value={selectedPerfPlan}
                 onChange={(e) => setSelectedPerfPlan(e.target.value)}
               >
-                <option value="">All Plans (Overall)</option>
                 {allPerfPlans.map((p, idx) => (
                   <option key={p.plan_id} value={p.plan_id}>#{idx + 1} - {p.application_name}</option>
                 ))}
@@ -177,59 +257,105 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-indigo-50 rounded-lg p-4 flex flex-col justify-center items-center border border-indigo-100">
-              <span className="text-indigo-800 text-sm font-medium mb-1">Completion (Weight 80%)</span>
-              <span className="text-3xl font-bold text-indigo-600">{displayedPerf.completion}%</span>
-            </div>
-            <div className="bg-blue-50 rounded-lg p-4 flex flex-col justify-center items-center border border-blue-100">
-              <span className="text-blue-800 text-sm font-medium mb-1">Attendance (Weight 20%)</span>
-              <span className="text-3xl font-bold text-blue-600">{displayedPerf.attendance}%</span>
-            </div>
-            <div className="bg-emerald-50 rounded-lg p-4 flex flex-col justify-center items-center border border-emerald-100 shadow-sm">
-              <span className="text-emerald-800 text-sm font-medium mb-1 flex items-center">
-                <Award size={16} className="mr-1" /> W.M.O Score
-              </span>
-              <span className="text-3xl font-bold text-emerald-600">{displayedPerf.wmo}</span>
-            </div>
-          </div>
+          {rankingTab === 'receivers' && stats.performanceData && displayedPerf && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="bg-indigo-50 rounded-lg p-4 flex flex-col justify-center items-center border border-indigo-100">
+                  <span className="text-indigo-800 text-sm font-medium mb-1">Completion (Weight 80%)</span>
+                  <span className="text-3xl font-bold text-indigo-600">{displayedPerf.completion}%</span>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-4 flex flex-col justify-center items-center border border-blue-100">
+                  <span className="text-blue-800 text-sm font-medium mb-1">Attendance (Weight 20%)</span>
+                  <span className="text-3xl font-bold text-blue-600">{displayedPerf.attendance}%</span>
+                </div>
+                <div className="bg-emerald-50 rounded-lg p-4 flex flex-col justify-center items-center border border-emerald-100 shadow-sm">
+                  <span className="text-emerald-800 text-sm font-medium mb-1 flex items-center">
+                    <Award size={16} className="mr-1" /> W.M.O Score
+                  </span>
+                  <span className="text-3xl font-bold text-emerald-600">{displayedPerf.wmo}</span>
+                </div>
+              </div>
 
-          {selectedPerfPlan === '' && (
+              <div>
+                  <h4 className="text-sm font-bold text-gray-700 uppercase mb-3">Receiver Rankings (by W.M.O)</h4>
+                  <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receiver Name</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
+                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">WMO Score</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {receiverRankings.map((p, idx) => (
+                          <tr key={idx} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-gray-50'}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                              #{idx + 1}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {p.receiver_name}
+                              <div className="text-xs text-gray-400 mt-0.5">{p.application_name}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {p.completion_percent}%
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {p.attendance_percent}%
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600">
+                              {p.wmo_score}
+                            </td>
+                          </tr>
+                        ))}
+                        {receiverRankings.length === 0 && (
+                          <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No plans available for ranking.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+            </>
+          )}
+
+          {rankingTab === 'givers' && stats.giverData && (
             <div>
-              <h4 className="text-sm font-bold text-gray-700 uppercase mb-3">Plan Rankings (by W.M.O)</h4>
+              <h4 className="text-sm font-bold text-gray-700 uppercase mb-3">Knowledge Giver Rankings (by Star Rating)</h4>
               <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-lg">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">WMO Score</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giver Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feedback Count</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Avg Rating</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {allPerfPlans.map((p, idx) => (
-                      <tr key={p.plan_id} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-gray-50'}>
+                    {displayedGivers.map((g, idx) => (
+                      <tr key={idx} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-gray-50'}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
                           #{idx + 1}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {p.application_name}
+                          {g.giver_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {p.completion_percent}%
+                          {g.role}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {p.attendance_percent}%
+                          {g.total_feedbacks}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600">
-                          {p.wmo_score}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-500 flex items-center">
+                          <Star size={16} className="mr-1 fill-current" /> {g.average_rating}
                         </td>
                       </tr>
                     ))}
-                    {allPerfPlans.length === 0 && (
-                      <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No plans available for ranking.</td></tr>
+                    {displayedGivers.length === 0 && (
+                      <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No knowledge giver ratings available.</td></tr>
                     )}
                   </tbody>
                 </table>
