@@ -87,9 +87,9 @@ const RisksPage = () => {
     }
   };
 
-  const openEscalateModal = (riskId) => {
-      setRiskToEscalate(riskId);
-      setSelectedAssignees([]);
+  const openEscalateModal = (risk) => {
+      setRiskToEscalate(risk.id);
+      setSelectedAssignees(risk.assigned_to || []);
       setInitialNote('');
       setEscalationSuccess(false);
       setShowEscalateModal(true);
@@ -330,9 +330,9 @@ const RisksPage = () => {
               <span className={`text-xs font-semibold capitalize opacity-75 ${isSolved ? 'text-green-700' : ''}`}>
                 Status: {risk.status}
               </span>
-              {risk.status === 'open' && isManager && (
+              {(risk.status === 'open' || risk.status === 'in_progress') && isManager && (
                 <button
-                  onClick={() => openEscalateModal(risk.id)}
+                  onClick={() => openEscalateModal(risk)}
                   className="inline-flex items-center px-3 py-1 text-xs font-medium rounded bg-white hover:bg-gray-50 shadow-sm transition-colors border"
                 >
                   <AlertCircle size={14} className="mr-1" /> Escalate
