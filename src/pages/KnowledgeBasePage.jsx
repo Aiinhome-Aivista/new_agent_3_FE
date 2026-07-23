@@ -377,7 +377,7 @@ const KnowledgeBasePage = () => {
               <table className="min-w-full divide-y divide-gray-100">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-8 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Day / Topic</th>
+                    <th className="px-8 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Day</th>
                     <th className="px-6 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Document Name</th>
                     <th className="px-6 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Status</th>
                     <th className="px-8 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Date</th>
@@ -389,8 +389,8 @@ const KnowledgeBasePage = () => {
                       <td className="px-8 py-5 max-w-[260px]">
                         <div className="flex items-start gap-3">
                           <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
-                          <span className="text-sm font-semibold text-gray-700 leading-relaxed" title={topicOptions.find(t => t.value === doc.kt_day)?.fullLabel || doc.kt_day}>
-                            {topicOptions.find(t => t.value === doc.kt_day)?.fullLabel || doc.kt_day || 'N/A'}
+                          <span className="text-sm font-semibold text-gray-700 leading-relaxed" title={doc.kt_day}>
+                            {doc.kt_day || 'N/A'}
                           </span>
                         </div>
                       </td>

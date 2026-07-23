@@ -40,7 +40,7 @@ const Dashboard = () => {
           .filter(m => new Date(m.scheduled_at) > now && m.status?.toLowerCase() !== 'completed')
           .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
-        const active = allRisks.filter(r => r.status?.toLowerCase() === 'open');
+        const active = allRisks.filter(r => ['open', 'in_progress', 'in progress', 'in-progress'].includes(r.status?.toLowerCase()));
 
         setStats({
           plans: plansData.length,
