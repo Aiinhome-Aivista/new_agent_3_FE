@@ -32,6 +32,7 @@ const ManagerRow = ({ m }) => {
             {m.severity_counts.medium > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">{m.severity_counts.medium} Med</span>}
             {m.severity_counts.low > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{m.severity_counts.low} Low</span>}
             {m.severity_counts.in_progress > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{m.severity_counts.in_progress} In Progress</span>}
+            {m.severity_counts.waiting_for_approval > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">{m.severity_counts.waiting_for_approval} Pending Appr.</span>}
             {m.severity_counts.solved > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{m.severity_counts.solved} Solved</span>}
             {m.total_risks === 0 && <span className="text-gray-400">No Risks</span>}
           </div>
@@ -61,11 +62,12 @@ const ManagerRow = ({ m }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                           {plan.risks.map(risk => {
                             const isSolved = risk.status === 'solved' || risk.status === 'resolved';
+                            const isWaiting = risk.status === 'waiting_for_approval';
                             return (
-                            <div key={risk.id} className={`rounded-lg shadow-sm border p-3 ${isSolved ? 'bg-green-100 text-green-800 border-green-200' : getSeverityColor(risk.severity)} bg-opacity-30`}>
+                            <div key={risk.id} className={`rounded-lg shadow-sm border p-3 ${isSolved ? 'bg-green-100 text-green-800 border-green-200' : isWaiting ? 'bg-purple-100 text-purple-800 border-purple-200' : getSeverityColor(risk.severity)} bg-opacity-30`}>
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-white shadow-sm ${isSolved ? 'text-green-700' : ''}`}>
-                                        {isSolved ? 'SOLVED' : risk.severity}
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-white shadow-sm ${isSolved ? 'text-green-700' : isWaiting ? 'text-purple-700' : ''}`}>
+                                        {isSolved ? 'SOLVED' : isWaiting ? 'PENDING APPR.' : risk.severity}
                                     </span>
                                 </div>
                                 <p className="text-xs font-medium mb-3 leading-relaxed">{risk.description}</p>
@@ -98,8 +100,8 @@ const ManagerRow = ({ m }) => {
                                 )}
                                 
                                 <div className="flex justify-between items-center border-t pt-2 border-black border-opacity-5">
-                                    <span className={`text-[10px] font-semibold capitalize opacity-75 ${isSolved ? 'text-green-700' : ''}`}>
-                                        Status: {risk.status}
+                                    <span className={`text-[10px] font-semibold capitalize opacity-75 ${isSolved ? 'text-green-700' : isWaiting ? 'text-purple-700' : ''}`}>
+                                        Status: {risk.status.replace(/_/g, ' ')}
                                     </span>
                                 </div>
                             </div>
