@@ -12,7 +12,8 @@ import {
   BarChart3, 
   MessageSquare,
   LogOut,
-  Database
+  Database,
+  CalendarDays
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -34,12 +35,13 @@ const Sidebar = () => {
     { name: 'Risks', path: '/risks', icon: <AlertTriangle size={20} /> },
     { name: 'Assessment', path: '/assessment', icon: <FileQuestion size={20} /> },
     { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> },
+    { name: 'Holidays', path: '/holidays', icon: <CalendarDays size={20} /> },
   
     { name: 'Chatbot', path: '/chatbot', icon: <MessageSquare size={20} /> },
   ];
 
   const roleAccess = {
-    'Delivery / Engagement Manager': ['Dashboard', 'Stakeholders','Knowledge Base', 'KT Plan', 'Schedule', 'Tracking', 'Risks', 'Assessment', 'Reports'],
+    'Delivery / Engagement Manager': ['Dashboard', 'Stakeholders','Knowledge Base', 'KT Plan', 'Schedule', 'Tracking', 'Risks', 'Assessment', 'Reports', 'Holidays'],
     'Outgoing SME (Knowledge Giver)': ['Dashboard', 'Assessment', 'Knowledge Base', 'Chatbot', 'Risks'],
     'Incoming Team Member (Knowledge Receiver)': ['Dashboard', 'Schedule', 'Assessment', 'Chatbot', 'Risks'],
     'PwC Leadership': ['Dashboard', 'Stakeholders', 'Reports', 'Tracking', 'Risks', 'Assessment'],

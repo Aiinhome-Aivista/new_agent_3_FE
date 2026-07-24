@@ -98,7 +98,16 @@ export const getResults = (planId, stakeholderId, limit) => {
   if (limit) params.append('limit', limit);
   const query = params.toString() ? `?${params.toString()}` : '';
   return api.get(`/assessments/plan/${planId}/results${query}`);
-};
+}
+
+// Holidays
+export const uploadHolidayList = (formData) => api.post('/holidays/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const insertHolidays = (data) => api.post('/holidays/insert', data);
+export const getHolidays = () => api.get('/holidays/');
+export const updateHoliday = (id, data) => api.put(`/holidays/${id}`, data);
+export const deleteHoliday = (id) => api.delete(`/holidays/${id}`);
 export const completeAssessment = (data) => api.post('/assessments/complete', data);
 export const getAttemptDetails = (asid) => api.get(`/assessments/attempt/${asid}/details`);
 

@@ -16,6 +16,7 @@ import ReportsPage from './pages/ReportsPage';
 import ChatbotPage from './pages/ChatbotPage';
 import LoginPage from './pages/LoginPage';
 import KnowledgeBasePage from './pages/KnowledgeBasePage';
+import HolidaysPage from './pages/HolidaysPage';
 
 
 function App() {
@@ -41,6 +42,7 @@ function App() {
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
               <Route path="/chatbot" element={<ChatbotPage />} />
+              <Route path="/holidays" element={<HolidaysPage />} />
             </Route>
           </Route>
         </Routes>
