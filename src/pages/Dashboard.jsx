@@ -142,7 +142,9 @@ const Dashboard = () => {
 
   const displayedGivers = React.useMemo(() => {
     if (!stats.giverData || !stats.giverData.knowledge_givers) return [];
-    if (!selectedPerfPlan) return stats.giverData.knowledge_givers;
+    if (!selectedPerfPlan) {
+      return [...stats.giverData.knowledge_givers].sort((a, b) => b.average_rating - a.average_rating);
+    }
     
     const filtered = [];
     stats.giverData.knowledge_givers.forEach(g => {
@@ -251,7 +253,7 @@ const Dashboard = () => {
                 onChange={(e) => setSelectedPerfPlan(e.target.value)}
               >
                 {allPerfPlans.map((p, idx) => (
-                  <option key={p.plan_id} value={p.plan_id}>#{idx + 1} - {p.application_name}</option>
+                  <option key={p.plan_id} value={p.plan_id}> {p.application_name}</option>
                 ))}
               </select>
             </div>
