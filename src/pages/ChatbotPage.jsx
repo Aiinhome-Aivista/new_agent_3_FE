@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { askChatbot, getChatHistory, getPlans } from '../api/api';
+import { askChatbot, getChatHistory, askChatbot2, getChatHistory2, getPlans } from '../api/api';
 import { Send, Bot, User } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const ChatbotPage = () => {
+  const { user } = useAuth();
+  const isSpecialRole = user?.role === 'PwC Leadership' || user?.role === 'Delivery / Engagement Manager';
   const [sessionId, setSessionId] = useState('');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -23,7 +26,8 @@ const ChatbotPage = () => {
     
     const fetchHistory = async () => {
       try {
-        const res = await getChatHistory(sid);
+        const historyCall = isSpecialRole ? getChatHistory2 : getChatHistory;
+        const res = await historyCall(sid);
         const history = res.data.data;
         const formatted = [];
         history.forEach(item => {
@@ -70,7 +74,8 @@ const ChatbotPage = () => {
     
     try {
       const planIdToPass = selectedPlanId || null;
-      const res = await askChatbot(sessionId, userMsg, planIdToPass);
+      const askCall = isSpecialRole ? askChatbot2 : askChatbot;
+      const res = await askCall(sessionId, userMsg, planIdToPass);
       setMessages(prev => [...prev, { role: 'assistant', content: res.data.data.answer }]);
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error answering your question.' }]);
@@ -105,19 +110,21 @@ const ChatbotPage = () => {
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-600 font-medium">Context:</span>
-          <select
-            className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={selectedPlanId}
-            onChange={(e) => setSelectedPlanId(e.target.value)}
-          >
-            <option value="">All Plans / General</option>
-            {plans.map(plan => (
-              <option key={plan.id} value={plan.id}>{plan.application_name}</option>
-            ))}
-          </select>
-        </div>
+        {!isSpecialRole && (
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-600 font-medium">Context:</span>
+            <select
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={selectedPlanId}
+              onChange={(e) => setSelectedPlanId(e.target.value)}
+            >
+              <option value="">All Plans / General</option>
+              {plans.map(plan => (
+                <option key={plan.id} value={plan.id}>{plan.application_name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       
       {/* Chat Messages */}
