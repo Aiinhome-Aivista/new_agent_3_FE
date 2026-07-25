@@ -93,14 +93,24 @@ const Dashboard = () => {
     const plans = selectedPerfPlan ? allPerfPlans.filter(p => p.plan_id.toString() === selectedPerfPlan.toString()) : allPerfPlans;
     const receiverMap = {};
     plans.forEach(p => {
-      const receivers = p.receiver_name ? p.receiver_name.split(',').map(s => s.trim()) : ['Unassigned'];
-      receivers.forEach(r => {
-        if (!receiverMap[r]) receiverMap[r] = { name: r, plans: [], totalWmo: 0, totalComp: 0, totalAtt: 0 };
-        receiverMap[r].plans.push(p);
-        receiverMap[r].totalWmo += p.wmo_score;
-        receiverMap[r].totalComp += p.completion_percent;
-        receiverMap[r].totalAtt += p.attendance_percent;
-      });
+      if (p.receivers && p.receivers.length > 0) {
+        p.receivers.forEach(r => {
+          if (!receiverMap[r.name]) receiverMap[r.name] = { name: r.name, plans: [], totalWmo: 0, totalComp: 0, totalAtt: 0 };
+          receiverMap[r.name].plans.push(p);
+          receiverMap[r.name].totalWmo += r.wmo_score;
+          receiverMap[r.name].totalComp += r.completion_percent;
+          receiverMap[r.name].totalAtt += r.attendance_percent;
+        });
+      } else {
+        const receivers = p.receiver_name ? p.receiver_name.split(',').map(s => s.trim()) : ['Unassigned'];
+        receivers.forEach(r => {
+          if (!receiverMap[r]) receiverMap[r] = { name: r, plans: [], totalWmo: 0, totalComp: 0, totalAtt: 0 };
+          receiverMap[r].plans.push(p);
+          receiverMap[r].totalWmo += p.wmo_score;
+          receiverMap[r].totalComp += p.completion_percent;
+          receiverMap[r].totalAtt += p.attendance_percent;
+        });
+      }
     });
 
     const result = Object.values(receiverMap).map(r => {
@@ -263,18 +273,18 @@ const Dashboard = () => {
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-indigo-50 rounded-lg p-4 flex flex-col justify-center items-center border border-indigo-100">
-                  <span className="text-indigo-800 text-sm font-medium mb-1">Completion (Weight 80%)</span>
-                  <span className="text-3xl font-bold text-indigo-600">{displayedPerf.completion}%</span>
+                  <span className="text-indigo-800 text-sm font-medium mb-1">Assessment (Weight 80%)</span>
+                  <span className="text-3xl font-bold text-indigo-600">{Math.round(displayedPerf.completion)}%</span>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-4 flex flex-col justify-center items-center border border-blue-100">
                   <span className="text-blue-800 text-sm font-medium mb-1">Attendance (Weight 20%)</span>
-                  <span className="text-3xl font-bold text-blue-600">{displayedPerf.attendance}%</span>
+                  <span className="text-3xl font-bold text-blue-600">{Math.round(displayedPerf.attendance)}%</span>
                 </div>
                 <div className="bg-emerald-50 rounded-lg p-4 flex flex-col justify-center items-center border border-emerald-100 shadow-sm">
                   <span className="text-emerald-800 text-sm font-medium mb-1 flex items-center">
                     <Award size={16} className="mr-1" /> W.M.O Score
                   </span>
-                  <span className="text-3xl font-bold text-emerald-600">{displayedPerf.wmo}</span>
+                  <span className="text-3xl font-bold text-emerald-600">{Math.round(displayedPerf.wmo)}</span>
                 </div>
               </div>
 
@@ -286,7 +296,7 @@ const Dashboard = () => {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receiver Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">WMO Score</th>
                       </tr>
