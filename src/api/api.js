@@ -141,4 +141,14 @@ export const getLeadershipCompletionSummary = () => api.get('/leadership/complet
 export const getLeadershipRiskSummary = () => api.get('/leadership/risk-summary');
 export const getLeadershipGiverSummary = () => api.get('/leadership/giver-summary');
 
+export const askChatbot2 = (sessionId, question, planId = null) =>
+    api.post('/chatbot2/ask', {
+        session_id: sessionId,
+        question,
+        ...(planId ? { plan_id: planId } : {})
+    });
+
+export const getChatHistory2 = (sessionId) =>
+    api.get(`/chatbot2/history/${sessionId}`);
+
 export default api;

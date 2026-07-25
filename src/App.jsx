@@ -17,6 +17,7 @@ import ChatbotPage from './pages/ChatbotPage';
 import LoginPage from './pages/LoginPage';
 import KnowledgeBasePage from './pages/KnowledgeBasePage';
 import HolidaysPage from './pages/HolidaysPage';
+import CalendarPage from './pages/CalendarPage';
 
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
               <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
               <Route path="/chatbot" element={<ChatbotPage />} />
               <Route path="/holidays" element={<HolidaysPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
             </Route>
           </Route>
         </Routes>
