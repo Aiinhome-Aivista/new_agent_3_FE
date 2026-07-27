@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getLeadershipCompletionSummary } from '../api/api';
+import { getLeadershipTrackingSummary } from '../api/api';
 import Loader from './Loader';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -78,7 +78,7 @@ const ManagerWiseCompletionView = () => {
   useEffect(() => {
     const fetchSummary = async () => {
       try {
-        const res = await getLeadershipCompletionSummary();
+        const res = await getLeadershipTrackingSummary();
         setData(res.data.data);
       } catch (err) {
         console.error(err);
