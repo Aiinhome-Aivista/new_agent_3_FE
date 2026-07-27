@@ -50,6 +50,20 @@ const AssessmentPage = () => {
   const toggleQuestionExpand = (idx) => setExpandedQuestions(prev => ({ ...prev, [idx]: !prev[idx] }));
   const toggleAttemptQuestionExpand = (idx) => setExpandedAttemptQuestions(prev => ({ ...prev, [idx]: !prev[idx] }));
   
+  const parseCoveredTopics = (raw) => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -757,59 +771,64 @@ const AssessmentPage = () => {
                       </div>
                       
                       {/* Collapsible Content */}
-                      {isExpanded && (
-                        <div className="p-6 border-t border-gray-100 flex flex-col space-y-4 bg-gray-50/30">
-                          {/* Completed Topics list */}
-                          {completedTopics.length > 0 && (
-                            <div className="bg-white p-4 rounded-xl border border-gray-100 text-sm">
-                              <span className="font-bold text-gray-700 block mb-2 text-xs uppercase tracking-wider">Completed Topics Covered</span>
-                              <div className="flex flex-wrap gap-2">
-                                {completedTopics.map((topic, i) => (
-                                  <span key={i} className="px-2.5 py-1 bg-gray-50 border border-gray-100 rounded-md text-gray-600 font-medium text-xs">
-                                    {topic}
-                                  </span>
-                                ))}
+                      {isExpanded && (() => {
+                        const attemptCoveredTopics = parseCoveredTopics(attempt.covered_topics);
+                        return (
+                          <div className="p-6 border-t border-gray-100 flex flex-col space-y-4 bg-gray-50/30">
+                            {/* Snapshot of Completed Topics Covered at Assessment time */}
+                            {attemptCoveredTopics.length > 0 && (
+                              <div className="bg-white p-4 rounded-xl border border-gray-100 text-sm">
+                                <span className="font-bold text-gray-700 block mb-2 text-xs uppercase tracking-wider">
+                                  Topics Covered During Assessment ({attemptCoveredTopics.length})
+                                </span>
+                                <div className="flex flex-wrap gap-2">
+                                  {attemptCoveredTopics.map((topic, i) => (
+                                    <span key={i} className="px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-indigo-700 font-medium text-xs">
+                                      {topic}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Performance Feedback */}
+                            <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-50/50">
+                              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1.5">Overall Performance Feedback</span>
+                              <p className="text-sm text-gray-700 leading-relaxed italic font-medium">
+                                "{attempt.feedback}"
+                              </p>
+                            </div>
+
+                            {/* Metrics Summary panel */}
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Attempted</span>
+                                <span className="text-sm font-bold text-gray-700 mt-1 block">5 / 5 Qs</span>
+                              </div>
+                              <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Completion</span>
+                                <span className="text-sm font-bold text-gray-700 mt-1 block">100%</span>
+                              </div>
+                              <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Date</span>
+                                <span className="text-sm font-bold text-gray-700 mt-1 block">
+                                  {new Date(attempt.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </span>
                               </div>
                             </div>
-                          )}
 
-                          {/* Performance Feedback */}
-                          <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-50/50">
-                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1.5">Overall Performance Feedback</span>
-                            <p className="text-sm text-gray-700 leading-relaxed italic font-medium">
-                              "{attempt.feedback}"
-                            </p>
-                          </div>
-
-                          {/* Metrics Summary panel */}
-                          <div className="grid grid-cols-3 gap-4 text-center">
-                            <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                              <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Attempted</span>
-                              <span className="text-sm font-bold text-gray-700 mt-1 block">5 / 5 Qs</span>
-                            </div>
-                            <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                              <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Completion</span>
-                              <span className="text-sm font-bold text-gray-700 mt-1 block">100%</span>
-                            </div>
-                            <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                              <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Date</span>
-                              <span className="text-sm font-bold text-gray-700 mt-1 block">
-                                {new Date(attempt.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                              </span>
+                            <div className="pt-2 flex justify-end">
+                              <button
+                                onClick={() => handleViewDetails(attempt)}
+                                className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-xl transition-all text-sm shadow-md flex items-center gap-2"
+                              >
+                                <Award className="w-4 h-4" />
+                                View Full Report
+                              </button>
                             </div>
                           </div>
-
-                          <div className="pt-2 flex justify-end">
-                            <button
-                              onClick={() => handleViewDetails(attempt)}
-                              className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-xl transition-all text-sm shadow-md flex items-center gap-2"
-                            >
-                              <Award className="w-4 h-4" />
-                              View Full Report
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })}
@@ -865,6 +884,7 @@ const AssessmentPage = () => {
                 ) : groupedAttempts.length > 0 ? (
                   <div className="divide-y divide-gray-100 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-inner">
                     {groupedAttempts.map((attempt, idx) => {
+                      const attemptCoveredTopics = parseCoveredTopics(attempt.covered_topics);
                       return (
                         <div key={idx} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-indigo-50/10 px-6 rounded-none transition-all">
                           <div className="space-y-1 flex-1">
@@ -879,6 +899,16 @@ const AssessmentPage = () => {
                             <p className="text-xs text-gray-500 line-clamp-2 mt-1 leading-relaxed italic">
                               "{attempt.feedback}"
                             </p>
+                            {attemptCoveredTopics.length > 0 && (
+                              <div className="flex flex-wrap gap-1 pt-1">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1 self-center">Covered ({attemptCoveredTopics.length}):</span>
+                                {attemptCoveredTopics.map((topic, ti) => (
+                                  <span key={ti} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[11px] font-medium border border-indigo-100">
+                                    {topic}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <button
                             onClick={() => handleViewDetails(attempt)}
@@ -974,6 +1004,25 @@ const AssessmentPage = () => {
                         </p>
                       </div>
                     </div>
+
+                    {/* Snapshot of Covered Topics during this Assessment */}
+                    {(() => {
+                      const reportCoveredTopics = parseCoveredTopics(selectedAttempt.covered_topics);
+                      return reportCoveredTopics.length > 0 ? (
+                        <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm text-sm">
+                          <span className="font-bold text-indigo-900 block mb-2 text-xs uppercase tracking-wider">
+                            Topics Covered During This Assessment ({reportCoveredTopics.length})
+                          </span>
+                          <div className="flex flex-wrap gap-2">
+                            {reportCoveredTopics.map((topic, i) => (
+                              <span key={i} className="px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 font-medium text-xs">
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null;
+                    })()}
 
                     {/* Question-wise results breakdown */}
                     <div className="space-y-4 pt-2">
