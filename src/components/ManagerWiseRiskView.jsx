@@ -13,6 +13,38 @@ const getSeverityColor = (severity) => {
   }
 };
 
+const sortRisks = (risksArray) => {
+  const severityOrder = { 
+    CRITICAL: 1, critical: 1,
+    HIGH: 2, high: 2, 
+    MEDIUM: 3, medium: 3, 
+    LOW: 4, low: 4 
+  };
+  
+  return [...risksArray].sort((a, b) => {
+    // 1. Solved risks go to the bottom
+    const aIsSolved = ['solved', 'resolved', 'approved'].includes((a.status || '').toLowerCase());
+    const bIsSolved = ['solved', 'resolved', 'approved'].includes((b.status || '').toLowerCase());
+
+    if (aIsSolved !== bIsSolved) {
+      return aIsSolved ? 1 : -1;
+    }
+
+    // 2. Sort by Date (Latest First)
+    const dateA = new Date(a.created_at || a.date || 0);
+    const dateB = new Date(b.created_at || b.date || 0);
+    const dayA = new Date(dateA.getFullYear(), dateA.getMonth(), dateA.getDate()).getTime();
+    const dayB = new Date(dateB.getFullYear(), dateB.getMonth(), dateB.getDate()).getTime();
+    
+    if (dayB !== dayA) {
+      return dayB - dayA;
+    }
+
+    // 3. Sort by Severity (HIGH -> MEDIUM -> LOW)
+    return (severityOrder[a.severity] || 5) - (severityOrder[b.severity] || 5);
+  });
+};
+
 const ManagerRow = ({ m }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -60,7 +92,7 @@ const ManagerRow = ({ m }) => {
                       </div>
                       {plan.risks && plan.risks.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                          {plan.risks.map(risk => {
+                          {sortRisks(plan.risks).map(risk => {
                             const isSolved = risk.status === 'solved' || risk.status === 'resolved';
                             const isWaiting = risk.status === 'deferred';
                             return (
