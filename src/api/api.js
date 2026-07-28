@@ -139,6 +139,7 @@ export const runFullWorkflow = (data) => api.post('/plans/workflow', data);
 
 // Leadership
 export const getLeadershipCompletionSummary = () => api.get('/leadership/completion-summary');
+export const getLeadershipTrackingSummary = () => api.get('/leadership/tracking-summary');
 export const getLeadershipRiskSummary = () => api.get('/leadership/risk-summary');
 export const getLeadershipGiverSummary = () => api.get('/leadership/giver-summary');
 

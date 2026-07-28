@@ -20,6 +20,12 @@ const HolidaysPage = () => {
   // New UI Features State
   const [selectedYearFilter, setSelectedYearFilter] = useState('All');
   const [holidayToDelete, setHolidayToDelete] = useState(null); // Stores ID of holiday to delete
+  
+  // Add Manual Holiday State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newHolidayDate, setNewHolidayDate] = useState('');
+  const [newHolidayName, setNewHolidayName] = useState('');
+  const [isSavingNewHoliday, setIsSavingNewHoliday] = useState(false);
 
   // Helper to show temporary toast messages
   const showSuccess = (msg) => {
@@ -206,6 +212,43 @@ const HolidaysPage = () => {
     }
   };
 
+  const handleAddNewHoliday = async () => {
+    if (!newHolidayDate || !newHolidayName) {
+      showError("Please provide both a date and a name for the holiday.");
+      return;
+    }
+    
+    setIsSavingNewHoliday(true);
+    
+    // Automatically determine the year from the selected date
+    const d = new Date(newHolidayDate);
+    const year = d.getFullYear();
+    
+    const holidayData = [{
+      date: newHolidayDate,
+      name: newHolidayName,
+      year: year
+    }];
+    
+    try {
+      const response = await insertHolidays({ holidays: holidayData });
+      if (response.data.success) {
+        showSuccess('Holiday added successfully!');
+        setIsAddModalOpen(false);
+        setNewHolidayDate('');
+        setNewHolidayName('');
+        fetchSavedHolidays();
+      } else {
+        showError(response.data.message || 'Failed to add holiday.');
+      }
+    } catch (err) {
+      console.error(err);
+      showError('An error occurred while adding the holiday.');
+    } finally {
+      setIsSavingNewHoliday(false);
+    }
+  };
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 relative">
       <div className="flex justify-between items-center mb-6">
@@ -381,18 +424,26 @@ const HolidaysPage = () => {
             <p className="text-sm text-gray-500 mt-1">Manage all holidays currently stored in the database.</p>
           </div>
           
-          <div className="flex items-center bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
-            <Filter className="w-4 h-4 text-gray-400 mr-2" />
-            <select
-              value={selectedYearFilter}
-              onChange={(e) => setSelectedYearFilter(e.target.value)}
-              className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center bg-white border border-gray-200 rounded-lg px-3 py-2 shadow-sm">
+              <Filter className="w-4 h-4 text-gray-400 mr-2" />
+              <select
+                value={selectedYearFilter}
+                onChange={(e) => setSelectedYearFilter(e.target.value)}
+                className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
+              >
+                <option value="All">All Years</option>
+                {availableYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium shadow-sm hover:bg-blue-700 transition-colors"
             >
-              <option value="All">All Years</option>
-              {availableYears.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
+              + Add Holiday
+            </button>
           </div>
         </div>
         
@@ -530,6 +581,60 @@ const HolidaysPage = () => {
                 className="flex-1 px-4 py-2 bg-red-600 rounded-lg text-white font-medium hover:bg-red-700 transition-colors"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Holiday Modal */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-30 backdrop-blur-sm animate-fade-in-up">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-semibold text-gray-900">Add New Holiday</h3>
+              <button 
+                onClick={() => setIsAddModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input 
+                  type="date"
+                  value={newHolidayDate}
+                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Name</label>
+                <input 
+                  type="text"
+                  value={newHolidayName}
+                  onChange={(e) => setNewHolidayName(e.target.value)}
+                  placeholder="e.g. Diwali"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                />
+              </div>
+            </div>
+            <div className="bg-gray-50 p-4 border-t border-gray-100 flex justify-end space-x-3">
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                disabled={isSavingNewHoliday}
+                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddNewHoliday}
+                disabled={isSavingNewHoliday}
+                className="px-4 py-2 bg-blue-600 rounded-lg text-white font-medium hover:bg-blue-700 transition-colors flex items-center disabled:bg-blue-400"
+              >
+                {isSavingNewHoliday ? 'Saving...' : 'Save Holiday'}
               </button>
             </div>
           </div>
