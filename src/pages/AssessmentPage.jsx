@@ -396,12 +396,23 @@ const AssessmentPage = () => {
         const elapsed = startTime ? Math.round((Date.now() - startTime) / 1000) : 0;
         setTimeTaken(elapsed);
 
+        // Calculate day-specific topics for day_wise mode payload
+        const daySpecificTopics = rawPlanTopics
+          .filter(pt => {
+            if (!selectedDayLabel) return false;
+            const ptDay = (pt.day_label || '').trim().toLowerCase();
+            const selDay = selectedDayLabel.trim().toLowerCase();
+            return ptDay === selDay || ptDay.includes(selDay) || selDay.includes(ptDay);
+          })
+          .map(pt => pt.topic_name);
+
         const compRes = await completeAssessment({
           asid: currentAsid,
           plan_id: selectedPlanId,
           stakeholder_id: stakeholderId,
           assessment_type: assessmentType,
           day_label: assessmentType === 'day_wise' ? selectedDayLabel : null,
+          covered_topics: assessmentType === 'day_wise' ? (daySpecificTopics.length > 0 ? daySpecificTopics : [selectedDayLabel]) : completedTopics,
           question_scores: [...sessionResults.map(r => r.score), score],
           questions_data: [
             ...sessionResults.map(r => ({ question: r.question, answer: r.answer })),
