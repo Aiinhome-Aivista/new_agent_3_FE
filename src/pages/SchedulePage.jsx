@@ -279,11 +279,20 @@ const SchedulePage = () => {
         filteredMeetings = fetchedMeetings.filter(meeting => allowedPlanIds.includes(meeting.plan_id));
       }
 
+      const allGivers = giversRes.data?.data || [];
+      const fallbackGivers = allGivers.length > 0 ? allGivers.map(g => g.name).join(', ') : 'N/A';
+
       const planCounts = {};
       const processedMeetings = filteredMeetings.map(m => {
         if (!planCounts[m.plan_id]) planCounts[m.plan_id] = 1;
         else planCounts[m.plan_id]++;
-        return { ...m, dayLabel: `Day ${planCounts[m.plan_id]}` };
+        let kgNames = m.knowledge_giver_names;
+        if (!kgNames || kgNames === 'N/A') {
+          kgNames = (Array.isArray(m.knowledge_givers) && m.knowledge_givers.length > 0)
+            ? m.knowledge_givers.join(', ')
+            : fallbackGivers;
+        }
+        return { ...m, dayLabel: `Day ${planCounts[m.plan_id]}`, knowledge_giver_names: kgNames };
       });
       
       setMeetings(processedMeetings);
@@ -464,6 +473,9 @@ const SchedulePage = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Name</th>
+                {user?.role === 'Delivery / Engagement Manager' && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Knowledge Giver(s)</th>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Title</th>
@@ -491,6 +503,11 @@ const SchedulePage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
                       {plans.find(p => p.id === m.plan_id)?.application_name || 'N/A'}
                     </td>
+                    {user?.role === 'Delivery / Engagement Manager' && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                        {m.knowledge_giver_names || 'N/A'}
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {m.dayLabel || 'N/A'}
                     </td>
