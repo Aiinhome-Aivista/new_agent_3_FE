@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, completeAssessment, getAttemptDetails } from '../api/api';
+import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, getPlanTopicOptions, completeAssessment, getAttemptDetails } from '../api/api';
 import Loader from '../components/Loader';
-import { FileQuestion, CheckCircle2, RefreshCw, Award, Sparkles, User, BookOpen, ChevronDown, ChevronUp } from 'lucide-react';
+import { FileQuestion, CheckCircle2, RefreshCw, Award, Sparkles, User, BookOpen, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
@@ -15,6 +15,14 @@ const AssessmentPage = () => {
   const { activeOperations, startOperation, endOperation } = useOperations();
   const generating = activeOperations['assessment-generation'];
   const [submitting, setSubmitting] = useState(false);
+  
+  // Dual Assessment Modes States (Final vs Day-wise)
+  const [assessmentType, setAssessmentType] = useState('day_wise'); // 'final' | 'day_wise'
+  const [selectedDayLabel, setSelectedDayLabel] = useState('');
+  const [dayOptions, setDayOptions] = useState([]);
+  const [rawPlanTopics, setRawPlanTopics] = useState([]);
+  const [isPlanFullyCompleted, setIsPlanFullyCompleted] = useState(false);
+  const [finalDeadlineInfo, setFinalDeadlineInfo] = useState({ isExpired: false, daysLeft: 7, deadlineDate: null });
   
   // Chat / Conversational Assessment States
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1);
@@ -76,6 +84,9 @@ const AssessmentPage = () => {
         setPlans(appPlans);
         setStakeholders(stList);
         setMeetings(meetingsRes.data.data || []);
+        if (appPlans.length > 0) {
+          setSelectedPlanId(appPlans[0].id.toString());
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -86,7 +97,7 @@ const AssessmentPage = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedPlanId && stakeholders.length > 0 && user?.email) {
+    if (selectedPlanId && user?.email) {
       setCurrentQuestionIndex(-1);
       setChatMessages([]);
       setSessionResults([]);
@@ -95,16 +106,89 @@ const AssessmentPage = () => {
       
       fetchResults(selectedPlanId, null, stakeholders);
       
-      const checkCompletedTopics = async () => {
+      const checkTopicsAndDays = async () => {
         try {
-          const res = await getPlanTopics(selectedPlanId);
-          const topics = res.data.data || [];
-          const completedList = topics.filter(t => t.completion_percent === 100).map(t => t.topic);
+          const [trackingRes, optionsRes] = await Promise.all([
+            getPlanTopics(selectedPlanId),
+            getPlanTopicOptions(selectedPlanId)
+          ]);
+          const trackingTopics = trackingRes.data?.data || [];
+          const planTopicsOptions = optionsRes.data?.data || [];
+
+          setRawPlanTopics(planTopicsOptions);
+          const completedList = trackingTopics.filter(t => t.completion_percent === 100).map(t => t.topic);
           setCompletedTopics(completedList);
+
+          const completedTopicNamesSet = new Set(completedList.map(t => t.trim().toLowerCase()));
+
+          // Group plan_topics by day_label
+          const daysMap = {};
+          planTopicsOptions.forEach(item => {
+            const dLabel = item.day_label || 'General';
+            if (!daysMap[dLabel]) daysMap[dLabel] = [];
+            if (item.topic_name) daysMap[dLabel].push(item.topic_name.trim().toLowerCase());
+          });
+
+          // Filter days where at least one topic under that day is 100% completed
+          const completedDays = Object.keys(daysMap).filter(dayLabel => {
+            const topicNames = daysMap[dayLabel];
+            const dayLabelLower = dayLabel.trim().toLowerCase();
+            
+            const hasCompletedTopic = topicNames.some(tn => completedTopicNamesSet.has(tn));
+            const isDayLabelCompleted = completedTopicNamesSet.has(dayLabelLower);
+            const isPartialMatch = Array.from(completedTopicNamesSet).some(ct => 
+              ct.includes(dayLabelLower) || dayLabelLower.includes(ct) || topicNames.some(tn => ct.includes(tn) || tn.includes(ct))
+            );
+
+            return hasCompletedTopic || isDayLabelCompleted || isPartialMatch;
+          });
+
+          setDayOptions(completedDays);
+          if (completedDays.length > 0) {
+            setSelectedDayLabel(completedDays[0]);
+          } else {
+            setSelectedDayLabel('');
+          }
+
+          // Check if all topics of the entire plan are 100% completed
+          const allTopicsCount = planTopicsOptions.length;
+          const allCompleted = allTopicsCount > 0 && planTopicsOptions.every(pt => {
+            const tn = (pt.topic_name || '').trim().toLowerCase();
+            const dLabelLower = (pt.day_label || '').trim().toLowerCase();
+            return completedTopicNamesSet.has(tn) || 
+                   completedTopicNamesSet.has(dLabelLower) ||
+                   Array.from(completedTopicNamesSet).some(ct => ct.includes(tn) || tn.includes(ct));
+          });
+
+          setIsPlanFullyCompleted(allCompleted);
+
+          let isExpired = false;
+          let daysLeft = 7;
+          let deadlineDate = null;
+
+          if (allCompleted) {
+            const completedTimes = trackingTopics
+              .filter(t => t.completion_percent === 100 && t.last_updated)
+              .map(t => new Date(t.last_updated).getTime())
+              .filter(t => !isNaN(t));
+
+            const maxTime = completedTimes.length > 0 ? Math.max(...completedTimes) : Date.now();
+            deadlineDate = new Date(maxTime + 7 * 24 * 60 * 60 * 1000);
+            const diffMs = deadlineDate.getTime() - Date.now();
+            daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+            isExpired = diffMs < 0;
+          }
+
+          setFinalDeadlineInfo({ isExpired, daysLeft, deadlineDate });
+
+          if (!allCompleted || isExpired) {
+            setAssessmentType('day_wise');
+          }
+
           const hasCompleted = completedList.length > 0;
           setHasCompletedTopics(hasCompleted);
           if (!hasCompleted) {
-            setWarningMsg("No KT topics are available for assessment yet.");
+            setWarningMsg("No completed KT topics are available for assessment yet for this plan.");
             setQuestions([]);
           } else {
             setWarningMsg('');
@@ -113,7 +197,7 @@ const AssessmentPage = () => {
           console.error(err);
         }
       };
-      checkCompletedTopics();
+      checkTopicsAndDays();
     }
   }, [selectedPlanId, stakeholders, user]);
 
@@ -198,9 +282,27 @@ const AssessmentPage = () => {
 
   const handleGenerateQuestions = async () => {
     if (!selectedPlanId) return;
+    if (assessmentType === 'day_wise' && !selectedDayLabel) {
+      alert("Please select a day for the Day-wise assessment.");
+      return;
+    }
+    if (assessmentType === 'final') {
+      if (!isPlanFullyCompleted) {
+        alert("Final Assessment is locked until 100% of all KT topics in the plan are completed.");
+        return;
+      }
+      if (finalDeadlineInfo.isExpired) {
+        alert("The 1-week deadline for the Final Assessment has expired. Final Assessment is no longer available.");
+        return;
+      }
+    }
     startOperation('assessment-generation');
     try {
-      const res = await generateQuestions(selectedPlanId);
+      const res = await generateQuestions(
+        selectedPlanId,
+        assessmentType,
+        assessmentType === 'day_wise' ? selectedDayLabel : null
+      );
       const generatedQs = res.data.data || [];
       setQuestions(generatedQs);
       if (generatedQs.length > 0) {
@@ -298,8 +400,8 @@ const AssessmentPage = () => {
           asid: currentAsid,
           plan_id: selectedPlanId,
           stakeholder_id: stakeholderId,
-          // All session scores collected in React state — sent to backend for averaging
-          // (scores are no longer persisted in the assessments table)
+          assessment_type: assessmentType,
+          day_label: assessmentType === 'day_wise' ? selectedDayLabel : null,
           question_scores: [...sessionResults.map(r => r.score), score],
           questions_data: [
             ...sessionResults.map(r => ({ question: r.question, answer: r.answer })),
@@ -398,6 +500,147 @@ const AssessmentPage = () => {
             </button>
           )}
         </div>
+
+        {/* Dual Assessment Mode Selector (for Knowledge Receiver) */}
+        {canSetup && selectedPlanId && (
+          <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                Assessment Type
+              </label>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setAssessmentType('day_wise')}
+                  disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
+                  className={`flex-1 py-2.5 px-4 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm ${
+                    assessmentType === 'day_wise'
+                      ? 'bg-indigo-50/80 border-indigo-400 text-indigo-900 ring-2 ring-indigo-300 font-semibold'
+                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <span>Day-wise Assessment</span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                    Optional
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isPlanFullyCompleted || finalDeadlineInfo.isExpired) return;
+                    setAssessmentType('final');
+                  }}
+                  disabled={!isPlanFullyCompleted || finalDeadlineInfo.isExpired || (currentQuestionIndex >= 0 && !assessmentCompleted)}
+                  title={
+                    !isPlanFullyCompleted
+                      ? "Final Assessment is unlocked only when all days of the KT plan are completed (100%)."
+                      : finalDeadlineInfo.isExpired
+                        ? "1-week deadline for Final Assessment has expired."
+                        : `Must complete within 1 week (${finalDeadlineInfo.daysLeft} days left)`
+                  }
+                  className={`flex-1 py-2.5 px-4 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm ${
+                    !isPlanFullyCompleted || finalDeadlineInfo.isExpired
+                      ? 'bg-gray-100/90 border-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                      : assessmentType === 'final'
+                        ? 'bg-rose-50/80 border-rose-400 text-rose-900 ring-2 ring-rose-300 font-semibold'
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {(!isPlanFullyCompleted || finalDeadlineInfo.isExpired) && <Lock className="w-3.5 h-3.5 text-gray-400" />}
+                    <span>Final Assessment</span>
+                  </div>
+                  {isPlanFullyCompleted ? (
+                    finalDeadlineInfo.isExpired ? (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700 border border-red-200">
+                        Expired
+                      </span>
+                    ) : (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                        Mandatory ({finalDeadlineInfo.daysLeft}d left)
+                      </span>
+                    )
+                  ) : (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-gray-200/80 text-gray-600 border border-gray-300">
+                      Locked
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {!isPlanFullyCompleted && (
+                <div className="mt-2.5 text-[11px] text-amber-700 bg-amber-50/80 p-2 rounded-lg border border-amber-200/70 flex items-center gap-1.5 font-medium">
+                  <Lock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                  <span>Final Assessment unlocks only after 100% of all days in the plan are completed.</span>
+                </div>
+              )}
+
+              {isPlanFullyCompleted && finalDeadlineInfo.isExpired && (
+                <div className="mt-2.5 text-[11px] text-red-700 bg-red-50/90 p-2 rounded-lg border border-red-200 flex items-center gap-1.5 font-medium">
+                  <span className="text-sm">⚠️</span>
+                  <span><strong>Final Assessment Window Expired!</strong> 1 week (7 days) has passed since 100% plan completion. Final assessment can no longer be taken.</span>
+                </div>
+              )}
+
+              {isPlanFullyCompleted && !finalDeadlineInfo.isExpired && (
+                <div className="mt-2.5 text-[11px] text-emerald-800 bg-emerald-50/90 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5 font-medium">
+                  <span className="text-sm">⏰</span>
+                  <span><strong>1-Week Window Active:</strong> You have <strong>{finalDeadlineInfo.daysLeft} day(s)</strong> remaining to complete your Final Assessment.</span>
+                </div>
+              )}
+            </div>
+
+            {assessmentType === 'day_wise' && (
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Select Day
+                </label>
+                <select
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm font-medium"
+                  value={selectedDayLabel}
+                  onChange={(e) => setSelectedDayLabel(e.target.value)}
+                  disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
+                >
+                  {dayOptions.length > 0 ? (
+                    dayOptions.map((day, idx) => (
+                      <option key={idx} value={day}>{day}</option>
+                    ))
+                  ) : (
+                    <option value="">No Specific Days Found (Generates All Topics)</option>
+                  )}
+                </select>
+
+                {/* Display Topics Covered for the Selected Day */}
+                {(() => {
+                  const dayTopics = rawPlanTopics
+                    .filter(pt => (pt.day_label || 'General') === selectedDayLabel)
+                    .map(pt => pt.topic_name)
+                    .filter(Boolean);
+
+                  if (dayTopics.length === 0) return null;
+
+                  return (
+                    <div className="mt-3 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100/80 animate-fadeIn">
+                      <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block mb-1.5">
+                        Topics Covered ({dayTopics.length}):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {dayTopics.map((topic, ti) => (
+                          <span key={ti} className="px-2.5 py-1 bg-white text-indigo-900 border border-indigo-200/70 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1">
+                            <BookOpen className="w-3 h-3 text-indigo-500" />
+                            <span>{topic}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
         {canSetup && warningMsg && (
           <div className="mt-4 p-4 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-sm font-medium flex items-start gap-2">
             <span className="text-lg">⚠️</span>
@@ -744,9 +987,20 @@ const AssessmentPage = () => {
                             <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider font-sans w-fit">
                               {planName}
                             </span>
-                            <h4 className="text-base font-bold text-gray-900 mt-1">
-                              Receiver: {attempt.stakeholder_name}
-                            </h4>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                              <h4 className="text-base font-bold text-gray-900">
+                                Receiver: {attempt.stakeholder_name}
+                              </h4>
+                              {attempt.assessment_type === 'day_wise' ? (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  Day-wise: {attempt.day_label || 'Daily'} (Optional)
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                  Final Assessment (Mandatory)
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -889,9 +1143,20 @@ const AssessmentPage = () => {
                         <div key={idx} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-indigo-50/10 px-6 rounded-none transition-all">
                           <div className="space-y-1 flex-1">
                             <div className="flex justify-between items-start gap-4">
-                              <p className="text-sm font-semibold text-gray-800">
-                                Assessment Date: {new Date(attempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-                              </p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-800">
+                                  Assessment Date: {new Date(attempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                </p>
+                                {attempt.assessment_type === 'day_wise' ? (
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    Day-wise: {attempt.day_label || 'Daily'} (Optional)
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                    Final Assessment (Mandatory)
+                                  </span>
+                                )}
+                              </div>
                               <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
                                 Score: {Math.round(attempt.overall_score)} / 50
                               </span>
