@@ -38,6 +38,24 @@ const sortRisks = (risksArray) => {
   });
 };
 
+const formatCommentDateTime = (dtStr) => {
+  if (!dtStr) return '';
+  try {
+    const safeStr = typeof dtStr === 'string' ? dtStr.replace(' ', 'T') : dtStr;
+    const d = new Date(safeStr);
+    if (isNaN(d.getTime())) return dtStr;
+    return d.toLocaleString([], {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return dtStr;
+  }
+};
+
 const RisksPage = () => {
   const { user } = useAuth();
   const [plans, setPlans] = useState([]);
@@ -445,9 +463,16 @@ const RisksPage = () => {
                                         {risk.comments && risk.comments.length > 0 ? (
                                             <div className="space-y-3 mt-3">
                                                 {risk.comments.map(c => (
-                                                    <div key={c.id} className="text-sm">
-                                                        <span className="font-semibold text-gray-800">{c.stakeholder_name}: </span>
-                                                        <span className="text-gray-700">{c.comment_text}</span>
+                                                    <div key={c.id} className="text-sm border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                                                        <div className="flex items-center justify-between gap-2 mb-0.5">
+                                                            <span className="font-semibold text-gray-800">{c.stakeholder_name}:</span>
+                                                            {c.created_at && (
+                                                                <span className="text-[11px] text-gray-400 font-normal whitespace-nowrap">
+                                                                    {formatCommentDateTime(c.created_at)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-gray-700 whitespace-pre-wrap">{c.comment_text}</div>
                                                     </div>
                                                 ))}
                                             </div>
@@ -646,9 +671,16 @@ const RisksPage = () => {
                             <div className="p-3 pt-0 max-h-32 overflow-y-auto border-t border-gray-100">
                                 <div className="space-y-2 mt-2">
                                     {nonAuditComments.map(c => (
-                                        <div key={c.id} className="text-xs">
-                                            <span className="font-semibold text-gray-800">{c.stakeholder_name}: </span>
-                                            <span className="text-gray-700">{c.comment_text}</span>
+                                        <div key={c.id} className="text-xs border-b border-gray-100 pb-1.5 last:border-0 last:pb-0">
+                                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                                                <span className="font-semibold text-gray-800">{c.stakeholder_name}:</span>
+                                                {c.created_at && (
+                                                    <span className="text-[10px] text-gray-400 font-normal whitespace-nowrap">
+                                                        {formatCommentDateTime(c.created_at)}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-gray-700 whitespace-pre-wrap">{c.comment_text}</div>
                                         </div>
                                     ))}
                                 </div>

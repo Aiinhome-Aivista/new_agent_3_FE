@@ -45,6 +45,24 @@ const sortRisks = (risksArray) => {
   });
 };
 
+const formatCommentDateTime = (dtStr) => {
+  if (!dtStr) return '';
+  try {
+    const safeStr = typeof dtStr === 'string' ? dtStr.replace(' ', 'T') : dtStr;
+    const d = new Date(safeStr);
+    if (isNaN(d.getTime())) return dtStr;
+    return d.toLocaleString([], {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch (e) {
+    return dtStr;
+  }
+};
+
 const ManagerRow = ({ m }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -122,9 +140,16 @@ const ManagerRow = ({ m }) => {
                                         <h4 className="text-[10px] font-bold uppercase text-gray-500 mb-1">Resolution Updates</h4>
                                         <div className="space-y-1">
                                             {risk.comments.map(c => (
-                                                <div key={c.id} className="text-[10px]">
-                                                    <span className="font-semibold text-gray-800">{c.stakeholder_name}: </span>
-                                                    <span className="text-gray-700">{c.comment_text}</span>
+                                                <div key={c.id} className="text-[10px] border-b border-gray-100 pb-1 last:border-0 last:pb-0">
+                                                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                                                        <span className="font-semibold text-gray-800">{c.stakeholder_name}:</span>
+                                                        {c.created_at && (
+                                                            <span className="text-[9px] text-gray-400 font-normal whitespace-nowrap">
+                                                                {formatCommentDateTime(c.created_at)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-gray-700 whitespace-pre-wrap">{c.comment_text}</div>
                                                 </div>
                                             ))}
                                         </div>
