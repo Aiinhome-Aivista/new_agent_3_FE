@@ -801,7 +801,7 @@ const PlanPage = () => {
           <PlanCard 
             key={plan.id} 
             plan={plan} 
-            canApprove={canApprove} 
+            canApprove={canApprove && String(plan.created_by) === String(user?.id)} 
             handleApproveClick={setPlanToApprove} 
             parseMarkdown={parseMarkdown}
             stakeholders={stakeholders}
