@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, getRisks, detectRisks, escalateRisk, getStakeholders, getAssignedRisks, addRiskComment, updateRiskStatus } from '../api/api';
+import { getPlans, getRisks, detectRisks, escalateRisk, getStakeholders, getAssignedRisks, addRiskComment, updateRiskStatus, downloadRisksDoc } from '../api/api';
 import Loader from '../components/Loader';
-import { AlertTriangle, AlertCircle, Send, Check, X, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Send, Check, X, ChevronDown, ChevronUp, Loader2, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import ManagerWiseRiskView from '../components/ManagerWiseRiskView';
@@ -52,6 +52,7 @@ const RisksPage = () => {
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
   const [commentSubmittingId, setCommentSubmittingId] = useState(null);
+  const [downloadingDoc, setDownloadingDoc] = useState(false);
   
   const { activeOperations, startOperation, endOperation } = useOperations();
   const detecting = activeOperations['risk-detection'];
@@ -185,6 +186,31 @@ const RisksPage = () => {
       showToast('Error detecting risks', 'error');
     } finally {
       endOperation('risk-detection');
+    }
+  };
+
+  const handleDownloadRisksDoc = async () => {
+    if (!selectedPlanId) return;
+    setDownloadingDoc(true);
+    try {
+      const response = await downloadRisksDoc(selectedPlanId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      const planObj = plans.find(p => String(p.id) === String(selectedPlanId));
+      const planName = planObj?.application_name || `Plan_${selectedPlanId}`;
+      const safeName = planName.replace(/[^a-zA-Z0-9]/g, '_');
+      link.setAttribute('download', `Risks_${safeName}_${selectedPlanId}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('Risks downloaded as Word Document successfully!', 'success');
+    } catch (err) {
+      console.error('Error downloading risks doc:', err);
+      showToast('Failed to download Word Document. Please try again.', 'error');
+    } finally {
+      setDownloadingDoc(false);
     }
   };
 
@@ -328,13 +354,24 @@ const RisksPage = () => {
                     <option key={p.id} value={p.id}>{p.application_name}</option>
                   ))}
                 </select>
-                <button
-                  onClick={handleDetectRisks}
-                  disabled={detecting || !selectedPlanId}
-                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
-                >
-                  {detecting ? 'Analyzing...' : 'Run AI Risk Detection'}
-                </button>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={handleDetectRisks}
+                    disabled={detecting || !selectedPlanId}
+                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {detecting ? 'Analyzing...' : 'Run AI Risk Detection'}
+                  </button>
+                  <button
+                    onClick={handleDownloadRisksDoc}
+                    disabled={!selectedPlanId || downloadingDoc}
+                    className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 whitespace-nowrap font-medium shadow-sm transition-colors"
+                    title={!selectedPlanId ? "Please select a plan to download risks" : "Download all risks as Word Document"}
+                  >
+                    <Download size={18} className="mr-2" />
+                    {downloadingDoc ? 'Downloading...' : 'Download Risk Report'}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -474,15 +511,26 @@ const RisksPage = () => {
             ))}
           </select>
         </div>
-        {isManager && (
+        <div className="flex items-center space-x-3 mt-6">
+          {isManager && (
+            <button
+              onClick={handleDetectRisks}
+              disabled={detecting || !selectedPlanId}
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {detecting ? 'Analyzing Data...' : 'Run AI Risk Detection'}
+            </button>
+          )}
           <button
-            onClick={handleDetectRisks}
-            disabled={detecting || !selectedPlanId}
-            className="mt-6 inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            onClick={handleDownloadRisksDoc}
+            disabled={!selectedPlanId || downloadingDoc}
+            className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 font-medium shadow-sm transition-colors"
+            title={!selectedPlanId ? "Please select a plan to download risks" : "Download all risks as Word Document"}
           >
-            {detecting ? 'Analyzing Data...' : 'Run AI Risk Detection'}
+            <Download size={18} className="mr-2" />
+            {downloadingDoc ? 'Downloading...' : 'Download Risk Report'}
           </button>
-        )}
+        </div>
       </div>
 
       {(loadingRisks || detecting) ? (

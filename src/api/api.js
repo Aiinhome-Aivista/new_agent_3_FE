@@ -91,6 +91,7 @@ export const escalateRisk = (id, assigned_to, initial_note) => api.put(`/risks/$
 export const getAssignedRisks = () => api.get('/risks/assigned');
 export const addRiskComment = (id, comment) => api.post(`/risks/${id}/comments`, { comment });
 export const updateRiskStatus = (id, status) => api.put(`/risks/${id}/status`, { status });
+export const downloadRisksDoc = (planId) => api.get(`/risks/export-doc?plan_id=${planId}`, { responseType: 'blob' });
 
 // Assessments
 export const generateQuestions = (planId, assessmentType = 'final', dayLabel = null) => 
