@@ -23,12 +23,24 @@ const ReportsPage = () => {
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [plansRes, reportsRes] = await Promise.all([getPlans(), getReports()]);
+        const [plansRes, reportsRes] = await Promise.all([getPlans({ for_dropdown: 'true' }), getReports()]);
         const allPlansList = plansRes.data.data || [];
         setAllPlans(allPlansList);
-        const appPlans = allPlansList.filter(p => p.status === 'approved');
+        
+        let appPlans = allPlansList.filter(p => p.status === 'approved');
+        if (user?.role === 'Delivery / Engagement Manager') {
+          appPlans = appPlans.filter(p => p.approved_by === user?.id);
+        }
         setPlans(appPlans);
-        setReports(reportsRes.data.data);
+        
+        const allowedPlanIds = appPlans.map(plan => plan.id);
+        let allReports = reportsRes.data.data || [];
+        
+        if (user?.role === 'Delivery / Engagement Manager') {
+          allReports = allReports.filter(report => allowedPlanIds.includes(report.plan_id));
+        }
+        
+        setReports(allReports);
       } catch (err) {
         console.error(err);
       } finally {
@@ -67,7 +79,12 @@ const ReportsPage = () => {
   const fetchReports = async () => {
     try {
       const res = await getReports();
-      setReports(res.data.data);
+      let allReports = res.data.data || [];
+      if (user?.role === 'Delivery / Engagement Manager') {
+        const allowedPlanIds = plans.map(plan => plan.id);
+        allReports = allReports.filter(report => allowedPlanIds.includes(report.plan_id));
+      }
+      setReports(allReports);
     } catch (err) {
       console.error(err);
     }

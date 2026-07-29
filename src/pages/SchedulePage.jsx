@@ -259,19 +259,35 @@ const SchedulePage = () => {
     try {
       const [meetingsRes, plansRes, receiversRes, giversRes] = await Promise.all([
         getMeetings(),
-        getPlans(),
+        getPlans({ for_dropdown: 'true' }),
         getStakeholders('Incoming Team Member (Knowledge Receiver)'),
         getStakeholders('Outgoing SME (Knowledge Giver)')
       ]);
       const fetchedMeetings = meetingsRes.data.data;
+      
+      let allPlansData = plansRes.data.data || [];
+      let myApprovedPlans = allPlansData.filter(p => p.status === 'approved');
+      
+      if (user?.role === 'Delivery / Engagement Manager') {
+        myApprovedPlans = myApprovedPlans.filter(p => p.approved_by === user?.id);
+      }
+      
+      const allowedPlanIds = myApprovedPlans.map(plan => plan.id);
+      
+      let filteredMeetings = fetchedMeetings;
+      if (user?.role === 'Delivery / Engagement Manager') {
+        filteredMeetings = fetchedMeetings.filter(meeting => allowedPlanIds.includes(meeting.plan_id));
+      }
+
       const planCounts = {};
-      const processedMeetings = fetchedMeetings.map(m => {
+      const processedMeetings = filteredMeetings.map(m => {
         if (!planCounts[m.plan_id]) planCounts[m.plan_id] = 1;
         else planCounts[m.plan_id]++;
         return { ...m, dayLabel: `Day ${planCounts[m.plan_id]}` };
       });
+      
       setMeetings(processedMeetings);
-      setPlans(plansRes.data.data.filter(p => p.status === 'approved'));
+      setPlans(myApprovedPlans);
       setStakeholders(receiversRes.data.data);
       setKnowledgeGivers(giversRes.data.data);
     } catch (err) {
