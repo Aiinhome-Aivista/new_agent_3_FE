@@ -93,7 +93,8 @@ export const addRiskComment = (id, comment) => api.post(`/risks/${id}/comments`,
 export const updateRiskStatus = (id, status) => api.put(`/risks/${id}/status`, { status });
 
 // Assessments
-export const generateQuestions = (planId) => api.post('/assessments/generate-questions', { plan_id: planId });
+export const generateQuestions = (planId, assessmentType = 'final', dayLabel = null) => 
+  api.post('/assessments/generate-questions', { plan_id: planId, assessment_type: assessmentType, day_label: dayLabel });
 export const submitAnswer = (data) => api.post('/assessments/submit', data);
 export const getResults = (planId, stakeholderId, limit) => {
   const params = new URLSearchParams();
