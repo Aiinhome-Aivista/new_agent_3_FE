@@ -218,7 +218,7 @@ const ReportsPage = () => {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Generated Reports</h3>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto custom-scrollbar pb-2">
           <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -405,7 +405,7 @@ const ReportsPage = () => {
             </div>
             
             {/* Modal Content - Read Only / A4 Page Preview */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-100 select-none">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 bg-gray-100 select-none">
               <div className="bg-white shadow-lg border border-gray-200 p-6 sm:p-12 w-full max-w-2xl mx-auto min-h-[75vh] rounded-sm text-gray-800 font-sans text-left">
                 {Array.isArray(viewingReport.content) ? (
                   viewingReport.content.map((item, index) => {
