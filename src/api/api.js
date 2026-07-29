@@ -119,6 +119,7 @@ export const generateWeeklyReport = (planId) => api.post('/reports/weekly', { pl
 export const generateFinalReport = (planId) => api.post('/reports/final', { plan_id: planId });
 export const getReports = () => api.get('/reports/');
 export const viewReport = (id) => api.get(`/reports/view/${id}`);
+export const updateReportStatus = (id, status) => api.put(`/reports/${id}/status`, { status });
 
 // Chatbot
 export const askChatbot = (sessionId, question, planId = null) => 

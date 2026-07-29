@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, generateWeeklyReport, generateFinalReport, getReports, getPlanSummary, viewReport } from '../api/api';
+import { getPlans, generateWeeklyReport, generateFinalReport, getReports, getPlanSummary, viewReport, updateReportStatus } from '../api/api';
 import Loader from '../components/Loader';
-import { FileText, Download, ChevronLeft, ChevronRight, Eye, X, Loader2 } from 'lucide-react';
+import { FileText, Download, ChevronLeft, ChevronRight, Eye, X, Loader2, CheckCircle, Clock, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
@@ -90,6 +90,34 @@ const ReportsPage = () => {
     }
   };
 
+  const handleSendForApproval = async (reportId) => {
+    try {
+      const res = await updateReportStatus(reportId, 'pending');
+      if (res.data && res.data.success) {
+        fetchReports();
+      } else {
+        alert(res.data.message || 'Failed to send approval request');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error sending approval request');
+    }
+  };
+
+  const handleApproveReport = async (reportId) => {
+    try {
+      const res = await updateReportStatus(reportId, 'approved');
+      if (res.data && res.data.success) {
+        fetchReports();
+      } else {
+        alert(res.data.message || 'Failed to approve report');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error approving report');
+    }
+  };
+
   useEffect(() => {
     const fetchPlanStatuses = async () => {
       const uniquePlanIds = [...new Set(reports.map(r => r.plan_id))];
@@ -170,22 +198,22 @@ const ReportsPage = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Reports Generation</h2>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Report</h3>
-        <div className="flex flex-col md:flex-row items-center gap-4">
-          <div className="w-full md:w-1/3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Select Plan</label>
-            <select
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md"
-              value={selectedPlanId}
-              onChange={(e) => setSelectedPlanId(e.target.value)}
-            >
-              <option value="" disabled>---Select Plan---</option>
-              {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
-            </select>
-          </div>
-          <div className="flex gap-4 mt-4 md:mt-6">
-            {user?.role === 'Delivery / Engagement Manager' && (
+      {user?.role === 'Delivery / Engagement Manager' && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Report</h3>
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="w-full md:w-1/3">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Plan</label>
+              <select
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md"
+                value={selectedPlanId}
+                onChange={(e) => setSelectedPlanId(e.target.value)}
+              >
+                <option value="" disabled>---Select Plan---</option>
+                {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
+              </select>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-4 mt-4 md:mt-6 w-full sm:w-auto">
               <button
                 onClick={() => handleGenerate('weekly')}
                 disabled={generatingType !== null || !selectedPlanId}
@@ -193,36 +221,29 @@ const ReportsPage = () => {
               >
                 {generatingType === 'weekly' ? 'Generating...' : 'Generate Weekly Report'}
               </button>
-            )}
-            {user?.role === 'PwC Leadership' && (
-              <div className="flex flex-col items-start gap-1">
-                <button
-                  onClick={() => handleGenerate('final')}
-                  disabled={generatingType !== null || !selectedPlanId /* || !isAllTopicsCovered (Bypassed for testing) */}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
-                >
-                  {generatingType === 'final' ? 'Generating...' : 'Generate Final Report'}
-                </button>
-                {/* {!isAllTopicsCovered && selectedPlanId && (
-                  // <span className="text-xs text-amber-600 max-w-xs leading-tight mt-1">
-                  //   Note: Enabled for testing (plan is not 100% complete).
-                  // </span>
-                )} */}
-              </div>
-            )}
+              <button
+                onClick={() => handleGenerate('final')}
+                disabled={generatingType !== null || !selectedPlanId}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+              >
+                {generatingType === 'final' ? 'Generating...' : 'Generate Final Report'}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Generated Reports</h3>
-        <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto custom-scrollbar pb-2">
+          <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Plan</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">File Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Generated At</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
@@ -234,15 +255,17 @@ const ReportsPage = () => {
                 displayType = 'draft';
               }
 
+              const reportStatus = r.status || 'draft';
+              const isApproved = reportStatus === 'approved';
+              const isPending = reportStatus === 'pending';
+
               return (
               <tr key={r.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    displayType === 'draft' ? 'bg-amber-100 text-amber-800' : 
-                    displayType === 'final' ? 'bg-purple-100 text-purple-800' : 
-                    'bg-blue-100 text-blue-800'
+                    r.report_type === 'final' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
                   }`}>
-                    {displayType === 'draft' ? 'Draft Report' : displayType === 'final' ? 'Final Report' : r.report_type}
+                    {r.report_type === 'weekly' ? 'Weekly Report' : 'Final Report'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
@@ -253,6 +276,39 @@ const ReportsPage = () => {
                   {r.file_path}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(r.generated_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  {isApproved ? (
+                    <span className="px-2.5 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full inline-flex items-center gap-1 border border-green-200">
+                      <CheckCircle size={13} /> Approved
+                    </span>
+                  ) : isPending ? (
+                    user?.role === 'PwC Leadership' ? (
+                      <button
+                        onClick={() => handleApproveReport(r.id)}
+                        className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs font-semibold rounded-full border border-amber-300 transition-all duration-150 cursor-pointer inline-flex items-center gap-1 shadow-sm active:scale-95"
+                        title="Click to approve report"
+                      >
+                        <Clock size={13} /> Pending (Click to Approve)
+                      </button>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full inline-flex items-center gap-1 border border-amber-200" title="Pending approval from PwC Leadership">
+                        <Clock size={13} /> Pending
+                      </span>
+                    )
+                  ) : user?.role === 'Delivery / Engagement Manager' ? (
+                    <button
+                      onClick={() => handleSendForApproval(r.id)}
+                      className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-semibold rounded-full border border-blue-300 transition-all duration-150 cursor-pointer inline-flex items-center gap-1 shadow-sm active:scale-95"
+                      title="Click to send approval request to PwC Leadership"
+                    >
+                      <Send size={13} /> Send for Approval
+                    </button>
+                  ) : (
+                    <span className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full inline-flex items-center gap-1 border border-gray-200" title="Not submitted for approval yet">
+                      <Clock size={13} /> Not Submitted
+                    </span>
+                  )}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
                   <button
                     onClick={() => handleViewReport(r.id)}
@@ -260,8 +316,8 @@ const ReportsPage = () => {
                   >
                     <Eye size={16} className="mr-1" /> View
                   </button>
-                  {displayType === 'draft' ? (
-                    <span className="text-gray-400 inline-flex items-center cursor-not-allowed" title="KT Plan not 100% complete">
+                  {!isApproved ? (
+                    <span className="text-gray-400 inline-flex items-center cursor-not-allowed opacity-60" title="Requires PwC Leadership approval to download">
                       <Download size={16} className="mr-1" /> Download
                     </span>
                   ) : (
@@ -269,7 +325,7 @@ const ReportsPage = () => {
                       href={`${baseURL}/reports/download/${r.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-900 inline-flex items-center"
+                      className="text-blue-600 hover:text-blue-900 inline-flex items-center font-medium"
                     >
                       <Download size={16} className="mr-1" /> Download
                     </a>
@@ -278,10 +334,11 @@ const ReportsPage = () => {
               </tr>
             )})}
             {reports.length === 0 && (
-              <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No reports generated yet.</td></tr>
+              <tr><td colSpan="6" className="px-6 py-4 text-center text-sm text-gray-500">No reports generated yet.</td></tr>
             )}
           </tbody>
         </table>
+        </div>
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
@@ -365,8 +422,8 @@ const ReportsPage = () => {
             </div>
             
             {/* Modal Content - Read Only / A4 Page Preview */}
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-100 select-none">
-              <div className="bg-white shadow-lg border border-gray-200 p-12 max-w-2xl mx-auto min-h-[75vh] rounded-sm text-gray-800 font-sans text-left">
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 bg-gray-100 select-none">
+              <div className="bg-white shadow-lg border border-gray-200 p-6 sm:p-12 w-full max-w-2xl mx-auto min-h-[75vh] rounded-sm text-gray-800 font-sans text-left">
                 {Array.isArray(viewingReport.content) ? (
                   viewingReport.content.map((item, index) => {
                     if (item.type === 'h1') {

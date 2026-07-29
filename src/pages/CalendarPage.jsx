@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter } from 'lucide-react';
-import { getPlans, getMeetings } from '../api/api';
+import { getPlans, getMeetings, getHolidays } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import Loader from '../components/Loader';
 
@@ -10,6 +10,7 @@ const CalendarPage = () => {
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState('All');
   const [meetings, setMeetings] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plansMap, setPlansMap] = useState({});
 
@@ -31,6 +32,9 @@ const CalendarPage = () => {
 
         const meetingsRes = await getMeetings();
         setMeetings(meetingsRes.data.data || []);
+        
+        const holidaysRes = await getHolidays();
+        setHolidays(holidaysRes.data.data || []);
       } catch (err) {
         console.error("Failed to fetch data for calendar", err);
       } finally {
@@ -103,12 +107,21 @@ const CalendarPage = () => {
           return mDate.getUTCDate() === day && mDate.getUTCMonth() === currentDate.getMonth() && mDate.getUTCFullYear() === currentDate.getFullYear();
       });
 
+      const holiday = holidays.find(h => {
+          if(!h.holiday_date) return false;
+          const hDate = new Date(h.holiday_date);
+          return hDate.getUTCDate() === day && hDate.getUTCMonth() === currentDate.getMonth() && hDate.getUTCFullYear() === currentDate.getFullYear();
+      });
+
       cells.push(
         <div key={`curr-${i}`} 
              onClick={() => setSelectedDateStr(currentCellDateStr)}
-             className={`min-h-[120px] p-2 border border-gray-200 hover:bg-blue-50 transition-colors cursor-pointer flex flex-col ${isToday ? 'bg-blue-50' : 'bg-white'} ${isSelected ? 'ring-2 ring-blue-500 ring-inset' : ''}`}>
+             className={`min-h-[120px] p-2 border border-gray-200 transition-colors cursor-pointer flex flex-col ${isToday ? 'bg-blue-50' : holiday ? 'bg-red-50 hover:bg-red-100' : 'bg-white hover:bg-blue-50'} ${isSelected ? 'ring-2 ring-blue-500 ring-inset' : ''}`}>
            <div className="flex justify-between items-start mb-1">
-            <span className={`text-sm ${isToday ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center' : 'text-gray-700'}`}>{day}</span>
+            <div className="flex items-center gap-2">
+                <span className={`text-sm ${isToday ? 'bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center' : holiday ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{day}</span>
+                {holiday && <span className="text-xs font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded truncate max-w-[100px]" title={holiday.holiday_name}>{holiday.holiday_name}</span>}
+            </div>
             {day === 1 && <span className="text-sm font-medium text-gray-700">{monthNames[currentDate.getMonth()].substring(0, 3)}</span>}
           </div>
           <div className="flex-1 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
@@ -161,13 +174,13 @@ const CalendarPage = () => {
           {user?.name && <span className="ml-3 text-sm font-normal text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{user.name}</span>}
         </h1>
         
-        <div className="flex items-center space-x-3 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 w-full md:w-auto">
-          <Filter size={18} className="text-gray-400" />
-          <span className="text-sm font-medium text-gray-600 whitespace-nowrap">Filter by Plan:</span>
+        <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-200">
+          <Filter size={16} className="text-gray-500 flex-shrink-0" />
+          <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Plan:</span>
           <select 
             value={selectedPlan}
             onChange={handlePlanChange}
-            className="text-sm border-none bg-transparent focus:ring-0 cursor-pointer text-gray-800 font-medium outline-none w-full min-w-[150px]"
+            className="text-sm border-none bg-transparent focus:ring-0 cursor-pointer text-gray-800 font-semibold outline-none py-1 pl-1 pr-6 truncate max-w-[200px] md:max-w-[300px]"
           >
             <option value="All">All Plans</option>
             {plans.map(p => (
@@ -188,9 +201,26 @@ const CalendarPage = () => {
                 <button onClick={prevMonth} className="p-1.5 hover:bg-gray-50 border-r border-gray-300 text-gray-600 transition-colors"><ChevronLeft size={20} /></button>
                 <button onClick={nextMonth} className="p-1.5 hover:bg-gray-50 text-gray-600 transition-colors"><ChevronRight size={20} /></button>
               </div>
-              <h2 className="text-xl font-bold text-gray-800 ml-2 md:ml-4">
-                {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-              </h2>
+              <div className="flex items-center ml-2 md:ml-4 gap-1">
+                <select
+                  value={currentDate.getMonth()}
+                  onChange={(e) => setCurrentDate(new Date(currentDate.getFullYear(), parseInt(e.target.value), 1))}
+                  className="text-xl font-bold text-gray-800 bg-transparent border border-transparent hover:border-gray-300 rounded px-2 py-1 focus:ring-0 cursor-pointer outline-none"
+                >
+                  {monthNames.map((month, index) => (
+                    <option key={month} value={index} className="text-base">{month}</option>
+                  ))}
+                </select>
+                <select
+                  value={currentDate.getFullYear()}
+                  onChange={(e) => setCurrentDate(new Date(parseInt(e.target.value), currentDate.getMonth(), 1))}
+                  className="text-xl font-bold text-gray-800 bg-transparent border border-transparent hover:border-gray-300 rounded px-2 py-1 focus:ring-0 cursor-pointer outline-none"
+                >
+                  {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
+                    <option key={year} value={year} className="text-base">{year}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             
             {loading && <div className="text-sm text-gray-500 animate-pulse">Refreshing...</div>}
