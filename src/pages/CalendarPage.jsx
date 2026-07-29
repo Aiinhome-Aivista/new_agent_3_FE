@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, LayoutGrid, List } from 'lucide-react';
 import { getPlans, getMeetings, getHolidays } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import Loader from '../components/Loader';
@@ -13,6 +13,16 @@ const CalendarPage = () => {
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plansMap, setPlansMap] = useState({});
+
+  const processMeetingsWithDayLabel = (meetingsData) => {
+    const sorted = [...meetingsData].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+    const planCounts = {};
+    return sorted.map(m => {
+      if (!planCounts[m.plan_id]) planCounts[m.plan_id] = 1;
+      else planCounts[m.plan_id]++;
+      return { ...m, dayLabel: `Day ${planCounts[m.plan_id]}` };
+    });
+  };
 
   const getLocalStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const [selectedDateStr, setSelectedDateStr] = useState(getLocalStr(new Date()));
@@ -43,7 +53,7 @@ const CalendarPage = () => {
           allMeetings = allMeetings.filter(m => allowedPlanIds.includes(m.plan_id));
         }
         
-        setMeetings(allMeetings);
+        setMeetings(processMeetingsWithDayLabel(allMeetings));
         
         const holidaysRes = await getHolidays();
         setHolidays(holidaysRes.data.data || []);
@@ -67,7 +77,7 @@ const CalendarPage = () => {
         newMeetings = newMeetings.filter(m => allowedPlanIds.includes(m.plan_id));
       }
       
-      setMeetings(newMeetings);
+      setMeetings(processMeetingsWithDayLabel(newMeetings));
     } catch (err) {
       console.error("Failed to fetch meetings", err);
     } finally {
@@ -183,23 +193,110 @@ const CalendarPage = () => {
     return cells;
   };
 
+  const renderTimeline = () => {
+    const validMeetings = meetings.filter(m => !!m.scheduled_at);
+
+    const grouped = {};
+    validMeetings.forEach(m => {
+       const mDate = new Date(m.scheduled_at);
+       const dateStr = `${mDate.getUTCFullYear()}-${String(mDate.getUTCMonth() + 1).padStart(2, '0')}-${String(mDate.getUTCDate()).padStart(2, '0')}`;
+       if(!grouped[dateStr]) grouped[dateStr] = [];
+       grouped[dateStr].push(m);
+    });
+
+    const sortedDates = Object.keys(grouped).sort();
+
+    if (sortedDates.length === 0) {
+      return (
+        <div className="py-8 text-center text-gray-500 text-sm">
+          No schedules found for this plan.
+        </div>
+      );
+    }
+
+    return (
+      <div className="">
+        <h3 className="font-semibold text-gray-800 mb-4 text-sm">Plan Timeline</h3>
+        <div className="overflow-y-auto max-h-[400px] custom-scrollbar pr-2">
+          <div className="relative ml-2 space-y-6 pb-2">
+            {sortedDates.map((dateStr, index) => {
+              const dateObj = new Date(dateStr);
+              const isToday = new Date().toISOString().split('T')[0] === dateStr;
+              const dayItems = grouped[dateStr].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+              const isDateCompleted = dayItems.every(m => m.status?.toLowerCase() === 'completed');
+
+              return (
+                <div key={dateStr} className="relative">
+                  {/* Vertical line connecting to next item */}
+                  {index < sortedDates.length - 1 && (
+                    <div className={`absolute left-[7px] top-[20px] h-[calc(100%+8px)] w-0.5 ${isDateCompleted ? 'bg-green-500' : 'bg-gray-200'}`}></div>
+                  )}
+                  {/* Date dot */}
+                  <div className={`absolute left-0 top-1 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-blue-600 ring-2 ring-blue-100' : 'bg-gray-300')}`}></div>
+                  <div className="ml-6">
+                    <h4 className={`text-xs font-bold mb-2 flex items-center gap-2 ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>
+                      <span>{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
+                      {isToday && <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-bold">Today</span>}
+                    </h4>
+                    <div className="space-y-2">
+                      {dayItems.map((meeting, i) => {
+                        const isCompleted = meeting.status?.toLowerCase() === 'completed';
+                        return (
+                          <div key={meeting.id} className={`bg-gray-50 border rounded-md p-2 hover:shadow-sm transition-shadow ${isCompleted ? 'border-l-4 border-l-green-500 border-y-gray-200 border-r-gray-200' : 'border-gray-200'}`}>
+                            <div className="flex flex-col gap-1">
+                               <div className="flex justify-between items-start">
+                                 <div className="flex items-center gap-1.5">
+                                   <span className="text-xs font-semibold text-gray-800 leading-tight">
+                                     {meeting.dayLabel && <span className="text-blue-600 font-bold mr-1">{meeting.dayLabel} -</span>}
+                                     {meeting.title || 'KT Session'}
+                                   </span>
+                                 </div>
+                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ml-2 ${isCompleted ? 'bg-green-100 text-green-800 font-bold border border-green-200' : 'bg-indigo-100 text-indigo-800'}`}>
+                                   {isCompleted ? 'Completed' : 'Upcoming'}
+                                 </span>
+                               </div>
+                               <p className="text-[10px] text-gray-500 flex items-center flex-wrap gap-1 mt-0.5">
+                                 <span>{new Date(meeting.scheduled_at).toLocaleTimeString([], {timeZone: 'UTC', hour: '2-digit', minute:'2-digit'})}</span>
+                                 {plansMap[meeting.plan_id] && <span className="mx-0.5">•</span>}
+                                 {plansMap[meeting.plan_id] && <span className="text-indigo-600 truncate max-w-[120px]" title={plansMap[meeting.plan_id]}>{plansMap[meeting.plan_id]}</span>}
+                               </p>
+                               {meeting.meeting_link && (
+                                 <a href={meeting.meeting_link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 hover:underline mt-0.5">
+                                   Join Meeting
+                                 </a>
+                               )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading && plans.length === 0) return <Loader />;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 w-full mx-auto space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-800 flex items-center">
           KT Schedule Calendar 
           {user?.name && <span className="ml-3 text-sm font-normal text-blue-600 bg-blue-50 px-3 py-1 rounded-full">{user.name}</span>}
         </h1>
         
-        <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-gray-200">
+        <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200 w-full md:w-auto xl:w-[400px]">
           <Filter size={16} className="text-gray-500 flex-shrink-0" />
           <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Plan:</span>
           <select 
             value={selectedPlan}
             onChange={handlePlanChange}
-            className="text-sm border-none bg-transparent focus:ring-0 cursor-pointer text-gray-800 font-semibold outline-none py-1 pl-1 pr-6 truncate max-w-[200px] md:max-w-[300px]"
+            className="text-sm border-none bg-transparent focus:ring-0 cursor-pointer text-gray-800 font-semibold outline-none py-1 pl-1 w-full truncate"
           >
             <option value="All">All Plans</option>
             {plans.map(p => (
@@ -242,7 +339,7 @@ const CalendarPage = () => {
               </div>
             </div>
             
-            {loading && <div className="text-sm text-gray-500 animate-pulse">Refreshing...</div>}
+            {loading && <div className="text-sm text-gray-500 animate-pulse hidden sm:block">Refreshing...</div>}
           </div>
 
           {/* Calendar Grid */}
@@ -261,9 +358,12 @@ const CalendarPage = () => {
           </div>
         </div>
 
-        {/* Right Sidebar - Upcoming Summary */}
-        <div className="w-full xl:w-80 bg-white rounded-xl shadow-sm border border-gray-200 p-5 h-fit sticky top-6">
-           <h3 className="font-semibold text-gray-800 mb-4 text-sm">Schedules</h3>
+        {/* Right Sidebar */}
+        <div className="w-full xl:w-[400px] flex flex-col gap-6 h-fit sticky top-6">
+          
+          {/* Upcoming Summary Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+             <h3 className="font-semibold text-gray-800 mb-4 text-sm">Schedules</h3>
            
            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
              <span className="text-sm font-medium text-gray-700">Selected Date</span>
@@ -282,7 +382,7 @@ const CalendarPage = () => {
                 })
                 .sort((a,b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
                 .map(m => (
-                 <div key={m.id} className={`border-l-4 pl-3 py-1 mb-4 ${m.status?.toLowerCase() === 'completed' ? 'border-gray-400' : 'border-indigo-500'}`} title={`${m.title || 'KT Session'}\n${new Date(m.scheduled_at).toLocaleTimeString([], {timeZone: 'UTC', hour: '2-digit', minute:'2-digit'})}${m.meeting_link ? `\nLink: ${m.meeting_link}` : ''}`}>
+                 <div key={m.id} className={`border-l-4 pl-3 py-1 mb-4 ${m.status?.toLowerCase() === 'completed' ? 'border-green-500' : 'border-indigo-500'}`} title={`${m.title || 'KT Session'}\n${new Date(m.scheduled_at).toLocaleTimeString([], {timeZone: 'UTC', hour: '2-digit', minute:'2-digit'})}${m.meeting_link ? `\nLink: ${m.meeting_link}` : ''}`}>
                    {m.meeting_link ? (
                      <a href={m.meeting_link} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-gray-800 truncate hover:underline cursor-pointer block">{m.title || 'KT Session'}</a>
                    ) : (
@@ -305,6 +405,14 @@ const CalendarPage = () => {
                  <p className="text-sm text-gray-500 italic text-center py-4">No schedules found for this date.</p>
              )}
            </div>
+          </div>
+
+          {/* Monthly Timeline Card */}
+          {selectedPlan !== 'All' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              {renderTimeline()}
+            </div>
+          )}
 
         </div>
       </div>
