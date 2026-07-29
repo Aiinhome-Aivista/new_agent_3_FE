@@ -196,7 +196,7 @@ const ReportsPage = () => {
                 {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
               </select>
             </div>
-            <div className="flex gap-4 mt-4 md:mt-6">
+            <div className="flex flex-col sm:flex-row gap-4 mt-4 md:mt-6 w-full sm:w-auto">
               <button
                 onClick={() => handleGenerate('weekly')}
                 disabled={generatingType !== null || !selectedPlanId}
@@ -216,9 +216,10 @@ const ReportsPage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Generated Reports</h3>
-        <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
@@ -320,6 +321,7 @@ const ReportsPage = () => {
             )}
           </tbody>
         </table>
+        </div>
 
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
@@ -403,8 +405,8 @@ const ReportsPage = () => {
             </div>
             
             {/* Modal Content - Read Only / A4 Page Preview */}
-            <div className="flex-1 overflow-y-auto p-6 bg-gray-100 select-none">
-              <div className="bg-white shadow-lg border border-gray-200 p-12 max-w-2xl mx-auto min-h-[75vh] rounded-sm text-gray-800 font-sans text-left">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-100 select-none">
+              <div className="bg-white shadow-lg border border-gray-200 p-6 sm:p-12 w-full max-w-2xl mx-auto min-h-[75vh] rounded-sm text-gray-800 font-sans text-left">
                 {Array.isArray(viewingReport.content) ? (
                   viewingReport.content.map((item, index) => {
                     if (item.type === 'h1') {
