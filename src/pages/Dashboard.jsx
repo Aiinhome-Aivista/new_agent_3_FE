@@ -60,10 +60,7 @@ const Dashboard = () => {
           .filter(r => plansMap[r.plan_id])
           .filter(r => ['open', 'in_progress', 'in progress', 'in-progress'].includes(r.status?.toLowerCase()));
 
-        const isLeadership = user?.role === 'leadership' || user?.role === 'PwC Leadership';
-        const totalPlansCount = isLeadership
-          ? plansData.filter(p => p.status && p.status.toLowerCase() === 'approved').length
-          : plansData.length;
+        const totalPlansCount = plansData.filter(p => p.status && p.status.toLowerCase() === 'approved').length;
 
         setStats({
           plans: totalPlansCount,
