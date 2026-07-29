@@ -77,7 +77,7 @@ const AssessmentPage = () => {
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [plansRes, stRes, meetingsRes] = await Promise.all([getPlans(), getStakeholders(), getMeetings()]);
+        const [plansRes, stRes, meetingsRes] = await Promise.all([getPlans({ for_dropdown: 'true' }), getStakeholders(), getMeetings()]);
         const appPlans = plansRes.data.data.filter(p => p.status === 'approved');
         const stList = stRes.data.data;
 

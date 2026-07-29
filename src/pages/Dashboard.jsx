@@ -22,7 +22,7 @@ const Dashboard = () => {
     const fetchData = async () => {
       try {
         const [plansRes, stakeholdersRes, meetingsRes, risksRes] = await Promise.all([
-          getPlans(),
+          getPlans({ for_dropdown: 'true' }),
           getStakeholders(),
           getMeetings(),
           getRisks()
@@ -52,13 +52,18 @@ const Dashboard = () => {
 
         const now = new Date();
         const upcoming = allMeetings
+          .filter(m => plansMap[m.plan_id])
           .filter(m => new Date(m.scheduled_at) > now && m.status?.toLowerCase() !== 'completed')
           .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
-        const active = allRisks.filter(r => ['open', 'in_progress', 'in progress', 'in-progress'].includes(r.status?.toLowerCase()));
+        const active = allRisks
+          .filter(r => plansMap[r.plan_id])
+          .filter(r => ['open', 'in_progress', 'in progress', 'in-progress'].includes(r.status?.toLowerCase()));
+
+        const totalPlansCount = plansData.filter(p => p.status && p.status.toLowerCase() === 'approved').length;
 
         setStats({
-          plans: plansData.length,
+          plans: totalPlansCount,
           stakeholders: stakeholdersRes.data.data.length || 0,
           upcomingMeetings: upcoming,
           activeRisks: active,
@@ -80,8 +85,9 @@ const Dashboard = () => {
     return stats.performanceData.managers
       .flatMap(m => m.plans || [])
       .filter(p => p.status && !['draft', 'waiting_for_approval'].includes(p.status.toLowerCase()))
+      .filter(p => stats.plansMap[p.plan_id])
       .sort((a, b) => b.wmo_score - a.wmo_score);
-  }, [stats.performanceData]);
+  }, [stats.performanceData, stats.plansMap]);
 
   React.useEffect(() => {
     if (selectedPerfPlan === '' && allPerfPlans.length > 0) {
@@ -130,10 +136,19 @@ const Dashboard = () => {
   const displayedPerf = React.useMemo(() => {
     if (!stats.performanceData) return null;
     if (selectedPerfPlan === '') {
+      if (allPerfPlans.length === 0) {
+        return { completion: 0, attendance: 0, wmo: 0, title: 'Overall Performance' };
+      }
+      let sumComp = 0, sumAtt = 0, sumWmo = 0;
+      allPerfPlans.forEach(p => {
+        sumComp += p.completion_percent || 0;
+        sumAtt += p.attendance_percent || 0;
+        sumWmo += p.wmo_score || 0;
+      });
       return {
-        completion: stats.performanceData.combined_average_completion_percent,
-        attendance: stats.performanceData.combined_average_attendance_percent,
-        wmo: stats.performanceData.combined_average_wmo_score,
+        completion: Math.round(sumComp / allPerfPlans.length),
+        attendance: Math.round(sumAtt / allPerfPlans.length),
+        wmo: Math.round(sumWmo / allPerfPlans.length),
         title: 'Overall Performance'
       };
     } else {
@@ -152,23 +167,45 @@ const Dashboard = () => {
 
   const displayedGivers = React.useMemo(() => {
     if (!stats.giverData || !stats.giverData.knowledge_givers) return [];
+    
+    const filteredGivers = [];
+    stats.giverData.knowledge_givers.forEach(g => {
+      const validPlans = (g.plans || []).filter(p => stats.plansMap[p.plan_id]);
+      if (validPlans.length > 0) {
+        let totalScore = 0;
+        let totalFeedbacks = 0;
+        validPlans.forEach(p => {
+           totalScore += (p.average_rating * p.total_feedbacks);
+           totalFeedbacks += p.total_feedbacks;
+        });
+        const recalculatedRating = totalFeedbacks > 0 ? (totalScore / totalFeedbacks) : 0;
+        
+        filteredGivers.push({
+          ...g,
+          plans: validPlans,
+          total_feedbacks: totalFeedbacks,
+          average_rating: recalculatedRating
+        });
+      }
+    });
+
     if (!selectedPerfPlan) {
-      return [...stats.giverData.knowledge_givers].sort((a, b) => b.average_rating - a.average_rating);
+      return filteredGivers.sort((a, b) => b.average_rating - a.average_rating);
     }
 
-    const filtered = [];
-    stats.giverData.knowledge_givers.forEach(g => {
+    const strictlyFiltered = [];
+    filteredGivers.forEach(g => {
       const planData = g.plans.find(p => p.plan_id.toString() === selectedPerfPlan.toString());
       if (planData) {
-        filtered.push({
+        strictlyFiltered.push({
           ...g,
           total_feedbacks: planData.total_feedbacks,
           average_rating: planData.average_rating
         });
       }
     });
-    return filtered.sort((a, b) => b.average_rating - a.average_rating);
-  }, [stats.giverData, selectedPerfPlan]);
+    return strictlyFiltered.sort((a, b) => b.average_rating - a.average_rating);
+  }, [stats.giverData, selectedPerfPlan, stats.plansMap]);
 
   if (loading) return <Loader />;
 
@@ -258,13 +295,18 @@ const Dashboard = () => {
           <div className="flex justify-end mb-6">
             <div className="w-full md:w-64">
               <select
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 disabled:bg-gray-100 disabled:opacity-75"
                 value={selectedPerfPlan}
                 onChange={(e) => setSelectedPerfPlan(e.target.value)}
+                disabled={allPerfPlans.length === 0}
               >
-                {allPerfPlans.map((p, idx) => (
-                  <option key={p.plan_id} value={p.plan_id}> {p.application_name}</option>
-                ))}
+                {allPerfPlans.length === 0 ? (
+                  <option value="">No Active Plan</option>
+                ) : (
+                  allPerfPlans.map((p, idx) => (
+                    <option key={p.plan_id} value={p.plan_id}> {p.application_name}</option>
+                  ))
+                )}
               </select>
             </div>
           </div>

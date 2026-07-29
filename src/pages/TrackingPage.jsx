@@ -24,7 +24,7 @@ const TrackingPage = () => {
   useEffect(() => {
     const fetchPlans = async () => {
       try {
-        const res = await getPlans();
+        const res = await getPlans({ for_dropdown: 'true' });
         const approvedPlans = res.data.data.filter(p => p.status === 'approved');
         setPlans(approvedPlans);
       } catch (err) {

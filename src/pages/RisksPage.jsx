@@ -117,7 +117,7 @@ const RisksPage = () => {
     const fetchInit = async () => {
       try {
         if (user?.role === 'Delivery / Engagement Manager' || user?.role === 'leadership' || user?.role === 'PwC Leadership') {
-            const res = await getPlans();
+            const res = await getPlans({ for_dropdown: 'true' });
             const approvedPlans = res.data.data.filter(p => p.status === 'approved');
             setPlans(approvedPlans);
             if (user?.role === 'Delivery / Engagement Manager') {

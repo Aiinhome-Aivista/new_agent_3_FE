@@ -13,7 +13,7 @@ const KnowledgeBasePage = () => {
   const { activeOperations, startOperation, endOperation } = useOperations();
   const uploading = activeOperations['upload-document'];
   const [ktDay, setKtDay] = useState('');
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [topicOptions, setTopicOptions] = useState([]);
@@ -78,7 +78,7 @@ const KnowledgeBasePage = () => {
 
   const fetchPlans = async () => {
     try {
-      const res = await getPlans();
+      const res = await getPlans({ for_dropdown: 'true' });
       const approvedPlans = res.data.data.filter(p => p.status === 'approved');
       setPlans(approvedPlans);
     } catch (err) {
@@ -104,8 +104,8 @@ const KnowledgeBasePage = () => {
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!file) {
-      setErrorMsg('Please select a file to upload.');
+    if (files.length === 0) {
+      setErrorMsg('Please select at least one file to upload.');
       return;
     }
     if (!ktDay.trim()) {
@@ -115,14 +115,14 @@ const KnowledgeBasePage = () => {
 
     startOperation('upload-document');
     const formData = new FormData();
-    formData.append('file', file);
+    files.forEach(f => formData.append('files', f));
     formData.append('plan_id', selectedPlanId);
     formData.append('kt_day', ktDay);
 
     try {
       await uploadKnowledgeDocument(formData);
-      setSuccessMsg('Document uploaded and processed successfully.');
-      setFile(null);
+      setSuccessMsg('Document(s) uploaded and processed successfully.');
+      setFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = '';
       setKtDay('');
       fetchDocuments();
@@ -320,6 +320,7 @@ const KnowledgeBasePage = () => {
                     <div className="relative">
                       <input
                         type="file"
+                        multiple
                         ref={fileInputRef}
                         accept=".txt,.pdf,.doc,.docx,.ppt,.pptx"
                         className="block w-full text-sm text-gray-500 
@@ -330,7 +331,7 @@ const KnowledgeBasePage = () => {
                                   hover:file:bg-indigo-100 file:cursor-pointer
                                   border border-gray-200 rounded-xl bg-gray-50 
                                   focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
-                        onChange={(e) => setFile(e.target.files[0])}
+                        onChange={(e) => setFiles(Array.from(e.target.files))}
                         required
                       />
                     </div>

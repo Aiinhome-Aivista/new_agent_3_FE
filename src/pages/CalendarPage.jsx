@@ -23,15 +23,27 @@ const CalendarPage = () => {
         setLoading(true);
         const plansRes = await getPlans();
         const fetchedPlans = plansRes.data.data || [];
-        const approvedPlans = fetchedPlans.filter(p => p.status?.toLowerCase() === 'approved');
+        let approvedPlans = fetchedPlans.filter(p => p.status?.toLowerCase() === 'approved');
+        
+        if (user?.role === 'Delivery / Engagement Manager') {
+          approvedPlans = approvedPlans.filter(p => String(p.approved_by) === String(user?.id));
+        }
+        
         setPlans(approvedPlans);
         
         const map = {};
-        fetchedPlans.forEach(p => map[p.id] = p.application_name);
+        approvedPlans.forEach(p => map[p.id] = p.application_name);
         setPlansMap(map);
 
         const meetingsRes = await getMeetings();
-        setMeetings(meetingsRes.data.data || []);
+        let allMeetings = meetingsRes.data.data || [];
+        
+        if (user?.role === 'Delivery / Engagement Manager') {
+          const allowedPlanIds = approvedPlans.map(p => p.id);
+          allMeetings = allMeetings.filter(m => allowedPlanIds.includes(m.plan_id));
+        }
+        
+        setMeetings(allMeetings);
         
         const holidaysRes = await getHolidays();
         setHolidays(holidaysRes.data.data || []);
@@ -48,7 +60,14 @@ const CalendarPage = () => {
     try {
       setLoading(true);
       const res = await getMeetings(planId === 'All' ? null : planId);
-      setMeetings(res.data.data || []);
+      let newMeetings = res.data.data || [];
+      
+      if (user?.role === 'Delivery / Engagement Manager') {
+        const allowedPlanIds = plans.map(p => p.id);
+        newMeetings = newMeetings.filter(m => allowedPlanIds.includes(m.plan_id));
+      }
+      
+      setMeetings(newMeetings);
     } catch (err) {
       console.error("Failed to fetch meetings", err);
     } finally {
