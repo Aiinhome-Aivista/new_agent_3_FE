@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, LayoutGrid, List } from 'lucide-react';
 import { getPlans, getMeetings, getHolidays } from '../api/api';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,19 @@ const CalendarPage = () => {
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plansMap, setPlansMap] = useState({});
+  const timelineContainerRef = useRef(null);
+  const scrollTargetRef = useRef(null);
+
+  useEffect(() => {
+    // Small timeout ensures the DOM is fully painted before scrolling
+    setTimeout(() => {
+      if (scrollTargetRef.current) {
+        scrollTargetRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (timelineContainerRef.current) {
+        timelineContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 100);
+  }, [selectedPlan, meetings]);
 
   const processMeetingsWithDayLabel = (meetingsData) => {
     const sorted = [...meetingsData].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
@@ -192,6 +205,8 @@ const CalendarPage = () => {
     });
 
     const sortedDates = Object.keys(grouped).sort();
+    const todayStrGlobal = new Date().toISOString().split('T')[0];
+    const upcomingDateStr = sortedDates.find(d => d >= todayStrGlobal);
 
     if (sortedDates.length === 0) {
       return (
@@ -204,19 +219,20 @@ const CalendarPage = () => {
     return (
       <div className="">
         <h3 className="font-semibold text-gray-800 mb-4 text-sm">Plan Timeline</h3>
-        <div className="overflow-y-auto max-h-[400px] custom-scrollbar pr-2">
+        <div ref={timelineContainerRef} className="overflow-y-auto max-h-[400px] custom-scrollbar pr-2">
           <div className="relative ml-2 space-y-6 pb-2">
             {sortedDates.map((dateStr, index) => {
               const dateObj = new Date(dateStr);
               const todayStr = new Date().toISOString().split('T')[0];
               const isToday = todayStr === dateStr;
+              const isUpcomingScrollTarget = dateStr === upcomingDateStr;
               const isPastDate = dateStr < todayStr;
               const dayItems = grouped[dateStr].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
               const isDateCompleted = dayItems.every(m => m.status?.toLowerCase() === 'completed');
               const isDateOverdue = isPastDate && !isDateCompleted;
 
               return (
-                <div key={dateStr} className="relative">
+                <div key={dateStr} className="relative" ref={isUpcomingScrollTarget ? scrollTargetRef : null}>
                   {/* Vertical line connecting to next item */}
                   {index < sortedDates.length - 1 && (
                     <div className={`absolute left-[7px] top-[20px] h-[calc(100%+8px)] w-0.5 ${isDateCompleted ? 'bg-green-500' : 'bg-gray-200'}`}></div>
