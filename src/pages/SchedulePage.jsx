@@ -414,7 +414,9 @@ const SchedulePage = () => {
 
   const handleNotify = async (id) => {
     try {
-      await notifyMeeting(id);
+      const meetingObj = meetings.find(m => m.id === id);
+      const isOverdue = meetingObj ? isMeetingOverdue(meetingObj) : false;
+      await notifyMeeting(id, { is_overdue: isOverdue });
       setNotifiedId(id);
       setTimeout(() => setNotifiedId(null), 3000);
     } catch (err) {
