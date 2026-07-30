@@ -72,6 +72,18 @@ const AssessmentPage = () => {
     return [];
   };
 
+  const isDayCompleted = (dayLabel) => {
+    if (!dayLabel) return false;
+    const target = dayLabel.trim().toLowerCase();
+    return results.some(r => {
+      const rDay = (r.day_label || '').trim().toLowerCase();
+      const rType = r.assessment_type || 'day_wise';
+      return (rType === 'day_wise' || rDay !== '') && rDay === target;
+    });
+  };
+
+  const isFinalCompleted = results.some(r => r.assessment_type === 'final');
+
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -84,9 +96,7 @@ const AssessmentPage = () => {
         setPlans(appPlans);
         setStakeholders(stList);
         setMeetings(meetingsRes.data.data || []);
-        if (appPlans.length > 0) {
-          setSelectedPlanId(appPlans[0].id.toString());
-        }
+        // No auto-selection of plan by default
       } catch (err) {
         console.error(err);
       } finally {
@@ -144,11 +154,7 @@ const AssessmentPage = () => {
           });
 
           setDayOptions(completedDays);
-          if (completedDays.length > 0) {
-            setSelectedDayLabel(completedDays[0]);
-          } else {
-            setSelectedDayLabel('');
-          }
+          setSelectedDayLabel('');
 
           // Check if all topics of the entire plan are 100% completed
           const allTopicsCount = planTopicsOptions.length;
@@ -286,7 +292,15 @@ const AssessmentPage = () => {
       alert("Please select a day for the Day-wise assessment.");
       return;
     }
+    if (assessmentType === 'day_wise' && isDayCompleted(selectedDayLabel)) {
+      alert(`Assessment for ${selectedDayLabel} has already been completed. You cannot re-take this assessment.`);
+      return;
+    }
     if (assessmentType === 'final') {
+      if (isFinalCompleted) {
+        alert("Final Assessment has already been completed. You cannot re-take this assessment.");
+        return;
+      }
       if (!isPlanFullyCompleted) {
         alert("Final Assessment is locked until 100% of all KT topics in the plan are completed.");
         return;
@@ -298,10 +312,12 @@ const AssessmentPage = () => {
     }
     startOperation('assessment-generation');
     try {
+      const stakeholderId = user?.stakeholder_id || stakeholders.find(s => s.email?.toLowerCase() === user?.email?.toLowerCase())?.id;
       const res = await generateQuestions(
         selectedPlanId,
         assessmentType,
-        assessmentType === 'day_wise' ? selectedDayLabel : null
+        assessmentType === 'day_wise' ? selectedDayLabel : null,
+        stakeholderId
       );
       const generatedQs = res.data.data || [];
       setQuestions(generatedQs);
@@ -486,30 +502,43 @@ const AssessmentPage = () => {
               onChange={(e) => setSelectedPlanId(e.target.value)}
               disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
             >
-              <option value="" disabled>---Select Plan---</option>
+              <option value="">---Select Plan---</option>
               {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
             </select>
           </div>
           
-          {canSetup && (
-            <button
-              onClick={handleGenerateQuestions}
-              disabled={generating || !hasCompletedTopics || (currentQuestionIndex >= 0 && !assessmentCompleted)}
-              className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
-            >
-              {generating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  <span>Generate Questions</span>
-                </>
-              )}
-            </button>
-          )}
+          {canSetup && (() => {
+            const currentDayIsCompleted = assessmentType === 'day_wise' && !!selectedDayLabel && isDayCompleted(selectedDayLabel);
+            const currentFinalIsCompleted = assessmentType === 'final' && isFinalCompleted;
+            const isGenerateDisabled = !selectedPlanId || (assessmentType === 'day_wise' && !selectedDayLabel) || generating || !hasCompletedTopics || (currentQuestionIndex >= 0 && !assessmentCompleted) || currentDayIsCompleted || currentFinalIsCompleted;
+
+            return (
+              <button
+                onClick={handleGenerateQuestions}
+                disabled={isGenerateDisabled}
+                title={
+                  currentDayIsCompleted 
+                    ? `Assessment for ${selectedDayLabel} has already been completed.` 
+                    : currentFinalIsCompleted 
+                      ? "Final Assessment has already been completed." 
+                      : ""
+                }
+                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
+              >
+                {generating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    <span>{currentDayIsCompleted || currentFinalIsCompleted ? 'Completed' : 'Generate Questions'}</span>
+                  </>
+                )}
+              </button>
+            );
+          })()}
         </div>
 
         {/* Dual Assessment Mode Selector (for Knowledge Receiver) */}
@@ -563,7 +592,11 @@ const AssessmentPage = () => {
                     <span>Final Assessment</span>
                   </div>
                   {isPlanFullyCompleted ? (
-                    finalDeadlineInfo.isExpired ? (
+                    isFinalCompleted ? (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                        Completed
+                      </span>
+                    ) : finalDeadlineInfo.isExpired ? (
                       <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700 border border-red-200">
                         Expired
                       </span>
@@ -587,14 +620,26 @@ const AssessmentPage = () => {
                 </div>
               )}
 
-              {isPlanFullyCompleted && finalDeadlineInfo.isExpired && (
+              {isPlanFullyCompleted && isFinalCompleted && (
+                <div className="mt-2.5 text-[11px] text-emerald-800 bg-emerald-50/90 p-2 rounded-lg border border-emerald-200 flex items-center justify-between font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                    <span><strong>Final Assessment Completed!</strong> You have already completed your final assessment for this plan.</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 flex-shrink-0">
+                    Completed
+                  </span>
+                </div>
+              )}
+
+              {isPlanFullyCompleted && !isFinalCompleted && finalDeadlineInfo.isExpired && (
                 <div className="mt-2.5 text-[11px] text-red-700 bg-red-50/90 p-2 rounded-lg border border-red-200 flex items-center gap-1.5 font-medium">
                   <span className="text-sm">⚠️</span>
                   <span><strong>Final Assessment Window Expired!</strong> 1 week (7 days) has passed since 100% plan completion. Final assessment can no longer be taken.</span>
                 </div>
               )}
 
-              {isPlanFullyCompleted && !finalDeadlineInfo.isExpired && (
+              {isPlanFullyCompleted && !isFinalCompleted && !finalDeadlineInfo.isExpired && (
                 <div className="mt-2.5 text-[11px] text-emerald-800 bg-emerald-50/90 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5 font-medium">
                   <span className="text-sm">⏰</span>
                   <span><strong>1-Week Window Active:</strong> You have <strong>{finalDeadlineInfo.daysLeft} day(s)</strong> remaining to complete your Final Assessment.</span>
@@ -613,14 +658,32 @@ const AssessmentPage = () => {
                   onChange={(e) => setSelectedDayLabel(e.target.value)}
                   disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
                 >
+                  <option value="">---Select Day---</option>
                   {dayOptions.length > 0 ? (
-                    dayOptions.map((day, idx) => (
-                      <option key={idx} value={day}>{day}</option>
-                    ))
+                    dayOptions.map((day, idx) => {
+                      const completed = isDayCompleted(day);
+                      return (
+                        <option key={idx} value={day}>
+                          {day} {completed ? '✓ (Completed)' : ''}
+                        </option>
+                      );
+                    })
                   ) : (
-                    <option value="">No Specific Days Found (Generates All Topics)</option>
+                    <option value="" disabled>No Specific Days Found</option>
                   )}
                 </select>
+
+                {selectedDayLabel && isDayCompleted(selectedDayLabel) && (
+                  <div className="mt-2.5 p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 animate-fadeIn">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <span>Assessment for <strong>{selectedDayLabel}</strong> is completed.</span>
+                    </div>
+                    <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-full border border-emerald-200 flex-shrink-0">
+                      Completed
+                    </span>
+                  </div>
+                )}
 
                 {/* Display Topics Covered for the Selected Day */}
                 {(() => {
@@ -1104,9 +1167,13 @@ const AssessmentPage = () => {
                   <Award className="w-12 h-12 stroke-[1.5]" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-gray-800">No Assessment Results Found</h4>
+                  <h4 className="text-base font-bold text-gray-800">
+                    {!selectedPlanId ? "Please Select a Knowledge Plan" : "No Assessment Results Found"}
+                  </h4>
                   <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
-                    There are no completed assessments for this Knowledge plan yet.
+                    {!selectedPlanId
+                      ? "Select a Knowledge Plan from the dropdown above to view Knowledge Receivers' assessment results."
+                      : "There are no completed assessments for this Knowledge plan yet."}
                   </p>
                 </div>
               </div>

@@ -94,8 +94,8 @@ export const updateRiskStatus = (id, status) => api.put(`/risks/${id}/status`, {
 export const downloadRisksDoc = (planId) => api.get(`/risks/export-doc?plan_id=${planId}`, { responseType: 'blob' });
 
 // Assessments
-export const generateQuestions = (planId, assessmentType = 'final', dayLabel = null) => 
-  api.post('/assessments/generate-questions', { plan_id: planId, assessment_type: assessmentType, day_label: dayLabel });
+export const generateQuestions = (planId, assessmentType = 'final', dayLabel = null, stakeholderId = null) => 
+  api.post('/assessments/generate-questions', { plan_id: planId, assessment_type: assessmentType, day_label: dayLabel, stakeholder_id: stakeholderId });
 export const submitAnswer = (data) => api.post('/assessments/submit', data);
 export const getResults = (planId, stakeholderId, limit) => {
   const params = new URLSearchParams();
