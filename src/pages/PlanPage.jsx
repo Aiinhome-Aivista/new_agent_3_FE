@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic } from '../api/api';
+import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic } from '../api/api';
 import Loader from '../components/Loader';
 import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
-const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
+const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
   const [expanded, setExpanded] = useState(false);
   const [selectedManager, setSelectedManager] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -124,9 +124,20 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, parseMarkdown, stakeho
           </div>
         </div>
         <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.status === 'closed' ? 'bg-red-100 text-red-800 border border-red-200' : plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
             {plan.status.toUpperCase()}
           </span>
+          {(plan.status === 'draft' || plan.status === 'approved') && canApprove && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCloseClick(plan.id);
+              }}
+              className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50"
+            >
+              <X size={16} className="mr-1" /> Close Plan
+            </button>
+          )}
           {plan.status === 'draft' && (
             <>
               {isEditing ? (
@@ -339,6 +350,7 @@ const PlanPage = () => {
   const [plans, setPlans] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [planToApprove, setPlanToApprove] = useState(null);
+  const [planToClose, setPlanToClose] = useState(null);
   const [loading, setLoading] = useState(true);
   const { activeOperations, startOperation, endOperation } = useOperations();
   const generating = activeOperations['create-plan'];
@@ -356,7 +368,12 @@ const PlanPage = () => {
   const fetchPlans = async () => {
     try {
       const res = await getPlans();
-      setPlans(res.data.data);
+      const fetchedPlans = res.data.data || [];
+      const statusOrder = { 'draft': 1, 'approved': 2, 'closed': 3 };
+      const sortedPlans = [...fetchedPlans].sort((a, b) => 
+        (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99)
+      );
+      setPlans(sortedPlans);
     } catch (err) {
       console.error(err);
     } finally {
@@ -502,6 +519,17 @@ const PlanPage = () => {
       fetchPlans();
     } catch (err) {
       alert('Error approving plan');
+    }
+  };
+
+  const confirmClose = async () => {
+    if (!planToClose) return;
+    try {
+      await closePlan(planToClose);
+      setPlanToClose(null);
+      fetchPlans();
+    } catch (err) {
+      alert('Error closing plan');
     }
   };
 
@@ -803,6 +831,7 @@ const PlanPage = () => {
             plan={plan} 
             canApprove={canApprove && String(plan.created_by) === String(user?.id)} 
             handleApproveClick={setPlanToApprove} 
+            handleCloseClick={setPlanToClose}
             parseMarkdown={parseMarkdown}
             stakeholders={stakeholders}
             onAssignManager={handleAssignManager}
@@ -891,6 +920,29 @@ const PlanPage = () => {
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
               >
                 Yes, Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {planToClose && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Close KT Plan</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to close this KT Plan? Closed plans will be archived from active modules.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setPlanToClose(null)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmClose}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              >
+                Yes, Close
               </button>
             </div>
           </div>

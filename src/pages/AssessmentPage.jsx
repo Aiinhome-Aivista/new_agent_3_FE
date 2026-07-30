@@ -538,7 +538,7 @@ const AssessmentPage = () => {
               onChange={(e) => setSelectedPlanId(e.target.value)}
               disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
             >
-              <option value="">---Select Plan---</option>
+              <option value="" disabled>---Select Plan---</option>
               {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
             </select>
           </div>
