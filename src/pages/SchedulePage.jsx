@@ -93,6 +93,8 @@ const SchedulePage = () => {
   const [rescheduleTime, setRescheduleTime] = useState(''); // HH:MM
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [rescheduleSubsequent, setRescheduleSubsequent] = useState(false);
+  const [resolveOverdueAsCompleted, setResolveOverdueAsCompleted] = useState(false);
+  const [overdueOverrideMeetingId, setOverdueOverrideMeetingId] = useState(null);
   const rescheduling = activeOperations['reschedule-meeting'];
 
   // Feedback modal state
@@ -157,7 +159,37 @@ const SchedulePage = () => {
     }
   };
 
-  const handleOpenAttendanceModal = async (meeting) => {
+  const isMeetingToday = (dateStr) => {
+    if (!dateStr) return false;
+    const meetingDate = new Date(dateStr);
+    const today = new Date();
+    const meetingUTC = meetingDate.toISOString().split('T')[0];
+    const todayUTC = today.toISOString().split('T')[0];
+    const meetingLocal = `${meetingDate.getFullYear()}-${String(meetingDate.getMonth() + 1).padStart(2, '0')}-${String(meetingDate.getDate()).padStart(2, '0')}`;
+    const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return meetingUTC === todayUTC || meetingLocal === todayLocal;
+  };
+
+  const isMeetingBeforeToday = (dateStr) => {
+    if (!dateStr) return false;
+    const meetingDate = new Date(dateStr);
+    const today = new Date();
+    const meetingUTC = meetingDate.toISOString().split('T')[0];
+    const todayUTC = today.toISOString().split('T')[0];
+    const meetingLocal = `${meetingDate.getFullYear()}-${String(meetingDate.getMonth() + 1).padStart(2, '0')}-${String(meetingDate.getDate()).padStart(2, '0')}`;
+    const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (meetingUTC === todayUTC || meetingLocal === todayLocal) return false;
+    return meetingLocal < todayLocal && meetingUTC < todayUTC;
+  };
+
+  const isMeetingOverdue = (m) => {
+    return m.status !== 'completed' && m.status !== 'cancelled' && isMeetingBeforeToday(m.scheduled_at);
+  };
+
+  const handleOpenAttendanceModal = async (meeting, isOverdueOverride = false) => {
+    if (!isOverdueOverride && meeting.status !== 'completed' && !isMeetingToday(meeting.scheduled_at)) {
+      return;
+    }
     setFetchingAttendees(meeting.id);
     try {
       const res = await getAttendance(meeting.id);
@@ -183,6 +215,7 @@ const SchedulePage = () => {
     setRescheduleTime(`${hh}:${min}`);
     setRescheduleReason('');
     setRescheduleSubsequent(false);
+    setResolveOverdueAsCompleted(false);
     setRescheduleTarget(meeting);
     setIsRescheduleModalOpen(true);
   };
@@ -250,6 +283,29 @@ const SchedulePage = () => {
       fetchData();
     } catch (err) {
       alert('Error saving attendance');
+    } finally {
+      setSavingAttendance(false);
+    }
+  };
+
+  const handleSaveAttendanceAndComplete = async () => {
+    setSavingAttendance(true);
+    try {
+      const records = attendees.map(a => ({
+        stakeholder_id: a.stakeholder_id,
+        status: a.status || 'present',
+        notes: a.notes || null
+      }));
+      await markAttendance(attendanceMeeting.id, records);
+      await updateMeetingStatus(attendanceMeeting.id, 'completed');
+      setIsAttendanceModalOpen(false);
+      setAttendanceMeeting(null);
+      setAttendees([]);
+      setOverdueOverrideMeetingId(null);
+      alert('Attendance saved and meeting marked completed successfully!');
+      fetchData();
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Error saving attendance and marking completed');
     } finally {
       setSavingAttendance(false);
     }
@@ -341,11 +397,18 @@ const SchedulePage = () => {
   };
 
   const handleStatusChange = async (id, status) => {
+    if (status === 'completed' && user?.role === 'Delivery / Engagement Manager') {
+      const meetingObj = meetings.find(m => m.id === id);
+      if (meetingObj && (!meetingObj.attendance_rate_percent || Number(meetingObj.attendance_rate_percent) === 0)) {
+        alert('Give attendance at first then only the meeting can be marked completed.');
+        return;
+      }
+    }
     try {
       await updateMeetingStatus(id, status);
       fetchData();
     } catch (err) {
-      alert('Error updating status');
+      alert(err?.response?.data?.message || 'Error updating status');
     }
   };
 
@@ -497,6 +560,7 @@ const SchedulePage = () => {
               {meetings.map((m) => {
                 const dayStr = m.day_label || '-';
                 const cleanTitle = m.title.replace(/^.*?(Day\s*\d+[^:-]*[:-]\s*)/i, '').replace(/^Day\s*\d+\s*/i, '');
+                const isOverdue = isMeetingOverdue(m);
 
                 return (
                   <tr key={m.id}>
@@ -586,27 +650,29 @@ const SchedulePage = () => {
                       </td>
                     )}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {m.status}
+                      <span className={`px-2 py-1 text-xs rounded-full ${isOverdue ? 'bg-red-100 text-red-800 font-semibold' : m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                        {isOverdue ? 'overdue' : m.status}
                       </span>
                     </td>
                     {canManage && (
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
-                        <button
-                          onClick={() => handleOpenAttendanceModal(m)}
-                          disabled={fetchingAttendees === m.id}
-                          className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
-                          title="Attendance"
-                        >
-                          {fetchingAttendees === m.id ? (
-                            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                            </svg>
-                          ) : (
-                            <ClipboardList size={20} />
-                          )}
-                        </button>
+                        {(!isOverdue && (m.status === 'completed' || isMeetingToday(m.scheduled_at))) && (
+                          <button
+                            onClick={() => handleOpenAttendanceModal(m)}
+                            disabled={fetchingAttendees === m.id}
+                            className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
+                            title="Attendance"
+                          >
+                            {fetchingAttendees === m.id ? (
+                              <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                              </svg>
+                            ) : (
+                              <ClipboardList size={20} />
+                            )}
+                          </button>
+                        )}
                         {m.status === 'scheduled' && (
                           <>
                             {notifiedId === m.id ? (
@@ -627,9 +693,11 @@ const SchedulePage = () => {
                                 <Clock size={20} />
                               </button>
                             )}
-                            <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900" title="Complete">
-                              <CheckCircle size={20} />
-                            </button>
+                            {!isOverdue && (
+                              <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900" title="Complete">
+                                <CheckCircle size={20} />
+                              </button>
+                            )}
                           </>
                         )}
                       </td>
@@ -648,11 +716,15 @@ const SchedulePage = () => {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center">
               <h3 className="text-lg font-semibold">
-                {attendanceMeeting.status === 'completed' ? 'View Attendance: ' : 'Mark Attendance: '}
+                {attendanceMeeting.status === 'completed'
+                  ? 'View Attendance: '
+                  : overdueOverrideMeetingId === attendanceMeeting.id
+                  ? 'Mark Past Attendance & Complete: '
+                  : 'Mark Attendance: '}
                 {attendanceMeeting.title}
               </h3>
               <button
-                onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); }}
+                onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); setOverdueOverrideMeetingId(null); }}
                 className="text-white hover:text-gray-200 text-xl font-bold"
               >
                 &times;
@@ -670,30 +742,24 @@ const SchedulePage = () => {
               <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-white">
                 {attendees.map((attendee) => (
                   <div key={attendee.stakeholder_id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    {/* Participant Details */}
-                    <div className="flex items-start space-x-3 flex-1">
-                      <input
-                        type="checkbox"
-                        id={`attendee-${attendee.stakeholder_id}`}
-                        className={`mt-1 h-5 w-5 rounded text-blue-600 focus:ring-blue-500 border-gray-300 ${attendanceMeeting.status === 'completed' ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-                        checked={!!attendee.attended}
-                        onChange={() => handleToggleAttendee(attendee.stakeholder_id)}
-                        disabled={attendanceMeeting.status === 'completed'}
-                      />
-                      <label
-                        htmlFor={`attendee-${attendee.stakeholder_id}`}
-                        className="text-sm font-medium text-gray-800 cursor-pointer flex-1"
-                      >
-                        <span className="block">{attendee.stakeholder_name}</span>
-                        <span className="text-xs text-gray-500">{attendee.stakeholder_role}</span>
-                      </label>
+                    <div className="flex-1">
+                      <div className="font-semibold text-gray-800">{attendee.stakeholder_name}</div>
+                      <div className="text-xs text-gray-500 capitalize">{attendee.role}</div>
                     </div>
-
-                    {/* Notes Field */}
-                    <div className="w-full md:w-64">
+                    <div className="flex items-center space-x-4">
+                      <label className="inline-flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          checked={attendee.attended || false}
+                          onChange={(e) => handleAttendanceChange(attendee.stakeholder_id, e.target.checked)}
+                          disabled={attendanceMeeting.status === 'completed'}
+                        />
+                        <span className="text-sm text-gray-700 font-medium">Attended</span>
+                      </label>
                       <input
                         type="text"
-                        placeholder="Add notes..."
+                        placeholder="Notes (optional)"
                         className={`w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 ${attendanceMeeting.status === 'completed' ? 'bg-gray-50 cursor-not-allowed' : ''}`}
                         value={attendee.notes || ''}
                         onChange={(e) => handleNotesChange(attendee.stakeholder_id, e.target.value)}
@@ -715,7 +781,7 @@ const SchedulePage = () => {
             <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
               <button
                 type="button"
-                onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); }}
+                onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); setOverdueOverrideMeetingId(null); }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
                 disabled={savingAttendance}
               >
@@ -724,11 +790,15 @@ const SchedulePage = () => {
               {attendanceMeeting.status !== 'completed' && (
                 <button
                   type="button"
-                  onClick={handleSaveAttendance}
+                  onClick={overdueOverrideMeetingId === attendanceMeeting.id ? handleSaveAttendanceAndComplete : handleSaveAttendance}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium disabled:bg-blue-400"
                   disabled={savingAttendance || attendees.length === 0}
                 >
-                  {savingAttendance ? 'Saving...' : 'Save'}
+                  {savingAttendance
+                    ? 'Saving...'
+                    : overdueOverrideMeetingId === attendanceMeeting.id
+                    ? 'Save Attendance & Mark Completed'
+                    : 'Save'}
                 </button>
               )}
             </div>
@@ -763,92 +833,133 @@ const SchedulePage = () => {
                 <p className="text-sm font-medium text-gray-800">{rescheduleTarget.title}</p>
               </div>
 
+              {/* Overdue Resolution Option (Option B for Case 2) */}
+              {isMeetingOverdue(rescheduleTarget) && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-red-800">Overdue Meeting Resolution</span>
+                  </div>
+                  <label className="flex items-center space-x-2 cursor-pointer text-sm text-red-900">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 text-red-600 focus:ring-red-500 border-red-300 rounded"
+                      checked={resolveOverdueAsCompleted}
+                      onChange={(e) => setResolveOverdueAsCompleted(e.target.checked)}
+                    />
+                    <span>Meeting was already taken — Record past attendance &amp; mark completed</span>
+                  </label>
+                </div>
+              )}
+
               {/* Alert */}
               <div className="flex items-start space-x-2 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
                 <Bell size={15} className="mt-0.5 flex-shrink-0" />
-                <span>All participants (Knowledge Giver &amp; Receiver) will be <strong>auto-notified via email</strong> with the new time once you save.</span>
+                <span>
+                  {resolveOverdueAsCompleted
+                    ? 'You can now record past attendance and immediately mark this meeting as completed.'
+                    : 'All participants (Knowledge Giver & Receiver) will be auto-notified via email with the new time once you save.'}
+                </span>
               </div>
 
-              {/* New Date picker */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  New Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-gray-800 text-sm"
-                  value={rescheduleDate}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                />
-              </div>
+              {!resolveOverdueAsCompleted && (
+                <>
+                  {/* New Date picker */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      New Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-gray-800 text-sm"
+                      value={rescheduleDate}
+                      onChange={(e) => setRescheduleDate(e.target.value)}
+                    />
+                  </div>
 
-              {/* New time picker */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  New Time <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="reschedule-time-input"
-                  type="time"
-                  required
-                  className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-gray-800 text-sm"
-                  value={rescheduleTime}
-                  onChange={(e) => setRescheduleTime(e.target.value)}
-                />
-              </div>
+                  {/* New time picker */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      New Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="reschedule-time-input"
+                      type="time"
+                      required
+                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-gray-800 text-sm"
+                      value={rescheduleTime}
+                      onChange={(e) => setRescheduleTime(e.target.value)}
+                    />
+                  </div>
 
-              {/* Reason field */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-xs text-gray-400">(optional — included in notification email)</span></label>
-                <textarea
-                  id="reschedule-reason-input"
-                  rows={3}
-                  placeholder="e.g. Knowledge Giver is unavailable at the original time..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-sm resize-none"
-                  value={rescheduleReason}
-                  onChange={(e) => setRescheduleReason(e.target.value)}
-                />
-              </div>
+                  {/* Reason field */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-xs text-gray-400">(optional — included in notification email)</span></label>
+                    <textarea
+                      id="reschedule-reason-input"
+                      rows={3}
+                      placeholder="e.g. Knowledge Giver is unavailable at the original time..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-sm resize-none"
+                      value={rescheduleReason}
+                      onChange={(e) => setRescheduleReason(e.target.value)}
+                    />
+                  </div>
 
-              {/* Reschedule Subsequent Checkbox */}
-              <div className="flex items-center mt-2">
-                <input
-                  id="reschedule-subsequent-checkbox"
-                  type="checkbox"
-                  className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
-                  checked={rescheduleSubsequent}
-                  onChange={(e) => setRescheduleSubsequent(e.target.checked)}
-                />
-                <label htmlFor="reschedule-subsequent-checkbox" className="ml-2 block text-sm text-gray-700">
-                  Reschedule all subsequent meetings for this plan
-                </label>
-              </div>
+                  {/* Reschedule Subsequent Checkbox */}
+                  <div className="flex items-center mt-2">
+                    <input
+                      id="reschedule-subsequent-checkbox"
+                      type="checkbox"
+                      className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                      checked={rescheduleSubsequent}
+                      onChange={(e) => setRescheduleSubsequent(e.target.checked)}
+                    />
+                    <label htmlFor="reschedule-subsequent-checkbox" className="ml-2 block text-sm text-gray-700">
+                      Reschedule all subsequent meetings for this plan
+                    </label>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Footer */}
             <div className="bg-amber-50 px-6 py-4 flex justify-end space-x-3 border-t border-amber-100">
               <button
                 type="button"
-                onClick={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); }}
+                onClick={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); setResolveOverdueAsCompleted(false); }}
                 className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
                 disabled={rescheduling}
               >
                 Cancel
               </button>
-              <button
-                id="reschedule-save-btn"
-                type="button"
-                onClick={handleReschedule}
-                disabled={rescheduling || !rescheduleTime}
-                className="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white rounded-md text-sm font-medium transition-colors"
-              >
-                {rescheduling ? (
-                  <><span className="animate-spin mr-2">&#x21BB;</span> Saving...</>
-                ) : (
-                  <><Clock size={15} className="mr-1" /> Save &amp; Notify</>
-                )}
-              </button>
+              {resolveOverdueAsCompleted ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRescheduleModalOpen(false);
+                    setOverdueOverrideMeetingId(rescheduleTarget.id);
+                    setResolveOverdueAsCompleted(false);
+                    handleOpenAttendanceModal(rescheduleTarget, true);
+                  }}
+                  className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  <CheckCircle size={15} className="mr-1.5" /> Record Attendance &amp; Complete
+                </button>
+              ) : (
+                <button
+                  id="reschedule-save-btn"
+                  type="button"
+                  onClick={handleReschedule}
+                  disabled={rescheduling || !rescheduleTime}
+                  className="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white rounded-md text-sm font-medium transition-colors"
+                >
+                  {rescheduling ? (
+                    <><span className="animate-spin mr-2">&#x21BB;</span> Saving...</>
+                  ) : (
+                    <><Clock size={15} className="mr-1" /> Save &amp; Notify</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
