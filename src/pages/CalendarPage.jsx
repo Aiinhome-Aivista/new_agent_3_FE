@@ -10,6 +10,7 @@ const CalendarPage = () => {
   const [plans, setPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState('All');
   const [meetings, setMeetings] = useState([]);
+  const [allMeetings, setAllMeetings] = useState([]);
   const [holidays, setHolidays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plansMap, setPlansMap] = useState({});
@@ -46,14 +47,15 @@ const CalendarPage = () => {
         setPlansMap(map);
 
         const meetingsRes = await getMeetings();
-        let allMeetings = meetingsRes.data.data || [];
+        let fetchedMeetings = meetingsRes.data.data || [];
         
         if (user?.role === 'Delivery / Engagement Manager') {
           const allowedPlanIds = approvedPlans.map(p => p.id);
-          allMeetings = allMeetings.filter(m => allowedPlanIds.includes(m.plan_id));
+          fetchedMeetings = fetchedMeetings.filter(m => allowedPlanIds.includes(m.plan_id));
         }
         
-        setMeetings(processMeetingsWithDayLabel(allMeetings));
+        setAllMeetings(fetchedMeetings);
+        setMeetings(processMeetingsWithDayLabel(fetchedMeetings));
         
         const holidaysRes = await getHolidays();
         setHolidays(holidaysRes.data.data || []);
@@ -66,29 +68,14 @@ const CalendarPage = () => {
     fetchInitialData();
   }, []);
 
-  const fetchMeetingsForPlan = async (planId) => {
-    try {
-      setLoading(true);
-      const res = await getMeetings(planId === 'All' ? null : planId);
-      let newMeetings = res.data.data || [];
-      
-      if (user?.role === 'Delivery / Engagement Manager') {
-        const allowedPlanIds = plans.map(p => p.id);
-        newMeetings = newMeetings.filter(m => allowedPlanIds.includes(m.plan_id));
-      }
-      
-      setMeetings(processMeetingsWithDayLabel(newMeetings));
-    } catch (err) {
-      console.error("Failed to fetch meetings", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handlePlanChange = (e) => {
     const val = e.target.value;
     setSelectedPlan(val);
-    fetchMeetingsForPlan(val);
+    if (val === 'All') {
+      setMeetings(processMeetingsWithDayLabel(allMeetings));
+    } else {
+      setMeetings(processMeetingsWithDayLabel(allMeetings.filter(m => String(m.plan_id) === String(val))));
+    }
   };
 
   const getDaysInMonth = (date) => {
@@ -221,9 +208,12 @@ const CalendarPage = () => {
           <div className="relative ml-2 space-y-6 pb-2">
             {sortedDates.map((dateStr, index) => {
               const dateObj = new Date(dateStr);
-              const isToday = new Date().toISOString().split('T')[0] === dateStr;
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isToday = todayStr === dateStr;
+              const isPastDate = dateStr < todayStr;
               const dayItems = grouped[dateStr].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
               const isDateCompleted = dayItems.every(m => m.status?.toLowerCase() === 'completed');
+              const isDateOverdue = isPastDate && !isDateCompleted;
 
               return (
                 <div key={dateStr} className="relative">
@@ -232,27 +222,28 @@ const CalendarPage = () => {
                     <div className={`absolute left-[7px] top-[20px] h-[calc(100%+8px)] w-0.5 ${isDateCompleted ? 'bg-green-500' : 'bg-gray-200'}`}></div>
                   )}
                   {/* Date dot */}
-                  <div className={`absolute left-0 top-1 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-blue-600 ring-2 ring-blue-100' : 'bg-gray-300')}`}></div>
+                  <div className={`absolute left-0 top-1 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-blue-600 ring-2 ring-blue-100 animate-pulse' : (isDateOverdue ? 'bg-red-500 ring-2 ring-red-200' : 'bg-gray-300'))}`}></div>
                   <div className="ml-6">
-                    <h4 className={`text-xs font-bold mb-2 flex items-center gap-2 ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>
+                    <h4 className={`text-xs font-bold mb-2 flex items-center gap-2 ${isToday ? 'text-blue-600' : (isDateOverdue ? 'text-red-600' : 'text-gray-800')}`}>
                       <span>{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
                       {isToday && <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-bold">Today</span>}
                     </h4>
                     <div className="space-y-2">
                       {dayItems.map((meeting, i) => {
                         const isCompleted = meeting.status?.toLowerCase() === 'completed';
+                        const isOverdueItem = isPastDate && !isCompleted;
                         return (
-                          <div key={meeting.id} className={`bg-gray-50 border rounded-md p-2 hover:shadow-sm transition-shadow ${isCompleted ? 'border-l-4 border-l-green-500 border-y-gray-200 border-r-gray-200' : 'border-gray-200'}`}>
+                          <div key={meeting.id} className={`bg-gray-50 border rounded-md p-2 hover:shadow-sm transition-shadow ${isCompleted ? 'border-l-4 border-l-green-500 border-y-gray-200 border-r-gray-200' : (isOverdueItem ? 'border-l-4 border-l-red-500 border-y-red-200 border-r-red-200 bg-red-50' : 'border-gray-200')}`}>
                             <div className="flex flex-col gap-1">
                                <div className="flex justify-between items-start">
                                  <div className="flex items-center gap-1.5">
-                                   <span className="text-xs font-semibold text-gray-800 leading-tight">
-                                     {meeting.dayLabel && <span className="text-blue-600 font-bold mr-1">{meeting.dayLabel} -</span>}
+                                   <span className={`text-xs font-semibold ${isOverdueItem ? 'text-red-800' : 'text-gray-800'} leading-tight`}>
+                                     {meeting.dayLabel && <span className={`${isOverdueItem ? 'text-red-600' : 'text-blue-600'} font-bold mr-1`}>{meeting.dayLabel} -</span>}
                                      {meeting.title || 'KT Session'}
                                    </span>
                                  </div>
-                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ml-2 ${isCompleted ? 'bg-green-100 text-green-800 font-bold border border-green-200' : 'bg-indigo-100 text-indigo-800'}`}>
-                                   {isCompleted ? 'Completed' : 'Upcoming'}
+                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ml-2 ${isCompleted ? 'bg-green-100 text-green-800 font-bold border border-green-200' : (isOverdueItem ? 'bg-red-100 text-red-800 font-bold border border-red-200' : 'bg-indigo-100 text-indigo-800')}`}>
+                                   {isCompleted ? 'Completed' : (isOverdueItem ? 'Overdue' : 'Upcoming')}
                                  </span>
                                </div>
                                <p className="text-[10px] text-gray-500 flex items-center flex-wrap gap-1 mt-0.5">
