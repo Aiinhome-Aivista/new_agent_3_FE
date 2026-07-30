@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, getPlanTopicOptions, completeAssessment, getAttemptDetails } from '../api/api';
+import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, getPlanTopicOptions, completeAssessment, getAttemptDetails, getPlanAssessmentSettings, updatePlanAssessmentSettings } from '../api/api';
 import Loader from '../components/Loader';
 import { FileQuestion, CheckCircle2, RefreshCw, Award, Sparkles, User, BookOpen, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -22,7 +22,10 @@ const AssessmentPage = () => {
   const [dayOptions, setDayOptions] = useState([]);
   const [rawPlanTopics, setRawPlanTopics] = useState([]);
   const [isPlanFullyCompleted, setIsPlanFullyCompleted] = useState(false);
-  const [finalDeadlineInfo, setFinalDeadlineInfo] = useState({ isExpired: false, daysLeft: 7, deadlineDate: null });
+  const [finalDeadlineInfo, setFinalDeadlineInfo] = useState({ isExpired: false, daysLeft: 90, deadlineDate: null });
+  const [managerSettings, setManagerSettings] = useState({ is_final_unlocked: false, final_deadline_extension_days: 90 });
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSavedMsg, setSettingsSavedMsg] = useState('');
   
   // Chat / Conversational Assessment States
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1);
@@ -115,6 +118,16 @@ const AssessmentPage = () => {
       setCurrentAnswer('');
       
       fetchResults(selectedPlanId, null, stakeholders);
+
+      // Fetch manager assessment settings
+      getPlanAssessmentSettings(selectedPlanId).then(res => {
+        if (res.data && res.data.success && res.data.data) {
+          setManagerSettings({
+            is_final_unlocked: !!res.data.data.is_final_unlocked,
+            final_deadline_extension_days: Number(res.data.data.final_deadline_extension_days) || 90
+          });
+        }
+      }).catch(err => console.error(err));
       
       const checkTopicsAndDays = async () => {
         try {
@@ -169,7 +182,8 @@ const AssessmentPage = () => {
           setIsPlanFullyCompleted(allCompleted);
 
           let isExpired = false;
-          let daysLeft = 7;
+          let daysLimit = managerSettings.final_deadline_extension_days || 90;
+          let daysLeft = daysLimit;
           let deadlineDate = null;
 
           if (allCompleted) {
@@ -179,7 +193,7 @@ const AssessmentPage = () => {
               .filter(t => !isNaN(t));
 
             const maxTime = completedTimes.length > 0 ? Math.max(...completedTimes) : Date.now();
-            deadlineDate = new Date(maxTime + 7 * 24 * 60 * 60 * 1000);
+            deadlineDate = new Date(maxTime + daysLimit * 24 * 60 * 60 * 1000);
             const diffMs = deadlineDate.getTime() - Date.now();
             daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
             isExpired = diffMs < 0;
@@ -286,6 +300,28 @@ const AssessmentPage = () => {
     }
   };
 
+  const handleSaveManagerSettings = async () => {
+    if (!selectedPlanId) return;
+    setSavingSettings(true);
+    setSettingsSavedMsg('');
+    const payload = {
+      is_final_unlocked: managerSettings.is_final_unlocked,
+      final_deadline_extension_days: parseInt(managerSettings.final_deadline_extension_days) || 90
+    };
+    try {
+      const res = await updatePlanAssessmentSettings(selectedPlanId, payload);
+      if (res.data && res.data.success) {
+        setSettingsSavedMsg('✓ Manager settings saved successfully!');
+        setTimeout(() => setSettingsSavedMsg(''), 3000);
+      }
+    } catch (err) {
+      console.error("Error saving manager settings:", err);
+      alert("Failed to save manager settings.");
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const handleGenerateQuestions = async () => {
     if (!selectedPlanId) return;
     if (assessmentType === 'day_wise' && !selectedDayLabel) {
@@ -301,12 +337,12 @@ const AssessmentPage = () => {
         alert("Final Assessment has already been completed. You cannot re-take this assessment.");
         return;
       }
-      if (!isPlanFullyCompleted) {
-        alert("Final Assessment is locked until 100% of all KT topics in the plan are completed.");
+      if (!isPlanFullyCompleted && !managerSettings.is_final_unlocked) {
+        alert("Final Assessment is locked until 100% of all KT topics in the plan are completed or unlocked by manager.");
         return;
       }
-      if (finalDeadlineInfo.isExpired) {
-        alert("The 1-week deadline for the Final Assessment has expired. Final Assessment is no longer available.");
+      if (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked) {
+        alert("The Final Assessment deadline has expired.");
         return;
       }
     }
@@ -541,6 +577,117 @@ const AssessmentPage = () => {
           })()}
         </div>
 
+        {/* Manager Assessment Controls Card (for Delivery / Engagement Manager & Viewer roles) */}
+        {!canSetup && selectedPlanId && (
+          <div className="mt-5 pt-5 border-t border-gray-100 bg-gradient-to-br from-indigo-50/40 to-purple-50/30 p-5 rounded-2xl border border-indigo-100 animate-fadeIn space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-600" />
+                <h4 className="text-sm font-bold text-gray-900">
+                  Manager Assessment Settings & Controls
+                </h4>
+              </div>
+              <span className="text-[11px] font-semibold px-2.5 py-1 bg-white text-indigo-700 rounded-full border border-indigo-100 shadow-xs">
+                Delivery Manager Panel
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+              {/* Control 1: Force Unlock Toggle */}
+              <div className="bg-white p-4 rounded-xl border border-gray-150 shadow-sm flex flex-col justify-between space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    1. Final Assessment Access Mode
+                  </label>
+                  <p className="text-[11px] text-gray-500">
+                    Allow Knowledge Receiver to take Final Assessment before 100% topic completion.
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManagerSettings(prev => ({ ...prev, is_final_unlocked: !prev.is_final_unlocked }));
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
+                      managerSettings.is_final_unlocked
+                        ? 'bg-amber-500 text-white hover:bg-amber-600'
+                        : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                    }`}
+                  >
+                    {managerSettings.is_final_unlocked ? '🔒 Relock to Default' : '🔓 Force Unlock Early'}
+                  </button>
+                  
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                    managerSettings.is_final_unlocked
+                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                      : 'bg-gray-100 text-gray-600 border border-gray-200'
+                  }`}>
+                    {managerSettings.is_final_unlocked ? 'Unlocked Early' : 'Requires 100% Plan'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Control 2: Custom Deadline Days Input */}
+              <div className="bg-white p-4 rounded-xl border border-gray-150 shadow-sm flex flex-col justify-between space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    2. Final Assessment Deadline Window
+                  </label>
+                  <p className="text-[11px] text-gray-500">
+                    Type any custom number of days manually (e.g. 15, 30, 45, 90, 180). Default is 90 days.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      type="number"
+                      min="1"
+                      max="3650"
+                      placeholder="Enter number of days..."
+                      value={managerSettings.final_deadline_extension_days}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 0);
+                        setManagerSettings(prev => ({ ...prev, final_deadline_extension_days: val }));
+                      }}
+                      className="w-full max-w-[180px] px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                    />
+                    <span className="text-xs font-bold text-gray-600">Days</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Settings Action Button */}
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-xs font-semibold text-emerald-600">
+                {settingsSavedMsg}
+              </span>
+              
+              <button
+                type="button"
+                onClick={handleSaveManagerSettings}
+                disabled={savingSettings}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all disabled:opacity-50"
+              >
+                {savingSettings ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Save Assessment Settings</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Dual Assessment Mode Selector (for Knowledge Receiver) */}
         {canSetup && selectedPlanId && (
           <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
@@ -565,58 +712,77 @@ const AssessmentPage = () => {
                   </span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isPlanFullyCompleted || finalDeadlineInfo.isExpired) return;
-                    setAssessmentType('final');
-                  }}
-                  disabled={!isPlanFullyCompleted || finalDeadlineInfo.isExpired || (currentQuestionIndex >= 0 && !assessmentCompleted)}
-                  title={
-                    !isPlanFullyCompleted
-                      ? "Final Assessment is unlocked only when all days of the KT plan are completed (100%)."
-                      : finalDeadlineInfo.isExpired
-                        ? "1-week deadline for Final Assessment has expired."
-                        : `Must complete within 1 week (${finalDeadlineInfo.daysLeft} days left)`
-                  }
-                  className={`flex-1 py-2.5 px-4 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm ${
-                    !isPlanFullyCompleted || finalDeadlineInfo.isExpired
-                      ? 'bg-gray-100/90 border-gray-200 text-gray-400 cursor-not-allowed opacity-80'
-                      : assessmentType === 'final'
-                        ? 'bg-rose-50/80 border-rose-400 text-rose-900 ring-2 ring-rose-300 font-semibold'
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    {(!isPlanFullyCompleted || finalDeadlineInfo.isExpired) && <Lock className="w-3.5 h-3.5 text-gray-400" />}
-                    <span>Final Assessment</span>
-                  </div>
-                  {isPlanFullyCompleted ? (
-                    isFinalCompleted ? (
-                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                        Completed
-                      </span>
-                    ) : finalDeadlineInfo.isExpired ? (
-                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700 border border-red-200">
-                        Expired
-                      </span>
-                    ) : (
-                      <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                        Mandatory ({finalDeadlineInfo.daysLeft}d left)
-                      </span>
-                    )
-                  ) : (
-                    <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-gray-200/80 text-gray-600 border border-gray-300">
-                      Locked
-                    </span>
-                  )}
-                </button>
+                {(() => {
+                  const isFinalAssessmentAvailable = isPlanFullyCompleted || managerSettings.is_final_unlocked;
+                  const isFinalLocked = !isFinalAssessmentAvailable;
+
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isFinalLocked || (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked)) return;
+                        setAssessmentType('final');
+                      }}
+                      disabled={isFinalLocked || (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked) || (currentQuestionIndex >= 0 && !assessmentCompleted)}
+                      title={
+                        isFinalLocked
+                          ? "Final Assessment is locked until 100% of all days in the KT plan are completed or unlocked by manager."
+                          : finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked
+                            ? "Deadline for Final Assessment has expired."
+                            : `Must complete within ${finalDeadlineInfo.daysLeft} days`
+                      }
+                      className={`flex-1 py-2.5 px-4 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm ${
+                        isFinalLocked || (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked)
+                          ? 'bg-gray-100/90 border-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                          : assessmentType === 'final'
+                            ? 'bg-rose-50/80 border-rose-400 text-rose-900 ring-2 ring-rose-300 font-semibold'
+                            : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {(isFinalLocked || (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked)) && <Lock className="w-3.5 h-3.5 text-gray-400" />}
+                        <span>Final Assessment</span>
+                      </div>
+                      {isFinalAssessmentAvailable ? (
+                        isFinalCompleted ? (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                            Completed
+                          </span>
+                        ) : finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked ? (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-red-100 text-red-700 border border-red-200">
+                            Expired
+                          </span>
+                        ) : (
+                          <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                            Mandatory ({finalDeadlineInfo.daysLeft}d left)
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-gray-200/80 text-gray-600 border border-gray-300">
+                          Locked
+                        </span>
+                      )}
+                    </button>
+                  );
+                })()}
               </div>
 
-              {!isPlanFullyCompleted && (
+              {!isPlanFullyCompleted && !managerSettings.is_final_unlocked && (
                 <div className="mt-2.5 text-[11px] text-amber-700 bg-amber-50/80 p-2 rounded-lg border border-amber-200/70 flex items-center gap-1.5 font-medium">
                   <Lock className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
-                  <span>Final Assessment unlocks only after 100% of all days in the plan are completed.</span>
+                  <span>Final Assessment unlocks only after 100% of all days in the plan are completed or unlocked by manager.</span>
+                </div>
+              )}
+
+              {!isPlanFullyCompleted && managerSettings.is_final_unlocked && (
+                <div className="mt-2.5 text-[11px] text-amber-800 bg-amber-50/90 p-2 rounded-lg border border-amber-200 flex items-center justify-between font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600 flex-shrink-0" />
+                    <span><strong>Unlocked Early by Manager:</strong> Final Assessment has been enabled by your Manager for early attempt.</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex-shrink-0">
+                    Unlocked Early
+                  </span>
                 </div>
               )}
 
@@ -635,14 +801,14 @@ const AssessmentPage = () => {
               {isPlanFullyCompleted && !isFinalCompleted && finalDeadlineInfo.isExpired && (
                 <div className="mt-2.5 text-[11px] text-red-700 bg-red-50/90 p-2 rounded-lg border border-red-200 flex items-center gap-1.5 font-medium">
                   <span className="text-sm">⚠️</span>
-                  <span><strong>Final Assessment Window Expired!</strong> 1 week (7 days) has passed since 100% plan completion. Final assessment can no longer be taken.</span>
+                  <span><strong>Final Assessment Window Expired!</strong> 90 days have passed since 100% plan completion. Final assessment can no longer be taken.</span>
                 </div>
               )}
 
               {isPlanFullyCompleted && !isFinalCompleted && !finalDeadlineInfo.isExpired && (
                 <div className="mt-2.5 text-[11px] text-emerald-800 bg-emerald-50/90 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5 font-medium">
                   <span className="text-sm">⏰</span>
-                  <span><strong>1-Week Window Active:</strong> You have <strong>{finalDeadlineInfo.daysLeft} day(s)</strong> remaining to complete your Final Assessment.</span>
+                  <span><strong>90-Day Window Active:</strong> You have <strong>{finalDeadlineInfo.daysLeft} day(s)</strong> remaining to complete your Final Assessment.</span>
                 </div>
               )}
             </div>
