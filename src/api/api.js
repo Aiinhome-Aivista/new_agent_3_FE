@@ -104,6 +104,8 @@ export const getResults = (planId, stakeholderId, limit) => {
   const query = params.toString() ? `?${params.toString()}` : '';
   return api.get(`/assessments/plan/${planId}/results${query}`);
 }
+export const getPlanAssessmentSettings = (planId) => api.get(`/assessments/plan/${planId}/settings`);
+export const updatePlanAssessmentSettings = (planId, data) => api.put(`/assessments/plan/${planId}/settings`, data);
 
 // Holidays
 export const uploadHolidayList = (formData) => api.post('/holidays/upload', formData, {
