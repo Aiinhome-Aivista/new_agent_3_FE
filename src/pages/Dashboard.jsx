@@ -324,9 +324,9 @@ const Dashboard = () => {
                 </div>
                 <div className="bg-emerald-50 rounded-lg p-4 flex flex-col justify-center items-center border border-emerald-100 shadow-sm">
                   <span className="text-emerald-800 text-sm font-medium mb-1 flex items-center">
-                    <Award size={16} className="mr-1" /> W.M.O Score
+                    <Award size={16} className="mr-1" /> Weightage Score
                   </span>
-                  <span className="text-3xl font-bold text-emerald-600">{Math.round(displayedPerf.wmo)}</span>
+                  <span className="text-3xl font-bold text-emerald-600">{Math.round(displayedPerf.wmo)}%</span>
                 </div>
               </div>
 
@@ -340,7 +340,7 @@ const Dashboard = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receiver Name</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">WMO Score</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Weightage Score</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -360,7 +360,7 @@ const Dashboard = () => {
                             {p.attendance_percent}%
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600">
-                            {p.wmo_score}
+                            {p.wmo_score}%
                           </td>
                         </tr>
                       ))}
