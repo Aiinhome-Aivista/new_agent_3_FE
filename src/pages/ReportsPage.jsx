@@ -27,7 +27,7 @@ const ReportsPage = () => {
         const allPlansList = plansRes.data.data || [];
         setAllPlans(allPlansList);
         
-        let appPlans = allPlansList.filter(p => p.status === 'approved');
+        let appPlans = allPlansList.filter(p => p.status === 'approved' || p.status === 'closed');
         if (user?.role === 'Delivery / Engagement Manager') {
           appPlans = appPlans.filter(p => p.approved_by === user?.id);
         }
