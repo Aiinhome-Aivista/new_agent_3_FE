@@ -109,6 +109,106 @@ const AssessmentPage = () => {
     fetchInit();
   }, []);
 
+  const checkTopicsAndDays = async (planId = selectedPlanId) => {
+    if (!planId) return;
+    try {
+      const [trackingRes, optionsRes, settingsRes] = await Promise.all([
+        getPlanTopics(planId),
+        getPlanTopicOptions(planId),
+        getPlanAssessmentSettings(planId)
+      ]);
+
+      let currentManagerSettings = { is_final_unlocked: false, final_deadline_extension_days: 90 };
+      if (settingsRes.data && settingsRes.data.success && settingsRes.data.data) {
+        currentManagerSettings = {
+          is_final_unlocked: !!settingsRes.data.data.is_final_unlocked,
+          final_deadline_extension_days: Number(settingsRes.data.data.final_deadline_extension_days) || 90
+        };
+        setManagerSettings(currentManagerSettings);
+      }
+
+      const trackingTopics = trackingRes.data?.data || [];
+      const planTopicsOptions = optionsRes.data?.data || [];
+
+      setRawPlanTopics(planTopicsOptions);
+      const completedList = trackingTopics.filter(t => t.completion_percent === 100).map(t => t.topic);
+      setCompletedTopics(completedList);
+
+      const completedTopicNamesSet = new Set(completedList.map(t => t.trim().toLowerCase()));
+
+      // Group plan_topics by day_label
+      const daysMap = {};
+      planTopicsOptions.forEach(item => {
+        const dLabel = item.day_label || 'General';
+        if (!daysMap[dLabel]) daysMap[dLabel] = [];
+        if (item.topic_name) daysMap[dLabel].push(item.topic_name.trim().toLowerCase());
+      });
+
+      // Filter days where at least one topic under that day is 100% completed
+      const completedDays = Object.keys(daysMap).filter(dayLabel => {
+        const topicNames = daysMap[dayLabel];
+        const dayLabelLower = dayLabel.trim().toLowerCase();
+        
+        const hasCompletedTopic = topicNames.some(tn => completedTopicNamesSet.has(tn));
+        const isDayLabelCompleted = completedTopicNamesSet.has(dayLabelLower);
+        const isPartialMatch = Array.from(completedTopicNamesSet).some(ct => 
+          ct.includes(dayLabelLower) || dayLabelLower.includes(ct) || topicNames.some(tn => ct.includes(tn) || tn.includes(ct))
+        );
+
+        return hasCompletedTopic || isDayLabelCompleted || isPartialMatch;
+      });
+
+      setDayOptions(completedDays);
+
+      // Check if all topics of the entire plan are 100% completed
+      const allTopicsCount = planTopicsOptions.length;
+      const allCompleted = allTopicsCount > 0 && planTopicsOptions.every(pt => {
+        const tn = (pt.topic_name || '').trim().toLowerCase();
+        const dLabelLower = (pt.day_label || '').trim().toLowerCase();
+        return completedTopicNamesSet.has(tn) || 
+               completedTopicNamesSet.has(dLabelLower) ||
+               Array.from(completedTopicNamesSet).some(ct => ct.includes(tn) || tn.includes(ct));
+      });
+
+      setIsPlanFullyCompleted(allCompleted);
+
+      let isExpired = false;
+      let daysLimit = currentManagerSettings.final_deadline_extension_days || 90;
+      let daysLeft = daysLimit;
+      let deadlineDate = null;
+
+      if (allCompleted) {
+        const completedTimes = trackingTopics
+          .filter(t => t.completion_percent === 100 && t.last_updated)
+          .map(t => new Date(t.last_updated).getTime())
+          .filter(t => !isNaN(t));
+
+        const maxTime = completedTimes.length > 0 ? Math.max(...completedTimes) : Date.now();
+        deadlineDate = new Date(maxTime + daysLimit * 24 * 60 * 60 * 1000);
+        const diffMs = deadlineDate.getTime() - Date.now();
+        daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        isExpired = diffMs < 0;
+      }
+
+      setFinalDeadlineInfo({ isExpired, daysLeft, deadlineDate });
+
+      if (!allCompleted || isExpired) {
+        setAssessmentType('day_wise');
+      }
+
+      const hasCompleted = completedList.length > 0;
+      setHasCompletedTopics(hasCompleted);
+      if (!hasCompleted) {
+        setWarningMsg("No completed KT topics are available for assessment yet for this plan.");
+        setQuestions([]);
+      } else {
+        setWarningMsg('');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     if (selectedPlanId && user?.email) {
       setCurrentQuestionIndex(-1);
@@ -118,106 +218,7 @@ const AssessmentPage = () => {
       setCurrentAnswer('');
       
       fetchResults(selectedPlanId, null, stakeholders);
-
-      // Fetch manager assessment settings
-      getPlanAssessmentSettings(selectedPlanId).then(res => {
-        if (res.data && res.data.success && res.data.data) {
-          setManagerSettings({
-            is_final_unlocked: !!res.data.data.is_final_unlocked,
-            final_deadline_extension_days: Number(res.data.data.final_deadline_extension_days) || 90
-          });
-        }
-      }).catch(err => console.error(err));
-      
-      const checkTopicsAndDays = async () => {
-        try {
-          const [trackingRes, optionsRes] = await Promise.all([
-            getPlanTopics(selectedPlanId),
-            getPlanTopicOptions(selectedPlanId)
-          ]);
-          const trackingTopics = trackingRes.data?.data || [];
-          const planTopicsOptions = optionsRes.data?.data || [];
-
-          setRawPlanTopics(planTopicsOptions);
-          const completedList = trackingTopics.filter(t => t.completion_percent === 100).map(t => t.topic);
-          setCompletedTopics(completedList);
-
-          const completedTopicNamesSet = new Set(completedList.map(t => t.trim().toLowerCase()));
-
-          // Group plan_topics by day_label
-          const daysMap = {};
-          planTopicsOptions.forEach(item => {
-            const dLabel = item.day_label || 'General';
-            if (!daysMap[dLabel]) daysMap[dLabel] = [];
-            if (item.topic_name) daysMap[dLabel].push(item.topic_name.trim().toLowerCase());
-          });
-
-          // Filter days where at least one topic under that day is 100% completed
-          const completedDays = Object.keys(daysMap).filter(dayLabel => {
-            const topicNames = daysMap[dayLabel];
-            const dayLabelLower = dayLabel.trim().toLowerCase();
-            
-            const hasCompletedTopic = topicNames.some(tn => completedTopicNamesSet.has(tn));
-            const isDayLabelCompleted = completedTopicNamesSet.has(dayLabelLower);
-            const isPartialMatch = Array.from(completedTopicNamesSet).some(ct => 
-              ct.includes(dayLabelLower) || dayLabelLower.includes(ct) || topicNames.some(tn => ct.includes(tn) || tn.includes(ct))
-            );
-
-            return hasCompletedTopic || isDayLabelCompleted || isPartialMatch;
-          });
-
-          setDayOptions(completedDays);
-          setSelectedDayLabel('');
-
-          // Check if all topics of the entire plan are 100% completed
-          const allTopicsCount = planTopicsOptions.length;
-          const allCompleted = allTopicsCount > 0 && planTopicsOptions.every(pt => {
-            const tn = (pt.topic_name || '').trim().toLowerCase();
-            const dLabelLower = (pt.day_label || '').trim().toLowerCase();
-            return completedTopicNamesSet.has(tn) || 
-                   completedTopicNamesSet.has(dLabelLower) ||
-                   Array.from(completedTopicNamesSet).some(ct => ct.includes(tn) || tn.includes(ct));
-          });
-
-          setIsPlanFullyCompleted(allCompleted);
-
-          let isExpired = false;
-          let daysLimit = managerSettings.final_deadline_extension_days || 90;
-          let daysLeft = daysLimit;
-          let deadlineDate = null;
-
-          if (allCompleted) {
-            const completedTimes = trackingTopics
-              .filter(t => t.completion_percent === 100 && t.last_updated)
-              .map(t => new Date(t.last_updated).getTime())
-              .filter(t => !isNaN(t));
-
-            const maxTime = completedTimes.length > 0 ? Math.max(...completedTimes) : Date.now();
-            deadlineDate = new Date(maxTime + daysLimit * 24 * 60 * 60 * 1000);
-            const diffMs = deadlineDate.getTime() - Date.now();
-            daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-            isExpired = diffMs < 0;
-          }
-
-          setFinalDeadlineInfo({ isExpired, daysLeft, deadlineDate });
-
-          if (!allCompleted || isExpired) {
-            setAssessmentType('day_wise');
-          }
-
-          const hasCompleted = completedList.length > 0;
-          setHasCompletedTopics(hasCompleted);
-          if (!hasCompleted) {
-            setWarningMsg("No completed KT topics are available for assessment yet for this plan.");
-            setQuestions([]);
-          } else {
-            setWarningMsg('');
-          }
-        } catch (err) {
-          console.error(err);
-        }
-      };
-      checkTopicsAndDays();
+      checkTopicsAndDays(selectedPlanId);
     }
   }, [selectedPlanId, stakeholders, user]);
 
@@ -312,6 +313,7 @@ const AssessmentPage = () => {
       const res = await updatePlanAssessmentSettings(selectedPlanId, payload);
       if (res.data && res.data.success) {
         setSettingsSavedMsg('✓ Manager settings saved successfully!');
+        await checkTopicsAndDays(selectedPlanId);
         setTimeout(() => setSettingsSavedMsg(''), 3000);
       }
     } catch (err) {
@@ -801,14 +803,14 @@ const AssessmentPage = () => {
               {isPlanFullyCompleted && !isFinalCompleted && finalDeadlineInfo.isExpired && (
                 <div className="mt-2.5 text-[11px] text-red-700 bg-red-50/90 p-2 rounded-lg border border-red-200 flex items-center gap-1.5 font-medium">
                   <span className="text-sm">⚠️</span>
-                  <span><strong>Final Assessment Window Expired!</strong> 90 days have passed since 100% plan completion. Final assessment can no longer be taken.</span>
+                  <span><strong>Final Assessment Window Expired!</strong> {managerSettings.final_deadline_extension_days || 90} days have passed since 100% plan completion. Final assessment can no longer be taken.</span>
                 </div>
               )}
 
               {isPlanFullyCompleted && !isFinalCompleted && !finalDeadlineInfo.isExpired && (
                 <div className="mt-2.5 text-[11px] text-emerald-800 bg-emerald-50/90 p-2 rounded-lg border border-emerald-200 flex items-center gap-1.5 font-medium">
                   <span className="text-sm">⏰</span>
-                  <span><strong>90-Day Window Active:</strong> You have <strong>{finalDeadlineInfo.daysLeft} day(s)</strong> remaining to complete your Final Assessment.</span>
+                  <span><strong>{managerSettings.final_deadline_extension_days || 90}-Day Window Active:</strong> You have <strong>{finalDeadlineInfo.daysLeft} day(s)</strong> remaining to complete your Final Assessment.</span>
                 </div>
               )}
             </div>
