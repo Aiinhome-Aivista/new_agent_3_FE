@@ -80,6 +80,8 @@ const SchedulePage = () => {
     meeting_link: ''
   });
 
+  const [schedulePopup, setSchedulePopup] = useState(null);
+
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [attendanceMeeting, setAttendanceMeeting] = useState(null);
   const [attendees, setAttendees] = useState([]);
@@ -115,10 +117,10 @@ const SchedulePage = () => {
         setIsAlreadySubmitted(Boolean(res.data.already_submitted));
         setIsFeedbackModalOpen(true);
       } else {
-        alert(res.data.message || 'Error fetching feedback information.');
+        setSchedulePopup({ message: res.data.message || 'Error fetching feedback information.', type: 'error' });
       }
     } catch (err) {
-      alert(err?.response?.data?.message || 'Error fetching feedback details.');
+      setSchedulePopup({ message: err?.response?.data?.message || 'Error fetching feedback details.', type: 'error' });
     } finally {
       setFetchingFeedback(null);
     }
@@ -135,7 +137,7 @@ const SchedulePage = () => {
   const handleSubmitFeedback = async () => {
     const unrated = feedbackGivers.filter(g => !g.rating || g.rating < 1);
     if (unrated.length > 0) {
-      alert(`Please select a star rating (1 to 5) for ${unrated.map(u => u.name).join(', ')}.`);
+      setSchedulePopup({ message: `Please select a star rating (1 to 5) for ${unrated.map(u => u.name).join(', ')}.`, type: 'error' });
       return;
     }
     setSubmittingFeedback(true);
@@ -148,12 +150,12 @@ const SchedulePage = () => {
         }))
       };
       const res = await submitMeetingFeedback(feedbackMeeting.id, payload);
-      alert(res.data?.message || 'Feedback & rating submitted successfully!');
+      setSchedulePopup({ message: res.data?.message || 'Feedback & rating submitted successfully!', type: 'success' });
       setIsFeedbackModalOpen(false);
       setFeedbackMeeting(null);
       setFeedbackGivers([]);
     } catch (err) {
-      alert(err?.response?.data?.message || 'Error submitting feedback.');
+      setSchedulePopup({ message: err?.response?.data?.message || 'Error submitting feedback.', type: 'error' });
     } finally {
       setSubmittingFeedback(false);
     }
@@ -197,7 +199,7 @@ const SchedulePage = () => {
       setAttendanceMeeting(meeting);
       setIsAttendanceModalOpen(true);
     } catch (err) {
-      alert('Error fetching meeting participants');
+      setSchedulePopup({ message: 'Error fetching meeting participants', type: 'error' });
     } finally {
       setFetchingAttendees(false);
     }
@@ -222,7 +224,7 @@ const SchedulePage = () => {
 
   const handleReschedule = async () => {
     if (!rescheduleDate || !rescheduleTime) {
-      alert('Please select a new date and time.');
+      setSchedulePopup({ message: 'Please select a new date and time.', type: 'error' });
       return;
     }
     startOperation('reschedule-meeting');
@@ -240,10 +242,10 @@ const SchedulePage = () => {
       setRescheduleReason('');
       setRescheduleSubsequent(false);
       fetchData();
-      alert(res.data?.message || 'Meeting rescheduled successfully! All participants have been notified via email.');
+      setSchedulePopup({ message: res.data?.message || 'Meeting rescheduled successfully! All participants have been notified via email.', type: 'success' });
     } catch (err) {
       const msg = err?.response?.data?.message || 'Error rescheduling the meeting.';
-      alert(msg);
+      setSchedulePopup({ message: msg, type: 'error' });
     } finally {
       endOperation('reschedule-meeting');
     }
@@ -279,10 +281,10 @@ const SchedulePage = () => {
       setIsAttendanceModalOpen(false);
       setAttendanceMeeting(null);
       setAttendees([]);
-      alert('Attendance saved successfully');
+      setSchedulePopup({ message: 'Attendance saved successfully', type: 'success' });
       fetchData();
     } catch (err) {
-      alert('Error saving attendance');
+      setSchedulePopup({ message: 'Error saving attendance', type: 'error' });
     } finally {
       setSavingAttendance(false);
     }
@@ -302,10 +304,10 @@ const SchedulePage = () => {
       setAttendanceMeeting(null);
       setAttendees([]);
       setOverdueOverrideMeetingId(null);
-      alert('Attendance saved and meeting marked completed successfully!');
+      setSchedulePopup({ message: 'Attendance saved and meeting marked completed successfully!', type: 'success' });
       fetchData();
     } catch (err) {
-      alert(err?.response?.data?.message || 'Error saving attendance and marking completed');
+      setSchedulePopup({ message: err?.response?.data?.message || 'Error saving attendance and marking completed', type: 'error' });
     } finally {
       setSavingAttendance(false);
     }
@@ -366,10 +368,19 @@ const SchedulePage = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (schedulePopup) {
+      const timer = setTimeout(() => {
+        setSchedulePopup(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [schedulePopup]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedStakeholders.length === 0 && selectedOrganizers.length === 0) {
-      alert('Please select at least one participant or organizer.');
+      setSchedulePopup({ message: 'Please select at least one participant or organizer.', type: 'error' });
       return;
     }
     startOperation('schedule-meeting');
@@ -388,9 +399,9 @@ const SchedulePage = () => {
       setSelectedStakeholders([]);
       setSelectedOrganizers([]);
       fetchData();
-      alert('Meeting scheduled successfully! Notifications triggered.');
+      setSchedulePopup({ message: 'Meeting scheduled successfully! Notifications triggered.', type: 'success' });
     } catch (err) {
-      alert('Error creating meeting');
+      setSchedulePopup({ message: 'Error creating meeting', type: 'error' });
     } finally {
       endOperation('schedule-meeting');
     }
@@ -400,7 +411,7 @@ const SchedulePage = () => {
     if (status === 'completed' && user?.role === 'Delivery / Engagement Manager') {
       const meetingObj = meetings.find(m => m.id === id);
       if (meetingObj && (!meetingObj.attendance_rate_percent || Number(meetingObj.attendance_rate_percent) === 0)) {
-        alert('Give attendance at first then only the meeting can be marked completed.');
+        setSchedulePopup({ message: 'Give attendance at first then only the meeting can be marked completed.', type: 'error' });
         return;
       }
     }
@@ -408,7 +419,7 @@ const SchedulePage = () => {
       await updateMeetingStatus(id, status);
       fetchData();
     } catch (err) {
-      alert(err?.response?.data?.message || 'Error updating status');
+      setSchedulePopup({ message: err?.response?.data?.message || 'Error updating status', type: 'error' });
     }
   };
 
@@ -420,7 +431,7 @@ const SchedulePage = () => {
       setNotifiedId(id);
       setTimeout(() => setNotifiedId(null), 3000);
     } catch (err) {
-      alert('Error sending notification');
+      setSchedulePopup({ message: 'Error sending notification', type: 'error' });
     }
   };
 
@@ -811,7 +822,7 @@ const SchedulePage = () => {
       {/* ── Reschedule Modal ── */}
       {isRescheduleModalOpen && rescheduleTarget && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full flex flex-col border border-amber-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full flex flex-col border border-amber-200 overflow-hidden max-h-[90vh]">
 
             {/* Header */}
             <div className="bg-gradient-to-r from-amber-600 to-orange-500 text-white px-6 py-4 flex justify-between items-center">
@@ -828,7 +839,7 @@ const SchedulePage = () => {
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-5">
+            <div className="p-6 space-y-5 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {/* Meeting Info Banner */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                 <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Meeting</p>
@@ -1097,6 +1108,42 @@ const SchedulePage = () => {
                   <CheckCircle size={16} className="mr-1.5 text-green-600" /> Feedback Submitted
                 </span>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast Notification ── */}
+      {schedulePopup && (
+        <div className="fixed top-6 right-6 z-[60] max-w-sm w-full">
+          <div className={`rounded-lg shadow-xl overflow-hidden border-l-4 bg-white ${schedulePopup.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
+            <div className="p-4 flex items-start">
+              <div className="flex-shrink-0">
+                {schedulePopup.type === 'success' ? (
+                  <CheckCircle className="text-green-500 w-5 h-5" />
+                ) : (
+                  <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                )}
+              </div>
+              <div className="ml-3 w-0 flex-1 pt-0.5">
+                <p className="text-sm font-bold text-gray-900">
+                  {schedulePopup.type === 'success' ? 'Success' : 'Error'}
+                </p>
+                <p className="mt-1 text-sm text-gray-600">
+                  {schedulePopup.message}
+                </p>
+              </div>
+              <div className="ml-4 flex-shrink-0 flex">
+                <button
+                  onClick={() => setSchedulePopup(null)}
+                  className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
