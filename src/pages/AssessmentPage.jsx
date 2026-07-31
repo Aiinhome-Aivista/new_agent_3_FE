@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, getPlanTopicOptions, completeAssessment, getAttemptDetails, getPlanAssessmentSettings, updatePlanAssessmentSettings } from '../api/api';
+import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, getPlanTopicOptions, completeAssessment, getAttemptDetails, getPlanAssessmentSettings, updatePlanAssessmentSettings, sendFinalAssessmentReminder } from '../api/api';
 import Loader from '../components/Loader';
 import { FileQuestion, CheckCircle2, RefreshCw, Award, Sparkles, User, BookOpen, ChevronDown, ChevronUp, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -23,9 +23,15 @@ const AssessmentPage = () => {
   const [rawPlanTopics, setRawPlanTopics] = useState([]);
   const [isPlanFullyCompleted, setIsPlanFullyCompleted] = useState(false);
   const [finalDeadlineInfo, setFinalDeadlineInfo] = useState({ isExpired: false, daysLeft: 90, deadlineDate: null });
+  const [elapsedDays, setElapsedDays] = useState(0);
   const [managerSettings, setManagerSettings] = useState({ is_final_unlocked: false, final_deadline_extension_days: 90 });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSavedMsg, setSettingsSavedMsg] = useState('');
+  const [toastModal, setToastModal] = useState({ isOpen: false, title: '', message: '', type: 'warning' });
+
+  const showToast = (message, title = 'Notice', type = 'warning') => {
+    setToastModal({ isOpen: true, title, message, type });
+  };
   
   // Chat / Conversational Assessment States
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(-1);
@@ -176,6 +182,7 @@ const AssessmentPage = () => {
       let daysLimit = currentManagerSettings.final_deadline_extension_days || 90;
       let daysLeft = daysLimit;
       let deadlineDate = null;
+      let computedElapsedDays = 0;
 
       if (allCompleted) {
         const completedTimes = trackingTopics
@@ -184,12 +191,16 @@ const AssessmentPage = () => {
           .filter(t => !isNaN(t));
 
         const maxTime = completedTimes.length > 0 ? Math.max(...completedTimes) : Date.now();
+        const elapsedMs = Date.now() - maxTime;
+        computedElapsedDays = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)));
+
         deadlineDate = new Date(maxTime + daysLimit * 24 * 60 * 60 * 1000);
         const diffMs = deadlineDate.getTime() - Date.now();
         daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
         isExpired = diffMs < 0;
       }
 
+      setElapsedDays(computedElapsedDays);
       setFinalDeadlineInfo({ isExpired, daysLeft, deadlineDate });
 
       if (!allCompleted || isExpired) {
@@ -303,11 +314,23 @@ const AssessmentPage = () => {
 
   const handleSaveManagerSettings = async () => {
     if (!selectedPlanId) return;
+    const newDays = parseInt(managerSettings.final_deadline_extension_days) || 0;
+
+    if (newDays <= 0) {
+      showToast("Please enter a valid positive number of days.", "Invalid Input", "error");
+      return;
+    }
+
+    if (isPlanFullyCompleted && newDays <= elapsedDays) {
+      showToast(`Invalid Deadline! Already ${elapsedDays} day(s) have passed since plan completion. The new deadline window must be greater than ${elapsedDays} day(s).`, "Invalid Deadline", "error");
+      return;
+    }
+
     setSavingSettings(true);
     setSettingsSavedMsg('');
     const payload = {
       is_final_unlocked: managerSettings.is_final_unlocked,
-      final_deadline_extension_days: parseInt(managerSettings.final_deadline_extension_days) || 90
+      final_deadline_extension_days: newDays
     };
     try {
       const res = await updatePlanAssessmentSettings(selectedPlanId, payload);
@@ -318,7 +341,8 @@ const AssessmentPage = () => {
       }
     } catch (err) {
       console.error("Error saving manager settings:", err);
-      alert("Failed to save manager settings.");
+      const errMsg = err?.response?.data?.message || "Failed to save manager settings.";
+      showToast(errMsg, "Save Failed", "error");
     } finally {
       setSavingSettings(false);
     }
@@ -327,24 +351,24 @@ const AssessmentPage = () => {
   const handleGenerateQuestions = async () => {
     if (!selectedPlanId) return;
     if (assessmentType === 'day_wise' && !selectedDayLabel) {
-      alert("Please select a day for the Day-wise assessment.");
+      showToast("Please select a day for the Day-wise assessment.", "Selection Required", "warning");
       return;
     }
     if (assessmentType === 'day_wise' && isDayCompleted(selectedDayLabel)) {
-      alert(`Assessment for ${selectedDayLabel} has already been completed. You cannot re-take this assessment.`);
+      showToast(`Assessment for ${selectedDayLabel} has already been completed. You cannot re-take this assessment.`, "Already Completed", "info");
       return;
     }
     if (assessmentType === 'final') {
       if (isFinalCompleted) {
-        alert("Final Assessment has already been completed. You cannot re-take this assessment.");
+        showToast("Final Assessment has already been completed. You cannot re-take this assessment.", "Already Completed", "info");
         return;
       }
       if (!isPlanFullyCompleted && !managerSettings.is_final_unlocked) {
-        alert("Final Assessment is locked until 100% of all KT topics in the plan are completed or unlocked by manager.");
+        showToast("Final Assessment is locked until 100% of all KT topics in the plan are completed or unlocked by manager.", "Assessment Locked", "warning");
         return;
       }
       if (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked) {
-        alert("The Final Assessment deadline has expired.");
+        showToast("The Final Assessment deadline has expired.", "Deadline Expired", "error");
         return;
       }
     }
@@ -381,7 +405,7 @@ const AssessmentPage = () => {
       setWarningMsg('');
     } catch (err) {
       const msg = err.response?.data?.message || 'Error generating questions';
-      alert(msg);
+      showToast(msg, "Missing Documents / Action Required", "warning");
       setWarningMsg(msg);
     } finally {
       endOperation('assessment-generation');
@@ -1600,7 +1624,52 @@ const AssessmentPage = () => {
             </div>
           </div>
         )}
-      </div>
+      {/* Sleek Popup Modal / Toast Component */}
+      {toastModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-150 flex flex-col space-y-4 animate-scaleUp">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${
+                  toastModal.type === 'error' ? 'bg-red-100 text-red-600' :
+                  toastModal.type === 'info' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'
+                }`}>
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-gray-900">
+                    {toastModal.title || 'Notice'}
+                  </h3>
+                  <p className="text-xs text-gray-500 font-medium">Final Assessment Notification</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setToastModal({ isOpen: false, title: '', message: '', type: 'warning' })}
+                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 transition-colors font-bold text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/50 p-4 rounded-xl border border-amber-200/80">
+              <p className="text-xs font-semibold text-gray-800 leading-relaxed">
+                {toastModal.message}
+              </p>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="button"
+                onClick={() => setToastModal({ isOpen: false, title: '', message: '', type: 'warning' })}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-md active:scale-95"
+              >
+                Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
     </div>
   );
 };

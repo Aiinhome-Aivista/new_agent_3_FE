@@ -107,6 +107,7 @@ export const getResults = (planId, stakeholderId, limit) => {
 }
 export const getPlanAssessmentSettings = (planId) => api.get(`/assessments/plan/${planId}/settings`);
 export const updatePlanAssessmentSettings = (planId, data) => api.put(`/assessments/plan/${planId}/settings`, data);
+export const sendFinalAssessmentReminder = (planId) => api.post(`/assessments/plan/${planId}/notify-reminder`);
 
 // Holidays
 export const uploadHolidayList = (formData) => api.post('/holidays/upload', formData, {
