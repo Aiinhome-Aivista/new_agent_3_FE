@@ -24,7 +24,7 @@ const AssessmentPage = () => {
   const [isPlanFullyCompleted, setIsPlanFullyCompleted] = useState(false);
   const [finalDeadlineInfo, setFinalDeadlineInfo] = useState({ isExpired: false, daysLeft: 90, deadlineDate: null });
   const [elapsedDays, setElapsedDays] = useState(0);
-  const [managerSettings, setManagerSettings] = useState({ is_final_unlocked: false, final_deadline_extension_days: 90 });
+  const [managerSettings, setManagerSettings] = useState({ is_final_unlocked: false, final_deadline_extension_days: 90, unlocked_on: null });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSavedMsg, setSettingsSavedMsg] = useState('');
   const [toastModal, setToastModal] = useState({ isOpen: false, title: '', message: '', type: 'warning' });
@@ -124,11 +124,12 @@ const AssessmentPage = () => {
         getPlanAssessmentSettings(planId)
       ]);
 
-      let currentManagerSettings = { is_final_unlocked: false, final_deadline_extension_days: 90 };
+      let currentManagerSettings = { is_final_unlocked: false, final_deadline_extension_days: 90, unlocked_on: null };
       if (settingsRes.data && settingsRes.data.success && settingsRes.data.data) {
         currentManagerSettings = {
           is_final_unlocked: !!settingsRes.data.data.is_final_unlocked,
-          final_deadline_extension_days: Number(settingsRes.data.data.final_deadline_extension_days) || 90
+          final_deadline_extension_days: Number(settingsRes.data.data.final_deadline_extension_days) || 90,
+          unlocked_on: settingsRes.data.data.unlocked_on || null
         };
         setManagerSettings(currentManagerSettings);
       }
@@ -184,17 +185,19 @@ const AssessmentPage = () => {
       let deadlineDate = null;
       let computedElapsedDays = 0;
 
-      if (allCompleted) {
+      if (allCompleted || currentManagerSettings.is_final_unlocked) {
         const completedTimes = trackingTopics
           .filter(t => t.completion_percent === 100 && t.last_updated)
           .map(t => new Date(t.last_updated).getTime())
           .filter(t => !isNaN(t));
 
-        const maxTime = completedTimes.length > 0 ? Math.max(...completedTimes) : Date.now();
-        const elapsedMs = Date.now() - maxTime;
+        const maxTopicTime = completedTimes.length > 0 ? Math.max(...completedTimes) : Date.now();
+        const baseUnlockTime = currentManagerSettings.unlocked_on ? new Date(currentManagerSettings.unlocked_on).getTime() : maxTopicTime;
+
+        const elapsedMs = Date.now() - baseUnlockTime;
         computedElapsedDays = Math.max(0, Math.floor(elapsedMs / (1000 * 60 * 60 * 24)));
 
-        deadlineDate = new Date(maxTime + daysLimit * 24 * 60 * 60 * 1000);
+        deadlineDate = new Date(baseUnlockTime + daysLimit * 24 * 60 * 60 * 1000);
         const diffMs = deadlineDate.getTime() - Date.now();
         daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
         isExpired = diffMs < 0;
