@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getPlans, uploadKnowledgeDocument, getKnowledgeDocuments, getPlanTopicOptions, extractVideoTranscript, uploadTranscript } from '../api/api';
+import { getPlans, uploadKnowledgeDocument, getKnowledgeDocuments, getPlanTopicOptions, extractVideoTranscript, uploadTranscript, getGoogleAuthUrl, getMicrosoftAuthUrl } from '../api/api';
 import Loader from '../components/Loader';
 import { Upload, FileText, Database, Video } from 'lucide-react';
 import { useOperations } from '../context/OperationsContext';
@@ -17,6 +17,7 @@ const KnowledgeBasePage = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [topicOptions, setTopicOptions] = useState([]);
+  const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'link'
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,7 +30,47 @@ const KnowledgeBasePage = () => {
   const uploadingTranscript = activeOperations['upload-transcript'];
 
   useEffect(() => {
+    // If we are inside the OAuth popup window, send message to parent and close
+    const params = new URLSearchParams(window.location.search);
+    const integrationStatus = params.get('integration');
+    if (integrationStatus && window.opener) {
+        window.opener.postMessage({ type: 'OAUTH_COMPLETE', status: integrationStatus }, window.location.origin);
+        window.close();
+        return;
+    }
+    
+    // Normal initialization (Main window)
     fetchPlans();
+    
+    // Listen for messages from the OAuth popup
+    const handleMessage = (event) => {
+        if (event.origin !== window.location.origin || event.data?.type !== 'OAUTH_COMPLETE') return;
+        
+        const status = event.data.status;
+        if (status === 'google_success') setSuccessMsg('Google Drive connected successfully!');
+        if (status === 'google_error') setErrorMsg('Failed to connect Google Drive.');
+        if (status === 'ms_success') setSuccessMsg('Microsoft account connected successfully!');
+        if (status === 'ms_error') setErrorMsg('Failed to connect Microsoft account.');
+        
+        const pendingUrl = localStorage.getItem('pendingExtractionUrl');
+        if (pendingUrl && (status === 'google_success' || status === 'ms_success')) {
+           setVideoUrl(pendingUrl);
+           setExtracting(true);
+           extractVideoTranscript({ url: pendingUrl }).then(res => {
+              setExtractedTranscript(res.data.data.transcript);
+              setSuccessMsg('Transcript extracted successfully. You can now edit and upload it.');
+           }).catch(err => {
+              console.error(err);
+              setErrorMsg(err.response?.data?.message || 'Failed to extract transcript.');
+           }).finally(() => {
+              setExtracting(false);
+           });
+        }
+        localStorage.removeItem('pendingExtractionUrl');
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   useEffect(() => {
@@ -139,9 +180,21 @@ const KnowledgeBasePage = () => {
     setErrorMsg('');
     setSuccessMsg('');
     setExtractedTranscript('');
+    
+    const handleIntegrationError = (msg, currentUrl) => {
+        localStorage.setItem('pendingExtractionUrl', currentUrl);
+        if (currentUrl.includes('drive.google.com') || currentUrl.includes('docs.google.com')) {
+             handleConnectGoogle();
+        } else if (currentUrl.includes('sharepoint.com') || currentUrl.includes('onedrive')) {
+             handleConnectMicrosoft();
+        } else {
+             setErrorMsg(msg);
+             localStorage.removeItem('pendingExtractionUrl');
+        }
+    };
 
     if (!videoUrl) {
-      setErrorMsg('Please enter a video URL.');
+      setErrorMsg('Please enter a valid link.');
       return;
     }
 
@@ -152,7 +205,12 @@ const KnowledgeBasePage = () => {
       setSuccessMsg('Transcript extracted successfully. You can now edit and upload it.');
     } catch (err) {
       console.error(err);
-      setErrorMsg(err.response?.data?.message || 'Failed to extract transcript.');
+      const msg = err.response?.data?.message || 'Failed to extract transcript.';
+      if (msg.includes('Please connect') || msg.includes('reconnect')) {
+          handleIntegrationError(msg, videoUrl);
+      } else {
+          setErrorMsg(msg);
+      }
     } finally {
       setExtracting(false);
     }
@@ -191,6 +249,43 @@ const KnowledgeBasePage = () => {
     } finally {
       endOperation('upload-transcript');
     }
+  };
+  
+  const monitorPopup = (popupWindow) => {
+      const timer = setInterval(() => {
+          if (popupWindow && popupWindow.closed) {
+              clearInterval(timer);
+              // Check if it was closed before completion
+              if (localStorage.getItem('pendingExtractionUrl')) {
+                  setErrorMsg('Authorization was cancelled or blocked. Please try again.');
+                  localStorage.removeItem('pendingExtractionUrl');
+              }
+          }
+      }, 500);
+  };
+
+  const handleConnectGoogle = async () => {
+      try {
+          const res = await getGoogleAuthUrl();
+          if (res.data && res.data.url) {
+              const popup = window.open(res.data.url, 'GoogleAuth', 'width=500,height=600');
+              monitorPopup(popup);
+          }
+      } catch (err) {
+          setErrorMsg(err.response?.data?.message || 'Failed to initialize Google OAuth');
+      }
+  };
+  
+  const handleConnectMicrosoft = async () => {
+      try {
+          const res = await getMicrosoftAuthUrl();
+          if (res.data && res.data.url) {
+              const popup = window.open(res.data.url, 'MicrosoftAuth', 'width=500,height=600');
+              monitorPopup(popup);
+          }
+      } catch (err) {
+          setErrorMsg(err.response?.data?.message || 'Failed to initialize Microsoft OAuth');
+      }
   };
 
   // Pagination calculations
@@ -244,120 +339,315 @@ const KnowledgeBasePage = () => {
       {selectedPlanId ? (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
           {/* Left Column: Upload Tools */}
-          <div className="flex flex-col xl:col-span-4">
+          <div className="flex flex-col xl:col-span-4 gap-6">
+            {/* Tabs for Upload Mode */}
+            <div className="flex bg-gray-100/80 p-1.5 rounded-xl shadow-inner">
+              <button
+                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${uploadMode === 'file' ? 'bg-white text-indigo-600 shadow-[0_2px_8px_rgba(0,0,0,0.08)]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                onClick={() => {
+                  setUploadMode('file');
+                  setErrorMsg('');
+                  setSuccessMsg('');
+                }}
+              >
+                File Upload
+              </button>
+              <button
+                className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all duration-200 ${uploadMode === 'link' ? 'bg-white text-teal-600 shadow-[0_2px_8px_rgba(0,0,0,0.08)]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}
+                onClick={() => {
+                  setUploadMode('link');
+                  setErrorMsg('');
+                  setSuccessMsg('');
+                }}
+              >
+                Link Upload
+              </button>
+            </div>
+
             {/* Document Upload Card */}
-            <div className="w-full bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)]">
-              <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 px-8 py-6 border-b border-gray-100 relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full opacity-20 blur-2xl"></div>
-                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3 relative z-10">
-                  <div className="bg-white p-2.5 rounded-xl shadow-sm">
-                    <Upload className="text-indigo-600" size={22} />
-                  </div>
-                  Upload Knowledge Document
-                </h3>
-                <p className="text-sm text-gray-500 mt-2 ml-[3.25rem] relative z-10">Select a KT Day and upload the relevant study materials.</p>
-              </div>
+            {uploadMode === 'file' ? (
+              <div className="w-full bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] animate-in fade-in zoom-in-95 duration-300">
+                <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 px-8 py-6 border-b border-gray-100 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full opacity-20 blur-2xl"></div>
+                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3 relative z-10">
+                    <div className="bg-white p-2.5 rounded-xl shadow-sm">
+                      <Upload className="text-indigo-600" size={22} />
+                    </div>
+                    Upload Knowledge Document
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-2 ml-[3.25rem] relative z-10">Select a KT Day and upload the relevant study materials.</p>
+                </div>
 
-              <div className="p-8">
-                {errorMsg && (
-                  <div className="mb-6 flex items-center gap-3 bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-100">
-                    <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-                    {errorMsg}
-                  </div>
-                )}
-                {successMsg && (
-                  <div className="mb-6 flex items-center gap-3 bg-green-50 text-green-700 p-4 rounded-xl text-sm border border-green-100">
-                    <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                    {successMsg}
-                  </div>
-                )}
+                <div className="p-8">
+                  {errorMsg && (
+                    <div className="mb-6 flex items-center gap-3 bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-100 animate-in fade-in slide-in-from-top-2">
+                      <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                      {errorMsg}
+                    </div>
+                  )}
+                  {successMsg && (
+                    <div className="mb-6 flex items-center gap-3 bg-green-50 text-green-700 p-4 rounded-xl text-sm border border-green-100 animate-in fade-in slide-in-from-top-2">
+                      <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      {successMsg}
+                    </div>
+                  )}
 
-                <form onSubmit={handleUpload} className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">KT Day Assignment</label>
-                    <div className="relative">
-                      {topicOptions.length > 0 ? (
-                        <select
-                          className="appearance-none block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
-                          value={ktDay}
-                          onChange={(e) => setKtDay(e.target.value)}
-                          required
-                        >
-                          <option value="">-- Select a Day --</option>
-                          {topicOptions.map((dayObj, idx) => (
-                            <option key={idx} value={dayObj.value} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
+                  <form onSubmit={handleUpload} className="space-y-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">KT Day Assignment</label>
+                      <div className="relative">
+                        {topicOptions.length > 0 ? (
+                          <select
+                            className="appearance-none block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
+                            value={ktDay}
+                            onChange={(e) => setKtDay(e.target.value)}
+                            required
+                          >
+                            <option value="">-- Select a Day --</option>
+                            {topicOptions.map((dayObj, idx) => (
+                              <option key={idx} value={dayObj.value} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder="e.g., 1 or Day 1"
+                            className="block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all shadow-sm"
+                            value={ktDay}
+                            onChange={(e) => setKtDay(e.target.value)}
+                            required
+                          />
+                        )}
+                        {topicOptions.length > 0 && (
+                          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                          </div>
+                        )}
+                      </div>
+                      {ktDay && topicOptions.find(t => t.value === ktDay)?.topics?.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {topicOptions.find(t => t.value === ktDay).topics.map((topicName, idx) => (
+                            <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm">
+                              {topicName}
+                            </span>
                           ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="text"
-                          placeholder="e.g., 1 or Day 1"
-                          className="block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all shadow-sm"
-                          value={ktDay}
-                          onChange={(e) => setKtDay(e.target.value)}
-                          required
-                        />
-                      )}
-                      {topicOptions.length > 0 && (
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                         </div>
                       )}
                     </div>
-                    {ktDay && topicOptions.find(t => t.value === ktDay)?.topics?.length > 0 && (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {topicOptions.find(t => t.value === ktDay).topics.map((topicName, idx) => (
-                          <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm">
-                            {topicName}
-                          </span>
-                        ))}
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">File (.pdf, .txt, .docx, .pptx)</label>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          multiple
+                          ref={fileInputRef}
+                          accept=".txt,.pdf,.doc,.docx,.ppt,.pptx"
+                          className="block w-full text-sm text-gray-500 
+                                    file:mr-4 file:py-2.5 file:px-4 
+                                    file:rounded-l-xl file:border-0 
+                                    file:text-sm file:font-semibold 
+                                    file:bg-indigo-50 file:text-indigo-700 
+                                    hover:file:bg-indigo-100 file:cursor-pointer
+                                    border border-gray-200 rounded-xl bg-gray-50 
+                                    focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+                          onChange={(e) => setFiles(Array.from(e.target.files))}
+                          required
+                        />
                       </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">File (.pdf, .txt, .docx, .pptx)</label>
-                    <div className="relative">
-                      <input
-                        type="file"
-                        multiple
-                        ref={fileInputRef}
-                        accept=".txt,.pdf,.doc,.docx,.ppt,.pptx"
-                        className="block w-full text-sm text-gray-500 
-                                  file:mr-4 file:py-2.5 file:px-4 
-                                  file:rounded-l-xl file:border-0 
-                                  file:text-sm file:font-semibold 
-                                  file:bg-indigo-50 file:text-indigo-700 
-                                  hover:file:bg-indigo-100 file:cursor-pointer
-                                  border border-gray-200 rounded-xl bg-gray-50 
-                                  focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
-                        onChange={(e) => setFiles(Array.from(e.target.files))}
-                        required
-                      />
                     </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={uploading}
-                    className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-indigo-300 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-indigo-500/30 hover:-translate-y-1'
-                      } focus:outline-none focus:ring-4 focus:ring-indigo-100 flex justify-center items-center`}
-                  >
-                    {uploading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing & Indexing...
-                      </>
-                    ) : (
-                      'Upload Document'
-                    )}
-                  </button>
-                </form>
+                    <button
+                      type="submit"
+                      disabled={uploading}
+                      className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-indigo-300 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-indigo-500/30 hover:-translate-y-1'
+                        } focus:outline-none focus:ring-4 focus:ring-indigo-100 flex justify-center items-center`}
+                    >
+                      {uploading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing & Indexing...
+                        </>
+                      ) : (
+                        'Upload Document'
+                      )}
+                    </button>
+                  </form>
+                </div>
               </div>
-            </div>
+            ) : uploadMode === 'link' ? (
+              <div className="w-full bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] animate-in fade-in zoom-in-95 duration-300">
+                <div className="bg-gradient-to-r from-teal-50 via-emerald-50 to-cyan-50 px-8 py-6 border-b border-gray-100 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-cyan-200 to-teal-200 rounded-full opacity-20 blur-2xl"></div>
+                  <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3 relative z-10">
+                    <div className="bg-white p-2.5 rounded-xl shadow-sm">
+                      <Video className="text-teal-600" size={22} />
+                    </div>
+                    Upload from Link
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-2 ml-[3.25rem] relative z-10">Paste a OneDrive, Google Drive, or Video link to extract and index content.</p>
+                </div>
+
+                <div className="p-8">
+                  {errorMsg && (
+                    <div className="mb-6 flex items-center gap-3 bg-red-50 text-red-700 p-4 rounded-xl text-sm border border-red-100 animate-in fade-in slide-in-from-top-2">
+                      <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
+                      {errorMsg}
+                    </div>
+                  )}
+                  {successMsg && (
+                    <div className="mb-6 flex items-center gap-3 bg-green-50 text-green-700 p-4 rounded-xl text-sm border border-green-100 animate-in fade-in slide-in-from-top-2">
+                      <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                      {successMsg}
+                    </div>
+                  )}
+
+                  {!extractedTranscript ? (
+                    <form onSubmit={handleExtractTranscript} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">KT Day Assignment (Optional for extraction)</label>
+                        <div className="relative">
+                          {topicOptions.length > 0 ? (
+                            <select
+                              className="appearance-none block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-500 transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
+                              value={ktDay}
+                              onChange={(e) => setKtDay(e.target.value)}
+                            >
+                              <option value="">-- Select a Day --</option>
+                              {topicOptions.map((dayObj, idx) => (
+                                <option key={idx} value={dayObj.value} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="e.g., 1 or Day 1"
+                              className="block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-500 transition-all shadow-sm"
+                              value={ktDay}
+                              onChange={(e) => setKtDay(e.target.value)}
+                            />
+                          )}
+                          {topicOptions.length > 0 && (
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                          )}
+                        </div>
+                        {ktDay && topicOptions.find(t => t.value === ktDay)?.topics?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {topicOptions.find(t => t.value === ktDay).topics.map((topicName, idx) => (
+                              <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-100 shadow-sm">
+                                {topicName}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Document or Video Link</label>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          className="block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-500 transition-all shadow-sm"
+                          value={videoUrl}
+                          onChange={(e) => setVideoUrl(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={extracting}
+                        className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${extracting ? 'bg-teal-300 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-teal-500/30 hover:-translate-y-1'} focus:outline-none focus:ring-4 focus:ring-teal-100 flex justify-center items-center`}
+                      >
+                        {extracting ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Extracting Content...
+                          </>
+                        ) : 'Extract Content'}
+                      </button>
+                    </form>
+                  ) : (
+                    <form onSubmit={handleUploadTranscript} className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">KT Day Assignment</label>
+                        <div className="relative">
+                          {topicOptions.length > 0 ? (
+                            <select
+                              className="appearance-none block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-500 transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
+                              value={ktDay}
+                              onChange={(e) => setKtDay(e.target.value)}
+                              required
+                            >
+                              <option value="">-- Select a Day --</option>
+                              {topicOptions.map((dayObj, idx) => (
+                                <option key={idx} value={dayObj.value} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              placeholder="e.g., 1 or Day 1"
+                              className="block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-500 transition-all shadow-sm"
+                              value={ktDay}
+                              onChange={(e) => setKtDay(e.target.value)}
+                              required
+                            />
+                          )}
+                          {topicOptions.length > 0 && (
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                          )}
+                        </div>
+                        {ktDay && topicOptions.find(t => t.value === ktDay)?.topics?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {topicOptions.find(t => t.value === ktDay).topics.map((topicName, idx) => (
+                              <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-100 shadow-sm">
+                                {topicName}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5 flex justify-between">
+                          Extracted Content
+                          <button type="button" onClick={() => setExtractedTranscript('')} className="text-xs text-red-500 hover:text-red-700 font-bold px-2 py-1 bg-red-50 rounded-md transition-colors hover:bg-red-100">Cancel & Clear</button>
+                        </label>
+                        <textarea
+                          className="block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-teal-50 focus:border-teal-500 transition-all shadow-sm min-h-[200px] text-sm text-gray-700"
+                          value={extractedTranscript}
+                          onChange={(e) => setExtractedTranscript(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={uploadingTranscript}
+                        className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploadingTranscript ? 'bg-teal-300 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-500 bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-teal-500/30 hover:-translate-y-1'} focus:outline-none focus:ring-4 focus:ring-teal-100 flex justify-center items-center`}
+                      >
+                        {uploadingTranscript ? (
+                          <>
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Indexing Content...
+                          </>
+                        ) : 'Upload Content'}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {/* Right Column: Uploaded Documents Table */}

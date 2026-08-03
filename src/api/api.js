@@ -140,6 +140,10 @@ export const getKnowledgeDocuments = (planId) => api.get(`/knowledge/plan/${plan
 export const extractVideoTranscript = (data) => api.post('/knowledge/extract-transcript', data);
 export const uploadTranscript = (data) => api.post('/knowledge/upload-transcript', data);
 
+// Integrations
+export const getGoogleAuthUrl = () => api.get('/integrations/google/login');
+export const getMicrosoftAuthUrl = () => api.get('/integrations/microsoft/login');
+
 // Guardrails
 export const getGuardrailLogs = () => api.get('/guardrails/');
 
