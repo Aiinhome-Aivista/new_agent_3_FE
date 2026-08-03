@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getStakeholders, createStakeholder, deleteStakeholder } from '../api/api';
 import Loader from '../components/Loader';
+import { useToast } from '../context/ToastContext';
 import { ChevronLeft, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
 
 const Stakeholders = () => {
@@ -9,8 +10,8 @@ const Stakeholders = () => {
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
   const [stakeholderToDelete, setStakeholderToDelete] = useState(null);
+  const { showToast } = useToast();
 
   const [formData, setFormData] = useState({ name: '', email: '', role: '' });
 
@@ -32,15 +33,13 @@ const Stakeholders = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSuccessMsg('');
     try {
       await createStakeholder(formData);
       setFormData({ name: '', email: '', role: '' });
-      setSuccessMsg('Stakeholder added successfully!');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      showToast('Stakeholder added successfully!', 'success');
       fetchStakeholders();
     } catch (err) {
-      alert('Error creating stakeholder');
+      showToast('Error creating stakeholder', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -55,9 +54,10 @@ const Stakeholders = () => {
     try {
       await deleteStakeholder(stakeholderToDelete);
       setStakeholderToDelete(null);
+      showToast('Stakeholder deleted successfully!', 'success');
       fetchStakeholders();
     } catch (err) {
-      alert('Error deleting stakeholder');
+      showToast('Error deleting stakeholder', 'error');
       setStakeholderToDelete(null);
     }
   };
@@ -79,7 +79,6 @@ const Stakeholders = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Stakeholder</h3>
-          {successMsg && <div className="mb-4 p-3 text-sm text-green-700 bg-green-100 rounded-md">{successMsg}</div>}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Name</label>

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { OperationsProvider } from './context/OperationsContext';
+import { ToastProvider } from './context/ToastContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AppLayout from './components/AppLayout';
 import LandingPage from './pages/LandingPage';
@@ -24,6 +25,7 @@ function App() {
   return (
     <AuthProvider>
       <OperationsProvider>
+        <ToastProvider>
         <Router>
           <Routes>
           {/* Public Routes */}
@@ -49,6 +51,7 @@ function App() {
           </Route>
         </Routes>
       </Router>
+      </ToastProvider>
       </OperationsProvider>
     </AuthProvider>
   );
