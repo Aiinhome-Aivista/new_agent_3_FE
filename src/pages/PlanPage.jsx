@@ -410,16 +410,23 @@ const PlanPage = () => {
   const [planToApprove, setPlanToApprove] = useState(null);
   const [planToClose, setPlanToClose] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { activeOperations, startOperation, endOperation } = useOperations();
+  const { activeOperations, startOperation, endOperation, docExtractionState, setDocExtractionState } = useOperations();
   const generating = activeOperations['create-plan'];
   const [runningWorkflow, setRunningWorkflow] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
-  const [docFormData, setDocFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [analyzingDoc, setAnalyzingDoc] = useState(false);
+  
+  const { docFormData, selectedFiles, analyzingDoc, isDocExtracted } = docExtractionState || {
+    docFormData: { application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' },
+    selectedFiles: [], analyzingDoc: false, isDocExtracted: false
+  };
+
+  const setDocFormData = (updater) => setDocExtractionState(prev => ({ ...prev, docFormData: typeof updater === 'function' ? updater(prev.docFormData) : updater }));
+  const setSelectedFiles = (files) => setDocExtractionState(prev => ({ ...prev, selectedFiles: files }));
+  const setAnalyzingDoc = (val) => setDocExtractionState(prev => ({ ...prev, analyzingDoc: val }));
+  const setIsDocExtracted = (val) => setDocExtractionState(prev => ({ ...prev, isDocExtracted: val }));
+
   const generatingDocPlan = activeOperations['create-plan-doc'];
-  const [isDocExtracted, setIsDocExtracted] = useState(false);
 
   const [stakeholders, setStakeholders] = useState([]);
 

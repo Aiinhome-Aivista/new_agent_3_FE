@@ -4,6 +4,12 @@ const OperationsContext = createContext(null);
 
 export const OperationsProvider = ({ children }) => {
   const [activeOperations, setActiveOperations] = useState({});
+  const [docExtractionState, setDocExtractionState] = useState({
+    analyzingDoc: false,
+    isDocExtracted: false,
+    selectedFiles: [],
+    docFormData: { application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' }
+  });
 
   const startOperation = (key, value = true) => {
     setActiveOperations((prev) => ({ ...prev, [key]: value }));
@@ -18,7 +24,13 @@ export const OperationsProvider = ({ children }) => {
   };
 
   return (
-    <OperationsContext.Provider value={{ activeOperations, startOperation, endOperation }}>
+    <OperationsContext.Provider value={{ 
+      activeOperations, 
+      startOperation, 
+      endOperation,
+      docExtractionState,
+      setDocExtractionState
+    }}>
       {children}
     </OperationsContext.Provider>
   );
