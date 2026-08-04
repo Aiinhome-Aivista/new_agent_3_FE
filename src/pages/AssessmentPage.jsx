@@ -607,7 +607,7 @@ const AssessmentPage = () => {
         </div>
 
         {/* Manager Assessment Controls Card (for Delivery / Engagement Manager & Viewer roles) */}
-        {!canSetup && selectedPlanId && (
+        {!canSetup && !isSME && selectedPlanId && (
           <div className="mt-5 pt-5 border-t border-gray-100 bg-gradient-to-br from-indigo-50/40 to-purple-50/30 p-5 rounded-2xl border border-indigo-100 animate-fadeIn space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
