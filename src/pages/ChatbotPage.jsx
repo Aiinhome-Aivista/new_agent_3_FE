@@ -25,9 +25,12 @@ const ChatbotPage = () => {
     setSessionId(sid);
     
     const fetchHistory = async () => {
+      if (!user) return;
+      const userId = user.email || user.id || 'unknown_user';
+      const contextId = selectedPlanId || 'general';
       try {
         const historyCall = isSpecialRole ? getChatHistory2 : getChatHistory;
-        const res = await historyCall(sid);
+        const res = await historyCall(userId, contextId);
         const history = res.data.data;
         const formatted = [];
         history.forEach(item => {
@@ -40,7 +43,7 @@ const ChatbotPage = () => {
       }
     };
     fetchHistory();
-  }, [selectedPlanId]);
+  }, [selectedPlanId, user, isSpecialRole]);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -65,7 +68,7 @@ const ChatbotPage = () => {
 
   const handleSend = async (e) => {
     e?.preventDefault();
-    if (!input.trim() || !sessionId) return;
+    if (!input.trim() || !sessionId || !user) return;
     
     const userMsg = input.trim();
     setInput('');
@@ -74,8 +77,10 @@ const ChatbotPage = () => {
     
     try {
       const planIdToPass = selectedPlanId || null;
+      const userId = user.email || user.id || 'unknown_user';
+      const contextId = selectedPlanId || 'general';
       const askCall = isSpecialRole ? askChatbot2 : askChatbot;
-      const res = await askCall(sessionId, userMsg, planIdToPass);
+      const res = await askCall(sessionId, userMsg, userId, contextId, planIdToPass);
       setMessages(prev => [...prev, { role: 'assistant', content: res.data.data.answer }]);
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error answering your question.' }]);

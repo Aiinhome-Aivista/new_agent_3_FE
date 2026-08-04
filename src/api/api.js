@@ -128,9 +128,9 @@ export const viewReport = (id) => api.get(`/reports/view/${id}`);
 export const updateReportStatus = (id, status) => api.put(`/reports/${id}/status`, { status });
 
 // Chatbot
-export const askChatbot = (sessionId, question, planId = null) => 
-  api.post('/chat/ask', { session_id: sessionId, question, ...(planId ? { plan_id: planId } : {}) });
-export const getChatHistory = (sessionId) => api.get(`/chat/history/${sessionId}`);
+export const askChatbot = (sessionId, question, userId, contextId, planId = null) => 
+  api.post('/chat/ask', { session_id: sessionId, question, user_id: userId, context_id: contextId, ...(planId ? { plan_id: planId } : {}) });
+export const getChatHistory = (userId, contextId) => api.get(`/chat/history?user_id=${encodeURIComponent(userId)}&context_id=${encodeURIComponent(contextId)}`);
 
 // Knowledge Base
 export const uploadKnowledgeDocument = (formData) => api.post('/knowledge/upload', formData, {
@@ -152,14 +152,16 @@ export const getLeadershipTrackingSummary = () => api.get('/leadership/tracking-
 export const getLeadershipRiskSummary = () => api.get('/leadership/risk-summary');
 export const getLeadershipGiverSummary = () => api.get('/leadership/giver-summary');
 
-export const askChatbot2 = (sessionId, question, planId = null) =>
+export const askChatbot2 = (sessionId, question, userId, contextId, planId = null) =>
     api.post('/chatbot2/ask', {
         session_id: sessionId,
         question,
+        user_id: userId,
+        context_id: contextId,
         ...(planId ? { plan_id: planId } : {})
     });
 
-export const getChatHistory2 = (sessionId) =>
-    api.get(`/chatbot2/history/${sessionId}`);
+export const getChatHistory2 = (userId, contextId) =>
+    api.get(`/chatbot2/history?user_id=${encodeURIComponent(userId)}&context_id=${encodeURIComponent(contextId)}`);
 
 export default api;
