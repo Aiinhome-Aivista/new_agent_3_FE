@@ -23,10 +23,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      // If unauthorized, clear local storage and force reload to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // If unauthorized (and not from the login endpoint itself), clear local storage and force reload to login
+      if (!error.config.url.includes('/auth/login')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '#/login';
+      }
     }
     return Promise.reject(error);
   }

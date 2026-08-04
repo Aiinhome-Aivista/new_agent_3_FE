@@ -15,11 +15,21 @@ const ChatbotPage = () => {
   
   const messagesEndRef = useRef(null);
 
+  const generateSessionId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  };
+
   useEffect(() => {
     const key = `chatbot_session_id_${selectedPlanId || 'general'}`;
     let sid = sessionStorage.getItem(key);
     if (!sid) {
-      sid = crypto.randomUUID();
+      sid = generateSessionId();
       sessionStorage.setItem(key, sid);
     }
     setSessionId(sid);

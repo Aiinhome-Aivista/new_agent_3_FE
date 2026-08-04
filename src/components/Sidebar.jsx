@@ -28,12 +28,13 @@ const Sidebar = () => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
     { name: 'Stakeholders', path: '/stakeholders', icon: <Users size={20} /> },
-     { name: 'Knowledge Base', path: '/knowledge-base', icon: <Database size={20} /> },
+
     { name: 'KT Plan', path: '/plans', icon: <FileText size={20} /> },
     { name: 'Schedule', path: '/schedule', icon: <Calendar size={20} /> },
     { name: 'KT Calendar', path: '/calendar', icon: <Calendar size={20} /> },
     { name: 'Tracking', path: '/tracking', icon: <CheckSquare size={20} /> },
     { name: 'Risks', path: '/risks', icon: <AlertTriangle size={20} /> },
+    { name: 'Knowledge Base', path: '/knowledge-base', icon: <Database size={20} /> },
     { name: 'Assessment', path: '/assessment', icon: <FileQuestion size={20} /> },
     { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> },
     { name: 'Holidays', path: '/holidays', icon: <CalendarDays size={20} /> },
