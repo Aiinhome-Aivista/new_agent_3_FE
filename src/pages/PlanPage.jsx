@@ -4,8 +4,11 @@ import Loader from '../components/Loader';
 import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
+import { useToast } from '../context/ToastContext';
 
 const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
+  const { showToast } = useToast();
+  const [topicToDelete, setTopicToDelete] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [selectedManager, setSelectedManager] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -55,8 +58,9 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
       await onPlanUpdate(plan.id, editedContent);
       setIsEditing(false);
       await fetchTopics();
+      showToast('Plan updated successfully', 'success');
     } catch (err) {
-      alert('Error updating plan: ' + err.message);
+      showToast('Error updating plan: ' + err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -79,18 +83,26 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
       });
       setNewTopicName('');
       await fetchTopics();
+      showToast('Topic added successfully', 'success');
     } catch (err) {
-      alert('Error adding topic: ' + err.message);
+      showToast('Error adding topic: ' + err.message, 'error');
     }
   };
 
-  const handleDeleteTopic = async (topicId) => {
-    if (!window.confirm("Are you sure you want to delete this topic from the database?")) return;
+  const handleDeleteTopic = (topicId) => {
+    setTopicToDelete(topicId);
+  };
+
+  const confirmDeleteTopic = async () => {
+    if (!topicToDelete) return;
     try {
-      await deletePlanTopic(topicId);
+      await deletePlanTopic(topicToDelete);
       await fetchTopics();
+      showToast('Topic deleted successfully', 'success');
     } catch (err) {
-      alert('Error deleting topic: ' + err.message);
+      showToast('Error deleting topic: ' + err.message, 'error');
+    } finally {
+      setTopicToDelete(null);
     }
   };
 
@@ -99,8 +111,9 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     try {
       await resyncPlanTopics(plan.id);
       await fetchTopics();
+      showToast('Topics re-synced successfully', 'success');
     } catch (err) {
-      alert('Error resyncing topics: ' + err.message);
+      showToast('Error resyncing topics: ' + err.message, 'error');
     } finally {
       setLoadingTopics(false);
     }
@@ -338,6 +351,51 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               </form>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Topic Confirmation Modal */}
+      {topicToDelete && (
+        <div className="fixed inset-0 z-[200] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={() => setTopicToDelete(null)}>
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6" role="dialog" aria-modal="true">
+              <div className="sm:flex sm:items-start">
+                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <Trash2 className="h-6 w-6 text-red-600" aria-hidden="true" />
+                </div>
+                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Delete Topic
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to delete this topic? This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={confirmDeleteTopic}
+                >
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  onClick={() => setTopicToDelete(null)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
