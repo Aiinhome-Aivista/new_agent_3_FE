@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getStakeholders, createStakeholder, deleteStakeholder } from '../api/api';
 import Loader from '../components/Loader';
@@ -102,7 +103,7 @@ const Stakeholders = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select
+              <CustomSelect
                 className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
                 value={formData.role}
                 onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -113,7 +114,7 @@ const Stakeholders = () => {
                 <option value="Outgoing SME (Knowledge Giver)">Outgoing SME (Knowledge Giver)</option>
                 <option value="Incoming Team Member (Knowledge Receiver)">Incoming Team Member (Knowledge Receiver)</option>
                 <option value="PwC Leadership">PwC Leadership</option>
-              </select>
+              </CustomSelect>
             </div>
             <button
               type="submit"
@@ -202,7 +203,7 @@ const Stakeholders = () => {
                         onClick={() => setCurrentPage(i + 1)}
                         className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
                           currentPage === i + 1
-                            ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                            ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-orange'
                             : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
                         }`}
                       >

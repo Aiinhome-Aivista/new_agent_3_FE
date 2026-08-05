@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic } from '../api/api';
 import Loader from '../components/Loader';
@@ -201,14 +202,14 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               <button
                 type="button"
                 onClick={() => setShowTopicsView(false)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!showTopicsView ? 'bg-blue-50 text-primary-orange font-semibold' : 'text-secondary-text hover:bg-input-background'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!showTopicsView ? 'bg-input-background text-primary-orange font-semibold' : 'text-secondary-text hover:bg-input-background'}`}
               >
                 Plan Document
               </button>
               <button
                 type="button"
                 onClick={() => setShowTopicsView(true)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center ${showTopicsView ? 'bg-blue-50 text-primary-orange font-semibold' : 'text-secondary-text hover:bg-input-background'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center ${showTopicsView ? 'bg-input-background text-primary-orange font-semibold' : 'text-secondary-text hover:bg-input-background'}`}
               >
                 <List size={14} className="mr-1" />
                 Plan Topics ({topics.length})
@@ -633,7 +634,7 @@ const PlanPage = () => {
       {canGenerate && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
           {/* Card 1: Generate Plan with AI */}
-          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full">
             <div className="flex-1 flex flex-col justify-between">
               <h3 className="text-lg font-semibold text-primary-text mb-4">Generate Plan with AI</h3>
               <form onSubmit={handleGenerate} className="flex-1 flex flex-col justify-between space-y-3">
@@ -650,14 +651,14 @@ const PlanPage = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Plan Type</label>
-                    <select
+                    <CustomSelect
                       className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                       value={formData.plan_type}
                       onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
                     >
                       <option value="KT">KT</option>
                       <option value="Reverse-KT">Reverse-KT</option>
-                    </select>
+                    </CustomSelect>
                   </div>
 
                   <div className="md:col-span-2">
@@ -700,7 +701,7 @@ const PlanPage = () => {
           </div>
 
           {/* Card 2: Generate Plan with Document */}
-          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full">
             <div className="flex-1 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -708,7 +709,7 @@ const PlanPage = () => {
                     <FileUp className="mr-2 text-primary-orange" size={20} />
                     Generate Plan with Document
                   </h3>
-                  <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium border border-blue-100">
+                  <span className="text-xs bg-input-background text-primary-orange px-2.5 py-1 rounded-full font-medium border border-input-background">
                     PDF / DOCX File
                   </span>
                 </div>
@@ -718,7 +719,7 @@ const PlanPage = () => {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-sm font-medium text-gray-700">Document Upload (.pdf, .docx)</label>
                     {selectedFiles.length > 0 && (
-                      <span className="text-xs text-primary-orange font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                      <span className="text-xs text-primary-orange font-semibold bg-input-background px-2 py-0.5 rounded border border-input-background">
                         {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} selected
                       </span>
                     )}
@@ -726,7 +727,7 @@ const PlanPage = () => {
                   
                   {/* Upload Box & Extract Button Side-by-Side */}
                   <div className="flex items-center space-x-2">
-                    <div className="relative flex-1 border-2 border-dashed border-blue-200 rounded-lg p-2 hover:border-blue-400 transition-colors bg-blue-50/40">
+                    <div className="relative flex-1 border-2 border-dashed border-orange-border rounded-lg p-2 hover:border-button-orange transition-colors bg-input-background/40">
                       <input
                         type="file"
                         accept=".pdf,.doc,.docx"
@@ -736,7 +737,7 @@ const PlanPage = () => {
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                       />
                       <div className="flex items-center justify-between text-xs text-secondary-text">
-                        <span className="flex items-center font-medium text-blue-800 truncate pr-1">
+                        <span className="flex items-center font-medium text-hover-orange truncate pr-1">
                           <Upload className="mr-1.5 text-primary-orange flex-shrink-0" size={15} />
                           {selectedFiles.length === 0
                             ? 'Click or drop PDF / Word file(s)...'
@@ -769,7 +770,7 @@ const PlanPage = () => {
                       {selectedFiles.map((file, idx) => (
                         <div
                           key={`${file.name}-${idx}`}
-                          className="inline-flex items-center bg-light-background border border-blue-200 text-blue-900 text-xs px-2 py-1 rounded-md shadow-xs group"
+                          className="inline-flex items-center bg-light-background border border-orange-border text-hover-orange text-xs px-2 py-1 rounded-md shadow-xs group"
                         >
                           <FileText size={12} className="mr-1 text-primary-orange flex-shrink-0" />
                           <span className="max-w-[150px] truncate font-medium">{file.name}</span>
@@ -805,7 +806,7 @@ const PlanPage = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Plan Type</label>
-                    <select
+                    <CustomSelect
                       disabled={!isDocExtracted || analyzingDoc}
                       className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                       value={docFormData.plan_type}
@@ -813,7 +814,7 @@ const PlanPage = () => {
                     >
                       <option value="KT">KT</option>
                       <option value="Reverse-KT">Reverse-KT</option>
-                    </select>
+                    </CustomSelect>
                   </div>
 
                   <div className="md:col-span-2">
@@ -946,7 +947,7 @@ const PlanPage = () => {
                       onClick={() => setCurrentPage(i + 1)}
                       className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
                         currentPage === i + 1
-                          ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                          ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-orange'
                           : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
                       }`}
                     >

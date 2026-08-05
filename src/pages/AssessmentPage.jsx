@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import { getPlans, getStakeholders, getMeetings, generateQuestions, submitAnswer, getResults, getPlanTopics, getPlanTopicOptions, completeAssessment, getAttemptDetails, getPlanAssessmentSettings, updatePlanAssessmentSettings, sendFinalAssessmentReminder } from '../api/api';
 import Loader from '../components/Loader';
@@ -561,7 +562,7 @@ const AssessmentPage = () => {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex-1">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Select Knowledge Plan</label>
-            <select
+            <CustomSelect
               className="w-full px-4 py-2.5 bg-light-background border border-light-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-orange focus:bg-light-background transition-all text-primary-text text-sm"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -569,7 +570,7 @@ const AssessmentPage = () => {
             >
               <option value="" disabled>---Select Plan---</option>
               {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
-            </select>
+            </CustomSelect>
           </div>
           
           {canSetup && (() => {
@@ -736,7 +737,7 @@ const AssessmentPage = () => {
                   }`}
                 >
                   <span>Day-wise Assessment</span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-orange-border text-hover-orange border border-orange-border">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-input-background text-primary-orange border border-orange-border">
                     Optional
                   </span>
                 </button>
@@ -847,7 +848,7 @@ const AssessmentPage = () => {
                 <label className="block text-xs font-bold text-secondary-text uppercase tracking-wider mb-2">
                   Select Day
                 </label>
-                <select
+                <CustomSelect
                   className="w-full px-4 py-2.5 bg-light-background border border-light-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-orange focus:bg-light-background transition-all text-primary-text text-sm font-medium"
                   value={selectedDayLabel}
                   onChange={(e) => setSelectedDayLabel(e.target.value)}
@@ -866,7 +867,7 @@ const AssessmentPage = () => {
                   ) : (
                     <option value="" disabled>No Specific Days Found</option>
                   )}
-                </select>
+                </CustomSelect>
 
                 {selectedDayLabel && isDayCompleted(selectedDayLabel) && (
                   <div className="mt-2.5 p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 animate-fadeIn">
@@ -1635,7 +1636,7 @@ const AssessmentPage = () => {
               <div className="flex items-center gap-3">
                 <div className={`p-2.5 rounded-xl ${
                   toastModal.type === 'error' ? 'bg-red-100 text-red-600' :
-                  toastModal.type === 'info' ? 'bg-orange-border text-primary-orange' : 'bg-amber-100 text-amber-600'
+                  toastModal.type === 'info' ? 'bg-input-background text-primary-orange' : 'bg-amber-100 text-amber-600'
                 }`}>
                   <Sparkles className="w-5 h-5" />
                 </div>

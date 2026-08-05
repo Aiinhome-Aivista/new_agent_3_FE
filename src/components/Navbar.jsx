@@ -10,7 +10,7 @@ const Navbar = () => {
   const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase() || 'GU';
 
   return (
-    <header className="flex items-center justify-between px-6 py-4 bg-light-background border-b border-light-border shadow-sm">
+    <header className="flex items-center justify-between px-6 py-3.5 bg-light-background border-b border-light-border shadow-sm">
       <div className="flex items-center">
         <h2 className="text-xl font-semibold text-primary-orange">Virtual KT Manager</h2>
       </div>

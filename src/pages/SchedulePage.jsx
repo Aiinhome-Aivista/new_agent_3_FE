@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
 import Loader from '../components/Loader';
@@ -449,7 +450,7 @@ const SchedulePage = () => {
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Select Plan</label>
-              <select
+              <CustomSelect
                 className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
                 value={formData.plan_id}
                 onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
@@ -459,7 +460,7 @@ const SchedulePage = () => {
                 {plans.map(p => (
                   <option key={p.id} value={p.id}>{p.application_name}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
             <div>
               {user?.role === 'Delivery / Engagement Manager' ? (
@@ -663,8 +664,8 @@ const SchedulePage = () => {
                       </td>
                     )}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${isOverdue ? 'bg-red-100 text-red-800 font-semibold' : m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {isOverdue ? 'overdue' : m.status}
+                      <span className={`inline-flex items-center justify-center px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${isOverdue ? 'bg-red-50 text-red-700 border-red-200' : m.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : m.status === 'cancelled' ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-input-background text-primary-orange border-primary-orange/20'}`}>
+                        {isOverdue ? 'Overdue' : m.status}
                       </span>
                     </td>
                     {canManage && (
@@ -693,7 +694,7 @@ const SchedulePage = () => {
                                 <CheckCircle size={20} />
                               </span>
                             ) : (
-                              <button onClick={() => handleNotify(m.id)} className="text-primary-orange hover:text-blue-900 mr-4" title="Notify">
+                              <button onClick={() => handleNotify(m.id)} className="text-primary-orange hover:text-hover-orange mr-4" title="Notify">
                                 <Bell size={20} />
                               </button>
                             )}
@@ -727,7 +728,7 @@ const SchedulePage = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-light-background rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-100 overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-primary-orange text-white px-6 py-4 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-primary-orange to-primary-orange text-white px-6 py-4 flex justify-between items-center">
               <h3 className="text-lg font-semibold">
                 {attendanceMeeting.status === 'completed'
                   ? 'View Attendance: '
@@ -865,7 +866,7 @@ const SchedulePage = () => {
               )}
 
               {/* Alert */}
-              <div className="flex items-start space-x-2 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
+              <div className="flex items-start space-x-2 bg-input-background border border-input-background rounded-lg px-4 py-3 text-sm text-primary-orange">
                 <Bell size={15} className="mt-0.5 flex-shrink-0" />
                 <span>
                   {resolveOverdueAsCompleted
@@ -983,7 +984,7 @@ const SchedulePage = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-light-background rounded-xl shadow-xl max-w-xl w-full flex flex-col border border-light-border overflow-hidden max-h-[90vh]">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-primary-orange text-white px-6 py-4 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-primary-orange to-primary-orange text-white px-6 py-4 flex justify-between items-center">
               <div className="flex items-center space-x-2">
                 <Star size={20} className="fill-amber-300 text-amber-300" />
                 <h3 className="text-lg font-semibold">KT Session Feedback</h3>
@@ -1021,7 +1022,7 @@ const SchedulePage = () => {
                     <div className="flex justify-between items-center">
                       <div>
                         <span className="font-semibold text-primary-text text-base">{giver.name}</span>
-                        <span className="ml-2 text-xs bg-orange-border text-hover-orange font-medium px-2 py-0.5 rounded-full">
+                        <span className="ml-2 text-xs bg-input-background text-primary-orange font-medium px-2 py-0.5 rounded-full">
                           Knowledge Giver
                         </span>
                       </div>

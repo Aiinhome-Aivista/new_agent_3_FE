@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Filter, LayoutGrid, List } from 'lucide-react';
 import { getPlans, getMeetings, getHolidays } from '../api/api';
@@ -145,7 +146,7 @@ const CalendarPage = () => {
       cells.push(
         <div key={`curr-${i}`} 
              onClick={() => setSelectedDateStr(currentCellDateStr)}
-             className={`min-h-[120px] p-2 border border-light-border transition-colors cursor-pointer flex flex-col ${isToday ? 'bg-blue-50' : holiday ? 'bg-red-50 hover:bg-red-100' : 'bg-light-background hover:bg-blue-50'} ${isSelected ? 'ring-2 ring-orange-border ring-inset' : ''}`}>
+             className={`min-h-[120px] p-2 border border-light-border transition-colors cursor-pointer flex flex-col ${isToday ? 'bg-input-background' : holiday ? 'bg-red-50 hover:bg-red-100' : 'bg-light-background hover:bg-input-background'} ${isSelected ? 'ring-2 ring-orange-border ring-inset' : ''}`}>
            <div className="flex justify-between items-start mb-1">
             <div className="flex items-center gap-2">
                 <span className={`text-sm ${isToday ? 'bg-primary-orange text-white rounded-full w-6 h-6 flex items-center justify-center' : holiday ? 'text-red-600 font-bold' : 'text-gray-700'}`}>{day}</span>
@@ -238,11 +239,11 @@ const CalendarPage = () => {
                     <div className={`absolute left-[7px] top-[20px] h-[calc(100%+8px)] w-0.5 ${isDateCompleted ? 'bg-green-500' : 'bg-input-background'}`}></div>
                   )}
                   {/* Date dot */}
-                  <div className={`absolute left-0 top-1 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-primary-orange ring-2 ring-blue-100 animate-pulse' : (isDateOverdue ? 'bg-red-500 ring-2 ring-red-200' : 'bg-gray-300'))}`}></div>
+                  <div className={`absolute left-0 top-1 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-primary-orange ring-2 ring-input-background animate-pulse' : (isDateOverdue ? 'bg-red-500 ring-2 ring-red-200' : 'bg-gray-300'))}`}></div>
                   <div className="ml-6">
                     <h4 className={`text-xs font-bold mb-2 flex items-center gap-2 ${isToday ? 'text-primary-orange' : (isDateOverdue ? 'text-red-600' : 'text-primary-text')}`}>
                       <span>{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
-                      {isToday && <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-full font-bold">Today</span>}
+                      {isToday && <span className="text-[9px] bg-input-background text-hover-orange px-1.5 py-0.5 rounded-full font-bold">Today</span>}
                     </h4>
                     <div className="space-y-2">
                       {dayItems.map((meeting, i) => {
@@ -258,7 +259,7 @@ const CalendarPage = () => {
                                      {meeting.title || 'KT Session'}
                                    </span>
                                  </div>
-                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ml-2 ${isCompleted ? 'bg-green-100 text-green-800 font-bold border border-green-200' : (isOverdueItem ? 'bg-red-100 text-red-800 font-bold border border-red-200' : 'bg-orange-border text-hover-orange')}`}>
+                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ml-2 ${isCompleted ? 'bg-green-100 text-green-800 font-bold border border-green-200' : (isOverdueItem ? 'bg-red-100 text-red-800 font-bold border border-red-200' : 'bg-input-background text-primary-orange font-bold border border-primary-orange/20')}`}>
                                    {isCompleted ? 'Completed' : (isOverdueItem ? 'Overdue' : 'Upcoming')}
                                  </span>
                                </div>
@@ -294,13 +295,13 @@ const CalendarPage = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h1 className="text-2xl font-bold text-primary-text flex items-center">
           KT Schedule Calendar 
-          {user?.name && <span className="ml-3 text-sm font-normal text-primary-orange bg-blue-50 px-3 py-1 rounded-full">{user.name}</span>}
+          {user?.name && <span className="ml-3 text-sm font-normal text-primary-orange bg-input-background px-3 py-1 rounded-full">{user.name}</span>}
         </h1>
         
         <div className="flex items-center space-x-2 bg-light-background px-4 py-2 rounded-lg shadow-sm border border-light-border w-full md:w-auto xl:w-[400px]">
           <Filter size={16} className="text-secondary-text flex-shrink-0" />
           <span className="text-sm font-medium text-secondary-text whitespace-nowrap">Plan:</span>
-          <select 
+          <CustomSelect 
             value={selectedPlan}
             onChange={handlePlanChange}
             className="text-sm border-none bg-transparent focus:ring-0 cursor-pointer text-primary-text font-semibold outline-none py-1 pl-1 w-full truncate"
@@ -309,7 +310,7 @@ const CalendarPage = () => {
             {plans.map(p => (
               <option key={p.id} value={p.id}>{p.application_name}</option>
             ))}
-          </select>
+          </CustomSelect>
         </div>
       </div>
 
@@ -325,7 +326,7 @@ const CalendarPage = () => {
                 <button onClick={nextMonth} className="p-1.5 hover:bg-light-background text-secondary-text transition-colors"><ChevronRight size={20} /></button>
               </div>
               <div className="flex items-center ml-2 md:ml-4 gap-1">
-                <select
+                <CustomSelect
                   value={currentDate.getMonth()}
                   onChange={(e) => setCurrentDate(new Date(currentDate.getFullYear(), parseInt(e.target.value), 1))}
                   className="text-xl font-bold text-primary-text bg-transparent border border-transparent hover:border-light-border rounded px-2 py-1 focus:ring-0 cursor-pointer outline-none"
@@ -333,8 +334,8 @@ const CalendarPage = () => {
                   {monthNames.map((month, index) => (
                     <option key={month} value={index} className="text-base">{month}</option>
                   ))}
-                </select>
-                <select
+                </CustomSelect>
+                <CustomSelect
                   value={currentDate.getFullYear()}
                   onChange={(e) => setCurrentDate(new Date(parseInt(e.target.value), currentDate.getMonth(), 1))}
                   className="text-xl font-bold text-primary-text bg-transparent border border-transparent hover:border-light-border rounded px-2 py-1 focus:ring-0 cursor-pointer outline-none"
@@ -342,7 +343,7 @@ const CalendarPage = () => {
                   {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - 5 + i).map(year => (
                     <option key={year} value={year} className="text-base">{year}</option>
                   ))}
-                </select>
+                </CustomSelect>
               </div>
             </div>
             

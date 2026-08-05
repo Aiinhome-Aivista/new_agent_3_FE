@@ -56,7 +56,7 @@ const Sidebar = () => {
 
   return (
     <div className="flex flex-col w-64 bg-sidebar text-white shadow-xl">
-      <div className="flex items-center justify-center h-20 border-b border-light-border">
+      <div className="flex items-center justify-center h-16 border-b border-light-border">
         <h1 className="text-2xl font-bold text-primary-orange">
           KT Manager
         </h1>
@@ -81,7 +81,7 @@ const Sidebar = () => {
           ))}
         </nav>
       </div>
-      <div className="p-4 border-t border-light-border">
+      <div className="p-2 border-t border-light-border">
         <button
           onClick={handleLogout}
           className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-300 rounded-lg hover:bg-red-600 hover:text-white transition-colors duration-200 w-full text-left"

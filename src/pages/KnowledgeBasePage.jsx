@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import { getPlans, uploadKnowledgeDocument, getKnowledgeDocuments, getPlanTopicOptions, extractVideoTranscript, uploadTranscript } from '../api/api';
 import Loader from '../components/Loader';
@@ -222,7 +223,7 @@ const KnowledgeBasePage = () => {
         <div className="flex-shrink-0 w-full md:w-80">
           <label className="block text-xs font-semibold text-secondary-text uppercase tracking-wider mb-2">Selected KT Plan</label>
           <div className="relative">
-            <select
+            <CustomSelect
               className="appearance-none block w-full px-5 py-3 bg-light-background border border-light-border rounded-xl focus:bg-light-background focus:ring-4 focus:ring-input-background focus:border-primary-orange transition-all font-semibold text-gray-700 cursor-pointer shadow-sm truncate pr-10"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -233,10 +234,7 @@ const KnowledgeBasePage = () => {
                   {p.application_name}
                 </option>
               ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-secondary-text">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-            </div>
+            </CustomSelect>
           </div>
         </div>
       </div>
@@ -247,8 +245,7 @@ const KnowledgeBasePage = () => {
           <div className="flex flex-col xl:col-span-4">
             {/* Document Upload Card */}
             <div className="w-full bg-light-background rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)]">
-              <div className="bg-gradient-to-r from-blue-50 via-input-background to-purple-50 px-8 py-6 border-b border-gray-100 relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-orange-border to-purple-200 rounded-full opacity-20 blur-2xl"></div>
+              <div className="bg-gradient-to-r from-input-background via-input-background to-purple-50 px-8 py-6 border-b border-gray-100 relative overflow-hidden">
                 <h3 className="text-xl font-bold text-primary-text flex items-center gap-3 relative z-10">
                   <div className="bg-light-background p-2.5 rounded-xl shadow-sm">
                     <Upload className="text-primary-orange" size={22} />
@@ -277,7 +274,7 @@ const KnowledgeBasePage = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">KT Day Assignment</label>
                     <div className="relative">
                       {topicOptions.length > 0 ? (
-                        <select
+                        <CustomSelect
                           className="appearance-none block w-full px-5 py-3.5 bg-light-background border border-light-border rounded-xl focus:bg-light-background focus:ring-4 focus:ring-input-background focus:border-primary-orange transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
                           value={ktDay}
                           onChange={(e) => setKtDay(e.target.value)}
@@ -287,7 +284,7 @@ const KnowledgeBasePage = () => {
                           {topicOptions.map((dayObj, idx) => (
                             <option key={idx} value={dayObj.value} className="font-medium text-gray-700 py-1">{dayObj.label}</option>
                           ))}
-                        </select>
+                        </CustomSelect>
                       ) : (
                         <input
                           type="text"
@@ -297,11 +294,6 @@ const KnowledgeBasePage = () => {
                           onChange={(e) => setKtDay(e.target.value)}
                           required
                         />
-                      )}
-                      {topicOptions.length > 0 && (
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-secondary-text">
-                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                        </div>
                       )}
                     </div>
                     {ktDay && topicOptions.find(t => t.value === ktDay)?.topics?.length > 0 && (

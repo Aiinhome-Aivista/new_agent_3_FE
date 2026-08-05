@@ -1,3 +1,4 @@
+import CustomSelect from './CustomSelect';
 import React, { useState, useEffect, useMemo } from 'react';
 import { getLeadershipRiskSummary, escalateRisk } from '../api/api';
 import Loader from './Loader';
@@ -81,7 +82,7 @@ const ManagerRow = ({ m }) => {
             {m.severity_counts.high > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">{m.severity_counts.high} High</span>}
             {m.severity_counts.medium > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">{m.severity_counts.medium} Med</span>}
             {m.severity_counts.low > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-input-background text-primary-text">{m.severity_counts.low} Low</span>}
-            {m.severity_counts.in_progress > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{m.severity_counts.in_progress} In Progress</span>}
+            {m.severity_counts.in_progress > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-input-background text-hover-orange">{m.severity_counts.in_progress} In Progress</span>}
             {m.severity_counts.deferred > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">{m.severity_counts.deferred} Deferred</span>}
             {m.severity_counts.solved > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{m.severity_counts.solved} Solved</span>}
             {m.total_risks === 0 && <span className="text-secondary-text">No Risks</span>}
@@ -284,7 +285,7 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
         <div className="flex flex-col md:flex-row justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-primary-text mb-2 md:mb-0">Risk Summary by Manager</h3>
           <div className="w-full md:w-64">
-            <select
+            <CustomSelect
               className="block w-full px-3 py-2 border border-light-border rounded-md text-sm focus:outline-none focus:ring-primary-orange focus:border-primary-orange"
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
@@ -293,7 +294,7 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
               {allPlanNames.map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
-            </select>
+            </CustomSelect>
           </div>
         </div>
         <table className="min-w-full divide-y divide-gray-200">

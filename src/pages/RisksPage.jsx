@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, getRisks, detectRisks, escalateRisk, getStakeholders, getAssignedRisks, addRiskComment, updateRiskStatus, downloadRisksDoc } from '../api/api';
 import Loader from '../components/Loader';
@@ -362,7 +363,7 @@ const RisksPage = () => {
             <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center h-full">
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Analyze</label>
               <div className="flex items-center justify-between w-full">
-                <select
+                <CustomSelect
                   className="block w-full px-3 py-2 border border-light-border rounded-md mr-4"
                   value={selectedPlanId}
                   onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -371,7 +372,7 @@ const RisksPage = () => {
                   {plans.map(p => (
                     <option key={p.id} value={p.id}>{p.application_name}</option>
                   ))}
-                </select>
+                </CustomSelect>
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleDetectRisks}
@@ -424,7 +425,7 @@ const RisksPage = () => {
                                         <Loader2 className="animate-spin mr-2" size={14} /> Updating...
                                     </div>
                                 ) : (
-                                    <select 
+                                    <CustomSelect 
                                         value={risk.status} 
                                         disabled={isLocked || isWaiting}
                                         onChange={(e) => handleStatusChange(risk.id, e.target.value)}
@@ -433,7 +434,7 @@ const RisksPage = () => {
                                         <option value="open">Open</option>
                                         <option value="in_progress">In Progress</option>
                                         <option value="deferred">Request for Approval</option>
-                                    </select>
+                                    </CustomSelect>
                                 )}
                             </div>
                             <div className="mb-4 flex-grow">
@@ -442,7 +443,7 @@ const RisksPage = () => {
                                 </p>
                             </div>
                             {isWaiting && (
-                                <div className="mt-2 mb-2 p-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-xs font-medium flex items-center">
+                                <div className="mt-2 mb-2 p-2 bg-input-background text-primary-orange border border-orange-border rounded-md text-xs font-medium flex items-center">
                                     <AlertCircle size={14} className="mr-2" /> Pending Approval from Manager
                                 </div>
                             )}
@@ -525,7 +526,7 @@ const RisksPage = () => {
       <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
         <div className="flex-1 max-w-md mr-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan</label>
-          <select
+          <CustomSelect
             className="block w-full px-3 py-2 border border-light-border rounded-md"
             value={selectedPlanId}
             onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -534,7 +535,7 @@ const RisksPage = () => {
             {plans.map(p => (
               <option key={p.id} value={p.id}>{p.application_name}</option>
             ))}
-          </select>
+          </CustomSelect>
         </div>
         <div className="flex items-center space-x-3 mt-6">
           {isManager && (
@@ -635,7 +636,7 @@ const RisksPage = () => {
                         ) : isSelfAssigned ? (
                             <>
                                 <span className="text-[10px] font-semibold text-secondary-text uppercase block mb-1">Status:</span>
-                                <select 
+                                <CustomSelect 
                                     value={risk.status === 'resolved' ? 'solved' : risk.status}
                                     disabled={isSolved}
                                     onChange={(e) => handleManagerStatusChange(risk.id, e.target.value)}
@@ -645,7 +646,7 @@ const RisksPage = () => {
                                     <option value="in_progress">In Progress</option>
                                     <option value="deferred">Deferred</option>
                                     <option value="solved">Solved</option>
-                                </select>
+                                </CustomSelect>
                             </>
                         ) : (
                             <div className="text-[11px] font-bold text-secondary-text uppercase tracking-wide">

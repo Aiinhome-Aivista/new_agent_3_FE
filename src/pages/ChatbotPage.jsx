@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import { askChatbot, getChatHistory, askChatbot2, getChatHistory2, getPlans } from '../api/api';
 import { Send, Bot, User } from 'lucide-react';
@@ -128,7 +129,7 @@ const ChatbotPage = () => {
         {!isSpecialRole && (
           <div className="flex items-center space-x-2">
             <span className="text-sm text-secondary-text font-medium">Context:</span>
-            <select
+            <CustomSelect
               className="text-sm border border-light-border rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-border"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -137,7 +138,7 @@ const ChatbotPage = () => {
               {plans.map(plan => (
                 <option key={plan.id} value={plan.id}>{plan.application_name}</option>
               ))}
-            </select>
+            </CustomSelect>
           </div>
         )}
       </div>

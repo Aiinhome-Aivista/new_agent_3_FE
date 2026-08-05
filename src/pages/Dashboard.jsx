@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, getStakeholders, getMeetings, getRisks, getLeadershipCompletionSummary, getLeadershipGiverSummary } from '../api/api';
 import Loader from '../components/Loader';
@@ -225,7 +226,7 @@ const Dashboard = () => {
       {/* Top Stat Cards */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${!isKnowledgeReceiver ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
-          <div className="p-4 bg-blue-50 text-primary-orange rounded-lg mr-4">
+          <div className="p-4 bg-input-background text-primary-orange rounded-lg mr-4">
             <FileText size={24} />
           </div>
           <div>
@@ -294,7 +295,7 @@ const Dashboard = () => {
 
           <div className="flex justify-end mb-6">
             <div className="w-full md:w-64">
-              <select
+              <CustomSelect
                 className="block w-full px-3 py-2 border border-light-border rounded-md text-sm focus:outline-none focus:ring-primary-orange disabled:bg-input-background disabled:opacity-75"
                 value={selectedPerfPlan}
                 onChange={(e) => setSelectedPerfPlan(e.target.value)}
@@ -307,19 +308,19 @@ const Dashboard = () => {
                     <option key={p.plan_id} value={p.plan_id}> {p.application_name}</option>
                   ))
                 )}
-              </select>
+              </CustomSelect>
             </div>
           </div>
 
           {rankingTab === 'receivers' && stats.performanceData && displayedPerf && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-input-background rounded-lg p-4 flex flex-col justify-center items-center border border-orange-border">
+                <div className="bg-input-background rounded-lg p-4 flex flex-col justify-center items-center">
                   <span className="text-hover-orange text-sm font-medium mb-1">Assessment (Weight 80%)</span>
                   <span className="text-3xl font-bold text-primary-orange">{Math.round(displayedPerf.completion)}%</span>
                 </div>
-                <div className="bg-blue-50 rounded-lg p-4 flex flex-col justify-center items-center border border-blue-100">
-                  <span className="text-blue-800 text-sm font-medium mb-1">Attendance (Weight 20%)</span>
+                <div className="bg-input-background rounded-lg p-4 flex flex-col justify-center items-center border border-input-background">
+                  <span className="text-hover-orange text-sm font-medium mb-1">Attendance (Weight 20%)</span>
                   <span className="text-3xl font-bold text-primary-orange">{Math.round(displayedPerf.attendance)}%</span>
                 </div>
                 <div className="bg-emerald-50 rounded-lg p-4 flex flex-col justify-center items-center border border-emerald-100 shadow-sm">
@@ -433,7 +434,7 @@ const Dashboard = () => {
               stats.upcomingMeetings.map(meeting => (
                 <div key={meeting.id} className="flex items-start justify-between p-3 border border-gray-100 rounded-lg hover:bg-light-background transition-colors">
                   <div className="flex items-start">
-                    <div className="mt-1 mr-3 p-2 bg-blue-50 text-primary-orange rounded-full">
+                    <div className="mt-1 mr-3 p-2 bg-input-background text-primary-orange rounded-full">
                       <Clock size={16} />
                     </div>
                     <div>

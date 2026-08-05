@@ -33,7 +33,7 @@ const LandingPage = () => {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-input-background to-white -z-10" />
         <div className="absolute top-20 -left-20 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob" />
         <div className="absolute top-40 -right-20 w-72 h-72 bg-orange-border rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000" />
-        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
+        <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-orange-border rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-4000" />
 
         <div className="container mx-auto px-6 pt-24 pb-20 text-center max-w-4xl">
           <div className="inline-flex items-center space-x-2 bg-input-background text-hover-orange px-4 py-1.5 rounded-full text-sm font-semibold mb-8 border border-orange-border shadow-sm">
@@ -113,7 +113,7 @@ const LandingPage = () => {
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-xl font-bold text-primary-text">Project Overview</h3>
                   <div className="flex -space-x-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-100 border-2 border-white flex items-center justify-center text-xs font-bold text-blue-700 z-30">JD</div>
+                    <div className="w-8 h-8 rounded-full bg-input-background border-2 border-white flex items-center justify-center text-xs font-bold text-primary-orange z-30">JD</div>
                     <div className="w-8 h-8 rounded-full bg-purple-100 border-2 border-white flex items-center justify-center text-xs font-bold text-purple-700 z-20">AM</div>
                     <div className="w-8 h-8 rounded-full bg-input-background border-2 border-white flex items-center justify-center text-xs font-bold text-secondary-text z-10">+3</div>
                   </div>
@@ -180,7 +180,7 @@ const LandingPage = () => {
                     
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-primary-orange">
+                        <div className="w-8 h-8 rounded-full bg-input-background flex items-center justify-center text-primary-orange">
                           <FileText className="h-4 w-4" />
                         </div>
                         <div>
@@ -222,7 +222,7 @@ const LandingPage = () => {
           <div className="grid md:grid-cols-3 gap-10 max-w-5xl mx-auto">
             {/* Feature 1 */}
             <div className="bg-light-background p-8 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-slate-100 group">
-              <div className="bg-blue-50 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+              <div className="bg-input-background w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Users className="text-primary-orange h-7 w-7" />
               </div>
               <h3 className="text-xl font-bold mb-3">Stakeholder Alignment</h3>
@@ -263,7 +263,7 @@ const LandingPage = () => {
             <div className="grid md:grid-cols-3 gap-12 relative z-10">
               {/* Step 1 */}
               <div className="bg-light-background text-center">
-                <div className="w-16 h-16 bg-orange-border text-primary-orange rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border-4 border-white">
+                <div className="w-16 h-16 bg-input-background text-primary-orange rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border-4 border-white">
                   <FileText className="h-8 w-8" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">1. Define the Plan</h3>
@@ -271,7 +271,7 @@ const LandingPage = () => {
               </div>
               {/* Step 2 */}
               <div className="bg-light-background text-center">
-                <div className="w-16 h-16 bg-orange-border text-primary-orange rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border-4 border-white">
+                <div className="w-16 h-16 bg-input-background text-primary-orange rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border-4 border-white">
                   <Users className="h-8 w-8" />
                 </div>
                 <h3 className="text-xl font-bold mb-2">2. Assign Stakeholders</h3>
@@ -297,7 +297,7 @@ const LandingPage = () => {
         
         <div className="container mx-auto px-6 text-center relative z-10">
           <h2 className="text-4xl font-bold mb-6">Ready to streamline your transitions?</h2>
-          <p className="text-orange-border text-xl mb-10 max-w-2xl mx-auto">
+          <p className="text-white opacity-90 text-xl mb-10 max-w-2xl mx-auto">
             Join thousands of enterprises that trust Virtual KT Manager to safeguard their critical operational knowledge.
           </p>
           <Link to={user ? "/dashboard" : "/login"} className="inline-flex items-center px-8 py-4 rounded-full bg-light-background text-primary-orange font-bold text-lg hover:bg-input-background shadow-lg transition-all">

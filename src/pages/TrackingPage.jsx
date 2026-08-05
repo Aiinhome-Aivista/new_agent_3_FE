@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, getPlanSummary, getPlanTopics, updateCompletion, getPlanTopicOptions, resyncPlanTopics } from '../api/api';
 import Loader from '../components/Loader';
@@ -122,7 +123,7 @@ const TrackingPage = () => {
       {user?.role !== 'PwC Leadership' && (
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
-          <select
+          <CustomSelect
             className="block w-full max-w-md px-3 py-2 border border-light-border rounded-md"
             value={selectedPlanId}
             onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -131,7 +132,7 @@ const TrackingPage = () => {
             {plans.map(p => (
               <option key={p.id} value={p.id}>{p.application_name}</option>
             ))}
-          </select>
+          </CustomSelect>
         </div>
       )}
 
@@ -187,7 +188,7 @@ const TrackingPage = () => {
               )}
               <div>
                 <label className="block text-sm font-medium text-gray-700">Topic Name</label>
-                <select
+                <CustomSelect
                   required
                   className="mt-1 block w-full px-3 py-1.5 border border-light-border rounded-md truncate text-sm"
                   value={topicName}
@@ -214,7 +215,7 @@ const TrackingPage = () => {
                       <option key={t.id} value={t.topic_name} title={fullLabel}>{displayLabel}</option>
                     );
                   })}
-                </select>
+                </CustomSelect>
                 {/* Message hidden as per request */}
               </div>
               <div>

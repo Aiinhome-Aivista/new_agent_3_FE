@@ -57,7 +57,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-primary-text flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen bg-light-background font-sans text-primary-text flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background Decorative Blobs matching Landing Page */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-gradient-to-b from-input-background to-white -z-10" />
       <div className="absolute top-20 -left-20 w-72 h-72 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-35 animate-blob" />
@@ -83,7 +83,7 @@ const LoginPage = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md z-10">
         {/* Main Login Form Card */}
-        <div className="bg-light-background py-8 px-4 shadow-xl shadow-slate-100/80 rounded-2xl border border-slate-100 sm:px-10">
+        <div className="bg-light-background py-8 px-4 shadow-xl shadow-light-border/80 rounded-2xl border border-light-border sm:px-10">
           {validationError && (
             <div className="mb-5 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl flex items-start space-x-3">
               <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
@@ -100,12 +100,12 @@ const LoginPage = () => {
 
           <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-slate-700">
+              <label htmlFor="email" className="block text-sm font-semibold text-primary-text">
                 Email address
               </label>
               <div className="mt-1 relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-450 text-secondary-text" />
+                  <Mail className="h-5 w-5 text-secondary-text" />
                 </div>
                 <input
                   id="email"
@@ -118,19 +118,19 @@ const LoginPage = () => {
                     setEmail(e.target.value);
                     if (validationError) setValidationError('');
                   }}
-                  className="block w-full pl-10 pr-3 py-2.5 bg-slate-55 bg-slate-50 border border-light-border rounded-xl text-primary-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-primary-orange transition-all text-sm"
+                  className="block w-full pl-10 pr-3 py-2.5 bg-input-background border border-light-border rounded-xl text-primary-text placeholder-placeholder focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-primary-orange transition-all text-sm"
                   placeholder="name@example.com"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-700">
+              <label htmlFor="password" className="block text-sm font-semibold text-primary-text">
                 Password
               </label>
               <div className="mt-1 relative rounded-xl shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-450 text-secondary-text" />
+                  <Lock className="h-5 w-5 text-secondary-text" />
                 </div>
                 <input
                   id="password"
@@ -143,13 +143,13 @@ const LoginPage = () => {
                     setPassword(e.target.value);
                     if (validationError) setValidationError('');
                   }}
-                  className="block w-full pl-10 pr-10 py-2.5 bg-slate-55 bg-slate-50 border border-light-border rounded-xl text-primary-text placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-primary-orange transition-all text-sm"
+                  className="block w-full pl-10 pr-10 py-2.5 bg-input-background border border-light-border rounded-xl text-primary-text placeholder-placeholder focus:outline-none focus:ring-2 focus:ring-primary-orange focus:border-primary-orange transition-all text-sm"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-450 text-secondary-text hover:text-secondary-text focus:outline-none"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-secondary-text hover:text-primary-text focus:outline-none"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -163,9 +163,9 @@ const LoginPage = () => {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-primary-orange focus:ring-primary-orange border-slate-350 rounded"
+                className="h-4 w-4 text-primary-orange focus:ring-primary-orange border-light-border rounded"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-550 text-secondary-text font-medium">
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-secondary-text font-medium">
                 Remember me on this device
               </label>
             </div>
@@ -193,7 +193,7 @@ const LoginPage = () => {
         </div>
 
         {/* Demo Credentials Section */}
-        {/* <div className="mt-6 bg-light-background border border-slate-100 rounded-2xl shadow-xl shadow-slate-100/50 p-5">
+        {/* <div className="mt-6 bg-light-background border border-light-border rounded-2xl shadow-xl shadow-light-border/50 p-5">
           <div className="flex items-center space-x-2 mb-3">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -209,7 +209,7 @@ const LoginPage = () => {
                 key={user.email}
                 type="button"
                 onClick={() => handleDemoClick(user)}
-                className="text-left p-3 rounded-xl border border-slate-100 hover:border-orange-border hover:bg-input-background transition-all duration-150 group"
+                className="text-left p-3 rounded-xl border border-light-border hover:border-orange-border hover:bg-input-background transition-all duration-150 group"
               >
                 <div className="font-bold text-xs text-primary-text group-hover:text-primary-orange transition-colors">
                   {user.name}

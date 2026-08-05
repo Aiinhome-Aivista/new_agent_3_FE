@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UploadCloud, File, X, Plus, Trash2, CheckCircle, AlertCircle, Edit2, Save, XCircle, Filter } from 'lucide-react';
 import { uploadHolidayList, insertHolidays, getHolidays, updateHoliday, deleteHoliday } from '../api/api';
@@ -298,9 +299,9 @@ const HolidaysPage = () => {
 
         {selectedFile && (
           <div className="mt-6">
-            <div className="flex justify-between items-center bg-blue-50 border border-blue-100 p-4 rounded-lg">
+            <div className="flex justify-between items-center bg-input-background border border-input-background p-4 rounded-lg">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
+                <div className="p-2 bg-input-background rounded-lg">
                   <File className="w-6 h-6 text-primary-orange" />
                 </div>
                 <div>
@@ -337,7 +338,7 @@ const HolidaysPage = () => {
             <h2 className="text-lg font-semibold text-primary-text">Review & Edit Holidays</h2>
             <button 
               onClick={handleAddRow}
-              className="flex items-center text-sm font-medium text-primary-orange hover:text-hover-orange bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition"
+              className="flex items-center text-sm font-medium text-primary-orange hover:text-hover-orange bg-input-background hover:bg-input-background px-3 py-1.5 rounded-md transition"
             >
               <Plus className="w-4 h-4 mr-1" /> Add Row
             </button>
@@ -427,7 +428,7 @@ const HolidaysPage = () => {
           <div className="flex items-center space-x-3">
             <div className="flex items-center bg-light-background border border-light-border rounded-lg px-3 py-2 shadow-sm">
               <Filter className="w-4 h-4 text-secondary-text mr-2" />
-              <select
+              <CustomSelect
                 value={selectedYearFilter}
                 onChange={(e) => setSelectedYearFilter(e.target.value)}
                 className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer"
@@ -436,7 +437,7 @@ const HolidaysPage = () => {
                 {availableYears.map(year => (
                   <option key={year} value={year}>{year}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
             <button
               onClick={() => setIsAddModalOpen(true)}
@@ -532,7 +533,7 @@ const HolidaysPage = () => {
                           <div className="flex items-center justify-center space-x-2">
                             <button 
                               onClick={() => handleEditClick(holiday)}
-                              className="text-primary-orange hover:text-hover-orange transition p-1 rounded-full hover:bg-blue-50"
+                              className="text-primary-orange hover:text-hover-orange transition p-1 rounded-full hover:bg-input-background"
                               title="Edit"
                             >
                               <Edit2 className="w-4 h-4" />

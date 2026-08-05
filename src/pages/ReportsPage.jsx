@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, generateWeeklyReport, generateFinalReport, getReports, getPlanSummary, viewReport, updateReportStatus } from '../api/api';
 import Loader from '../components/Loader';
@@ -204,14 +205,14 @@ const ReportsPage = () => {
           <div className="flex flex-col md:flex-row items-center gap-4">
             <div className="w-full md:w-1/3">
               <label className="block text-sm font-medium text-gray-700 mb-1">Select Plan</label>
-              <select
+              <CustomSelect
                 className="block w-full px-3 py-2 border border-light-border rounded-md"
                 value={selectedPlanId}
                 onChange={(e) => setSelectedPlanId(e.target.value)}
               >
                 <option value="" disabled>---Select Plan---</option>
                 {plans.map(p => <option key={p.id} value={p.id}>{p.application_name}</option>)}
-              </select>
+              </CustomSelect>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 mt-4 md:mt-6 w-full sm:w-auto">
               <button
@@ -263,7 +264,7 @@ const ReportsPage = () => {
               <tr key={r.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-text capitalize">
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    r.report_type === 'final' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                    r.report_type === 'final' ? 'bg-purple-100 text-purple-800' : 'bg-input-background text-hover-orange'
                   }`}>
                     {r.report_type === 'weekly' ? 'Weekly Report' : 'Final Report'}
                   </span>
@@ -298,7 +299,7 @@ const ReportsPage = () => {
                   ) : user?.role === 'Delivery / Engagement Manager' ? (
                     <button
                       onClick={() => handleSendForApproval(r.id)}
-                      className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs font-semibold rounded-full border border-blue-300 transition-all duration-150 cursor-pointer inline-flex items-center gap-1 shadow-sm active:scale-95"
+                      className="px-2.5 py-1 bg-input-background hover:bg-input-background text-primary-orange text-xs font-semibold rounded-full border border-orange-border transition-all duration-150 cursor-pointer inline-flex items-center gap-1 shadow-sm active:scale-95"
                       title="Click to send approval request to PwC Leadership"
                     >
                       <Send size={13} /> Send for Approval
@@ -325,7 +326,7 @@ const ReportsPage = () => {
                       href={`${baseURL}/reports/download/${r.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary-orange hover:text-blue-900 inline-flex items-center font-medium"
+                      className="text-primary-orange hover:text-hover-orange inline-flex items-center font-medium"
                     >
                       <Download size={16} className="mr-1" /> Download
                     </a>
@@ -381,7 +382,7 @@ const ReportsPage = () => {
                       onClick={() => setCurrentPage(i + 1)}
                       className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
                         currentPage === i + 1
-                          ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                          ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-orange'
                           : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
                       }`}
                     >
