@@ -3,7 +3,7 @@ name: Deploy React Frontend to VPS
 on:
   push:
     branches:
-      - ddeploy_1
+      - deploy_1
 
 env:
   REGISTRY: ghcr.io
@@ -45,7 +45,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=ddeploy_1
+            type=raw,value=deploy_1
             type=sha,prefix=sha-
 
       - name: Build and Push Docker Image
@@ -92,7 +92,7 @@ jobs:
 
             echo "Pulling latest frontend image..."
 
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ddeploy_1
+            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:deploy_1
 
             echo "Stopping existing container..."
 
@@ -108,7 +108,7 @@ jobs:
               --name ${{ env.CONTAINER_NAME }} \
               --restart unless-stopped \
               -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
-              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ddeploy_1
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:deploy_1
 
             echo "Waiting for Nginx..."
 
