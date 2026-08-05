@@ -107,7 +107,7 @@ const TrackingPage = () => {
   if (user?.role === 'leadership' || user?.role === 'PwC Leadership') {
     return (
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-800">Completion Tracking</h2>
+        <h2 className="text-2xl font-bold text-primary-text">Completion Tracking</h2>
         <ManagerWiseCompletionView />
       </div>
     );
@@ -117,13 +117,13 @@ const TrackingPage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Completion Tracking</h2>
+      <h2 className="text-2xl font-bold text-primary-text">Completion Tracking</h2>
 
       {user?.role !== 'PwC Leadership' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
           <select
-            className="block w-full max-w-md px-3 py-2 border border-gray-300 rounded-md"
+            className="block w-full max-w-md px-3 py-2 border border-light-border rounded-md"
             value={selectedPlanId}
             onChange={(e) => setSelectedPlanId(e.target.value)}
           >
@@ -143,22 +143,22 @@ const TrackingPage = () => {
         <>
           {summary && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Overall Completion</h3>
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-primary-text mb-2">Overall Completion</h3>
             <div className="flex items-center">
-              <div className="w-full bg-gray-200 rounded-full h-4 mr-4">
+              <div className="w-full bg-input-background rounded-full h-4 mr-4">
                 <div 
-                  className="bg-blue-600 h-4 rounded-full" 
+                  className="bg-primary-orange h-4 rounded-full" 
                   style={{ width: `${summary.avg_completion_percent}%` }}
                 ></div>
               </div>
               <span className="font-bold text-gray-700">{summary.avg_completion_percent}%</span>
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">Overall Attendance Rate</h3>
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
+            <h3 className="text-lg font-semibold text-primary-text mb-2">Overall Attendance Rate</h3>
             <div className="flex items-center">
-              <div className="w-full bg-gray-200 rounded-full h-4 mr-4">
+              <div className="w-full bg-input-background rounded-full h-4 mr-4">
                 <div 
                   className="bg-green-500 h-4 rounded-full" 
                   style={{ width: `${summary.attendance_rate_percent}%` }}
@@ -172,8 +172,8 @@ const TrackingPage = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {canManage && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Update Topic Progress</h3>
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
+            <h3 className="text-lg font-semibold text-primary-text mb-4">Update Topic Progress</h3>
             <form onSubmit={handleUpdateTopic} className="space-y-4">
               {errorMsg && (
                 <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm border border-red-100">
@@ -189,7 +189,7 @@ const TrackingPage = () => {
                 <label className="block text-sm font-medium text-gray-700">Topic Name</label>
                 <select
                   required
-                  className="mt-1 block w-full px-3 py-1.5 border border-gray-300 rounded-md truncate text-sm"
+                  className="mt-1 block w-full px-3 py-1.5 border border-light-border rounded-md truncate text-sm"
                   value={topicName}
                   onChange={(e) => {
                     setTopicName(e.target.value);
@@ -221,7 +221,7 @@ const TrackingPage = () => {
                 <label className="block text-sm font-medium text-gray-700">Completion %</label>
                 <input
                   type="number" min="0" max="100" required disabled
-                  className="mt-1 block w-full px-3 py-1.5 border border-gray-300 rounded-md bg-gray-100 cursor-not-allowed text-sm"
+                  className="mt-1 block w-full px-3 py-1.5 border border-light-border rounded-md bg-input-background cursor-not-allowed text-sm"
                   value={completionPct}
                   onChange={(e) => setCompletionPct(e.target.value)}
                 />
@@ -229,7 +229,7 @@ const TrackingPage = () => {
               <button
                 type="submit"
                 disabled={isSaving}
-                className={`w-full text-white rounded-md py-2 transition-colors ${isSaving ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                className={`w-full text-white rounded-md py-2 transition-colors ${isSaving ? 'bg-button-orange cursor-not-allowed' : 'bg-primary-orange hover:bg-hover-orange'}`}
               >
                 {isSaving ? (
                   <span className="flex items-center justify-center">
@@ -245,34 +245,34 @@ const TrackingPage = () => {
           </div>
         )}
 
-        <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-6 ${canManage ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Topics</h3>
+        <div className={`bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 ${canManage ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+          <h3 className="text-lg font-semibold text-primary-text mb-4">Topics</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-light-background">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Topic</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Topic</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Completion</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Last Updated</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-light-background divide-y divide-gray-200">
                 {topics.map((t) => (
                   <tr key={t.id}>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words max-w-[200px]">{t.topic}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 text-sm font-medium text-primary-text break-words max-w-[200px]">{t.topic}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                       <div className="flex items-center min-w-[120px]">
                         <span className="mr-2">{t.completion_percent}%</span>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${t.completion_percent}%` }}></div>
+                        <div className="w-full bg-input-background rounded-full h-2">
+                          <div className="bg-primary-orange h-2 rounded-full" style={{ width: `${t.completion_percent}%` }}></div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(t.last_updated).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{new Date(t.last_updated).toLocaleDateString()}</td>
                   </tr>
                 ))}
                 {topics.length === 0 && (
-                  <tr><td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">No topics tracked yet.</td></tr>
+                  <tr><td colSpan="3" className="px-6 py-4 text-center text-sm text-secondary-text">No topics tracked yet.</td></tr>
                 )}
               </tbody>
             </table>

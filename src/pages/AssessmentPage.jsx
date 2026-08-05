@@ -543,26 +543,26 @@ const AssessmentPage = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Page Title */}
-      <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-          <FileQuestion className="mr-3 text-indigo-600 w-8 h-8" />
+      <div className="flex justify-between items-center bg-light-background p-6 rounded-2xl shadow-sm border border-gray-100">
+        <h2 className="text-2xl font-bold text-primary-text flex items-center">
+          <FileQuestion className="mr-3 text-primary-orange w-8 h-8" />
           {isReceiver ? 'Conversational Assessments' : 'Assessment Results'}
         </h2>
         {user && (
-          <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
-            <User className="w-4 h-4 text-indigo-500" />
+          <div className="flex items-center space-x-2 text-sm text-secondary-text bg-light-background px-3 py-1.5 rounded-full border border-light-border">
+            <User className="w-4 h-4 text-primary-orange" />
             <span className="font-semibold">{user.name}</span>
           </div>
         )}
       </div>
 
       {/* Plan Selector & Generate Button Panel */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="bg-light-background p-6 rounded-2xl shadow-sm border border-gray-100">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex-1">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Select Knowledge Plan</label>
             <select
-              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm"
+              className="w-full px-4 py-2.5 bg-light-background border border-light-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-orange focus:bg-light-background transition-all text-primary-text text-sm"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
               disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
@@ -588,7 +588,7 @@ const AssessmentPage = () => {
                       ? "Final Assessment has already been completed." 
                       : ""
                 }
-                className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold rounded-xl hover:from-indigo-700 hover:to-indigo-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
+                className="px-6 py-2.5 bg-gradient-to-r from-primary-orange to-hover-orange text-white font-semibold rounded-xl hover:from-hover-orange hover:to-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-orange disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
               >
                 {generating ? (
                   <>
@@ -608,27 +608,27 @@ const AssessmentPage = () => {
 
         {/* Manager Assessment Controls Card (for Delivery / Engagement Manager & Viewer roles) */}
         {!canSetup && !isSME && selectedPlanId && (
-          <div className="mt-5 pt-5 border-t border-gray-100 bg-gradient-to-br from-indigo-50/40 to-purple-50/30 p-5 rounded-2xl border border-indigo-100 animate-fadeIn space-y-4">
+          <div className="mt-5 pt-5 border-t border-gray-100 bg-gradient-to-br from-input-background to-purple-50/30 p-5 rounded-2xl border border-orange-border animate-fadeIn space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
-                <h4 className="text-sm font-bold text-gray-900">
+                <Sparkles className="w-5 h-5 text-primary-orange" />
+                <h4 className="text-sm font-bold text-primary-text">
                   Manager Assessment Settings & Controls
                 </h4>
               </div>
-              <span className="text-[11px] font-semibold px-2.5 py-1 bg-white text-indigo-700 rounded-full border border-indigo-100 shadow-xs">
+              <span className="text-[11px] font-semibold px-2.5 py-1 bg-light-background text-hover-orange rounded-full border border-orange-border shadow-xs">
                 Delivery Manager Panel
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
               {/* Control 1: Force Unlock Toggle */}
-              <div className="bg-white p-4 rounded-xl border border-gray-150 shadow-sm flex flex-col justify-between space-y-3">
+              <div className="bg-light-background p-4 rounded-xl border border-gray-150 shadow-sm flex flex-col justify-between space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     1. Final Assessment Access Mode
                   </label>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[11px] text-secondary-text">
                     Allow Knowledge Receiver to take Final Assessment before 100% topic completion.
                   </p>
                 </div>
@@ -642,7 +642,7 @@ const AssessmentPage = () => {
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
                       managerSettings.is_final_unlocked
                         ? 'bg-amber-500 text-white hover:bg-amber-600'
-                        : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                        : 'bg-input-background text-hover-orange hover:bg-orange-border border border-orange-border'
                     }`}
                   >
                     {managerSettings.is_final_unlocked ? '🔒 Relock to Default' : '🔓 Force Unlock Early'}
@@ -651,7 +651,7 @@ const AssessmentPage = () => {
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                     managerSettings.is_final_unlocked
                       ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-gray-100 text-gray-600 border border-gray-200'
+                      : 'bg-input-background text-secondary-text border border-light-border'
                   }`}>
                     {managerSettings.is_final_unlocked ? 'Unlocked Early' : 'Requires 100% Plan'}
                   </span>
@@ -659,12 +659,12 @@ const AssessmentPage = () => {
               </div>
 
               {/* Control 2: Custom Deadline Days Input */}
-              <div className="bg-white p-4 rounded-xl border border-gray-150 shadow-sm flex flex-col justify-between space-y-3">
+              <div className="bg-light-background p-4 rounded-xl border border-gray-150 shadow-sm flex flex-col justify-between space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
                     2. Final Assessment Deadline Window
                   </label>
-                  <p className="text-[11px] text-gray-500">
+                  <p className="text-[11px] text-secondary-text">
                     Type any custom number of days manually (e.g. 15, 30, 45, 90, 180). Default is 90 days.
                   </p>
                 </div>
@@ -681,9 +681,9 @@ const AssessmentPage = () => {
                         const val = e.target.value === '' ? '' : Math.max(1, parseInt(e.target.value) || 0);
                         setManagerSettings(prev => ({ ...prev, final_deadline_extension_days: val }));
                       }}
-                      className="w-full max-w-[180px] px-3.5 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                      className="w-full max-w-[180px] px-3.5 py-2 bg-light-background border border-light-border rounded-xl text-xs font-bold text-primary-text focus:outline-none focus:ring-2 focus:ring-primary-orange focus:bg-light-background transition-all"
                     />
-                    <span className="text-xs font-bold text-gray-600">Days</span>
+                    <span className="text-xs font-bold text-secondary-text">Days</span>
                   </div>
                 </div>
               </div>
@@ -699,7 +699,7 @@ const AssessmentPage = () => {
                 type="button"
                 onClick={handleSaveManagerSettings}
                 disabled={savingSettings}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all disabled:opacity-50"
+                className="px-5 py-2 bg-button-orange hover:bg-hover-orange text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md transition-all disabled:opacity-50"
               >
                 {savingSettings ? (
                   <>
@@ -721,7 +721,7 @@ const AssessmentPage = () => {
         {canSetup && selectedPlanId && (
           <div className="mt-5 pt-5 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4 animate-fadeIn">
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-bold text-secondary-text uppercase tracking-wider mb-2">
                 Assessment Type
               </label>
               <div className="flex items-center space-x-3">
@@ -731,12 +731,12 @@ const AssessmentPage = () => {
                   disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
                   className={`flex-1 py-2.5 px-4 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm ${
                     assessmentType === 'day_wise'
-                      ? 'bg-indigo-50/80 border-indigo-400 text-indigo-900 ring-2 ring-indigo-300 font-semibold'
-                      : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                      ? 'bg-input-background border-button-orange text-hover-orange ring-2 ring-button-orange font-semibold'
+                      : 'bg-light-background border-light-border text-gray-700 hover:bg-input-background'
                   }`}
                 >
                   <span>Day-wise Assessment</span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700 border border-indigo-200">
+                  <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-orange-border text-hover-orange border border-orange-border">
                     Optional
                   </span>
                 </button>
@@ -762,14 +762,14 @@ const AssessmentPage = () => {
                       }
                       className={`flex-1 py-2.5 px-4 rounded-xl border text-sm font-medium transition-all flex items-center justify-between shadow-sm ${
                         isFinalLocked || (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked)
-                          ? 'bg-gray-100/90 border-gray-200 text-gray-400 cursor-not-allowed opacity-80'
+                          ? 'bg-input-background/90 border-light-border text-secondary-text cursor-not-allowed opacity-80'
                           : assessmentType === 'final'
                             ? 'bg-rose-50/80 border-rose-400 text-rose-900 ring-2 ring-rose-300 font-semibold'
-                            : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                            : 'bg-light-background border-light-border text-gray-700 hover:bg-input-background'
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
-                        {(isFinalLocked || (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked)) && <Lock className="w-3.5 h-3.5 text-gray-400" />}
+                        {(isFinalLocked || (finalDeadlineInfo.isExpired && !managerSettings.is_final_unlocked)) && <Lock className="w-3.5 h-3.5 text-secondary-text" />}
                         <span>Final Assessment</span>
                       </div>
                       {isFinalAssessmentAvailable ? (
@@ -787,7 +787,7 @@ const AssessmentPage = () => {
                           </span>
                         )
                       ) : (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-gray-200/80 text-gray-600 border border-gray-300">
+                        <span className="text-[11px] px-2 py-0.5 rounded-full font-bold bg-input-background/80 text-secondary-text border border-light-border">
                           Locked
                         </span>
                       )}
@@ -844,11 +844,11 @@ const AssessmentPage = () => {
 
             {assessmentType === 'day_wise' && (
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                <label className="block text-xs font-bold text-secondary-text uppercase tracking-wider mb-2">
                   Select Day
                 </label>
                 <select
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all text-gray-800 text-sm font-medium"
+                  className="w-full px-4 py-2.5 bg-light-background border border-light-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-orange focus:bg-light-background transition-all text-primary-text text-sm font-medium"
                   value={selectedDayLabel}
                   onChange={(e) => setSelectedDayLabel(e.target.value)}
                   disabled={currentQuestionIndex >= 0 && !assessmentCompleted}
@@ -890,14 +890,14 @@ const AssessmentPage = () => {
                   if (dayTopics.length === 0) return null;
 
                   return (
-                    <div className="mt-3 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100/80 animate-fadeIn">
-                      <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider block mb-1.5">
+                    <div className="mt-3 p-3 bg-input-background rounded-xl border border-orange-border/80 animate-fadeIn">
+                      <span className="text-[10px] font-bold text-hover-orange uppercase tracking-wider block mb-1.5">
                         Topics Covered ({dayTopics.length}):
                       </span>
                       <div className="flex flex-wrap gap-1.5">
                         {dayTopics.map((topic, ti) => (
-                          <span key={ti} className="px-2.5 py-1 bg-white text-indigo-900 border border-indigo-200/70 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1">
-                            <BookOpen className="w-3 h-3 text-indigo-500" />
+                          <span key={ti} className="px-2.5 py-1 bg-light-background text-hover-orange border border-orange-border/70 rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1">
+                            <BookOpen className="w-3 h-3 text-primary-orange" />
                             <span>{topic}</span>
                           </span>
                         ))}
@@ -923,13 +923,13 @@ const AssessmentPage = () => {
         
         {/* Scenario 1: Setup / Not Started yet */}
         {isReceiver && currentQuestionIndex === -1 && !assessmentCompleted && (
-          <div className="relative max-w-4xl mx-auto w-full bg-gradient-to-br from-indigo-50 to-purple-50 p-10 md:p-12 rounded-3xl border border-indigo-100 flex flex-col justify-center items-center text-center space-y-6 min-h-[420px] shadow-sm">
+          <div className="relative max-w-4xl mx-auto w-full bg-gradient-to-br from-input-background to-purple-50 p-10 md:p-12 rounded-3xl border border-orange-border flex flex-col justify-center items-center text-center space-y-6 min-h-[420px] shadow-sm">
             {/* View Assessment Results Button placed near the top-right of the setup section */}
             <div className="absolute top-6 right-6">
               <button
                 onClick={handleOpenHistory}
                 disabled={historyLoading}
-                className="px-4 py-2 bg-white text-indigo-600 font-semibold border border-indigo-200 rounded-xl hover:bg-indigo-50 hover:border-indigo-300 transition-all text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-light-background text-primary-orange font-semibold border border-orange-border rounded-xl hover:bg-input-background hover:border-button-orange transition-all text-xs flex items-center gap-1.5 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {historyLoading ? (
                   <>
@@ -945,15 +945,15 @@ const AssessmentPage = () => {
               </button>
             </div>
 
-            <div className="p-5 bg-white rounded-full shadow-md text-indigo-600">
+            <div className="p-5 bg-light-background rounded-full shadow-md text-primary-orange">
               <FileQuestion className="w-14 h-14" />
             </div>
 
             <div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              <h3 className="text-2xl font-bold text-primary-text mb-2">
                 {canSetup ? "Ready to Start Your Assessment?" : "Conversational Assessment Overview"}
               </h3>
-              <p className="text-gray-600 max-w-lg mx-auto text-sm leading-relaxed">
+              <p className="text-secondary-text max-w-lg mx-auto text-sm leading-relaxed">
                 {canSetup 
                   ? "Click the Generate Questions button above to launch an interactive, conversational assessment. The AI will evaluate your answers topic by topic."
                   : "Review historical conversational assessment scores and evaluation feedback completed by the incoming team members."
@@ -961,11 +961,11 @@ const AssessmentPage = () => {
               </p>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-4 text-xs font-semibold text-gray-600 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex flex-wrap justify-center gap-4 text-xs font-semibold text-secondary-text bg-light-background p-4 rounded-xl shadow-sm border border-gray-100">
               <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-full">
                 <CheckCircle2 className="w-4 h-4" /> Completed Topics Only
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-input-background text-hover-orange rounded-full">
                 <Sparkles className="w-4 h-4" /> AI Conversational Scoring
               </div>
             </div>
@@ -974,18 +974,18 @@ const AssessmentPage = () => {
 
         {/* Scenario 2: Active Chat Assessment Flow */}
         {isReceiver && currentQuestionIndex >= 0 && !assessmentCompleted && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[500px]">
+          <div className="bg-light-background rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col min-h-[500px]">
             {/* Header progress bar */}
-            <div className="p-4 bg-gray-50 border-b border-gray-100 flex flex-col space-y-2">
+            <div className="p-4 bg-light-background border-b border-gray-100 flex flex-col space-y-2">
               <div className="flex justify-between items-center text-sm font-semibold text-gray-700">
                 <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
-                <span className="text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full text-xs font-bold">
+                <span className="text-primary-orange bg-input-background px-3 py-1 rounded-full text-xs font-bold">
                   {questions.length > 0 ? Math.round(((currentQuestionIndex + 1) / questions.length) * 100) : 0}%
                 </span>
               </div>
-              <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+              <div className="w-full bg-input-background h-2 rounded-full overflow-hidden">
                 <div 
-                  className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                  className="bg-button-orange h-full rounded-full transition-all duration-300"
                   style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
                 ></div>
               </div>
@@ -1000,15 +1000,15 @@ const AssessmentPage = () => {
                 >
                   {/* Interviewer Icon (Indigo) */}
                   {msg.sender === 'ai' && (
-                    <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-button-orange flex items-center justify-center text-white shadow-sm flex-shrink-0">
                       <User className="w-4 h-4" />
                     </div>
                   )}
 
                   <div className={`max-w-[75%] p-4 rounded-2xl shadow-sm border ${
                     msg.sender === 'user' 
-                      ? 'bg-indigo-50 text-indigo-955 border-indigo-100 rounded-tr-none font-medium' 
-                      : 'bg-white text-gray-800 border-gray-200 rounded-tl-none font-medium'
+                      ? 'bg-input-background text-indigo-955 border-orange-border rounded-tr-none font-medium' 
+                      : 'bg-light-background text-primary-text border-light-border rounded-tl-none font-medium'
                   }`}>
                     <p className="text-sm whitespace-pre-line leading-relaxed">{msg.text}</p>
                   </div>
@@ -1025,16 +1025,16 @@ const AssessmentPage = () => {
               {/* Evaluation Loading / Typing Indicator */}
               {evaluationLoading && (
                 <div className="flex items-start gap-3 justify-start">
-                  <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-button-orange flex items-center justify-center text-white shadow-sm flex-shrink-0">
                     <User className="w-4 h-4" />
                   </div>
-                  <div className="bg-white text-gray-800 border border-gray-200 max-w-[70%] p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center space-x-3">
+                  <div className="bg-light-background text-primary-text border border-light-border max-w-[70%] p-4 rounded-2xl rounded-tl-none shadow-sm flex items-center space-x-3">
                     <div className="flex space-x-1.5 items-center">
                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                     </div>
-                    <span className="text-xs text-gray-500 italic font-medium">Evaluating your answer...</span>
+                    <span className="text-xs text-secondary-text italic font-medium">Evaluating your answer...</span>
                   </div>
                 </div>
               )}
@@ -1043,7 +1043,7 @@ const AssessmentPage = () => {
             </div>
 
              {/* Answer Input Controls */}
-            <div className="p-5 bg-white border-t border-gray-100 rounded-b-2xl">
+            <div className="p-5 bg-light-background border-t border-gray-100 rounded-b-2xl">
               <form onSubmit={handleSubmitAnswer} className="flex flex-col gap-4">
                 <textarea
                   required
@@ -1052,7 +1052,7 @@ const AssessmentPage = () => {
                   onChange={(e) => setCurrentAnswer(e.target.value)}
                   placeholder="Type your answer here..."
                   disabled={evaluationLoading}
-                  className="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 text-gray-800 disabled:bg-gray-100 disabled:text-gray-400 placeholder-gray-400 transition-all text-sm resize-none"
+                  className="w-full px-5 py-4 border border-light-border rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-orange bg-light-background text-primary-text disabled:bg-input-background disabled:text-secondary-text placeholder-placeholder transition-all text-sm resize-none"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -1064,7 +1064,7 @@ const AssessmentPage = () => {
                   <button
                     type="submit"
                     disabled={evaluationLoading || !currentAnswer.trim()}
-                    className="px-6 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
+                    className="px-6 py-2.5 bg-button-orange text-white font-semibold rounded-xl hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-primary-orange disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-md text-sm"
                   >
                     {evaluationLoading ? 'Evaluating...' : 'Continue →'}
                   </button>
@@ -1076,7 +1076,7 @@ const AssessmentPage = () => {
 
         {/* Scenario 3: Assessment Completed & Dashboard Results view */}
         {isReceiver && assessmentCompleted && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-6">
+          <div className="bg-light-background rounded-2xl shadow-sm border border-gray-100 p-8 space-y-6">
             
             {/* Completion Header badge */}
             <div className="flex flex-col items-center justify-center text-center space-y-3 pb-6 border-b border-gray-100">
@@ -1084,8 +1084,8 @@ const AssessmentPage = () => {
                 <CheckCircle2 className="w-12 h-12" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold text-gray-900">Assessment Completed!</h3>
-                <p className="text-gray-500 text-sm max-w-md">
+                <h3 className="text-2xl font-bold text-primary-text">Assessment Completed!</h3>
+                <p className="text-secondary-text text-sm max-w-md">
                   All generated questions have been answered. Here is your AI score evaluation report.
                 </p>
               </div>
@@ -1098,43 +1098,43 @@ const AssessmentPage = () => {
               const avgScore = sessionResults.length > 0 ? (totalScore / sessionResults.length) : 0;
               
               return (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 bg-gradient-to-br from-gray-50 to-indigo-50/20 p-6 rounded-2xl border border-gray-100">
-                  <div className="flex flex-col justify-center items-center text-center p-4 bg-white rounded-xl shadow-sm border border-gray-50">
-                    <Award className="w-6 h-6 text-indigo-600 mb-1" />
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Overall Score</p>
-                    <h4 className="text-lg font-bold text-gray-800 mt-1">{totalScore} / {maxPossible}</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 bg-gradient-to-br from-gray-50 to-input-background p-6 rounded-2xl border border-gray-100">
+                  <div className="flex flex-col justify-center items-center text-center p-4 bg-light-background rounded-xl shadow-sm border border-gray-50">
+                    <Award className="w-6 h-6 text-primary-orange mb-1" />
+                    <p className="text-[10px] text-secondary-text font-bold uppercase tracking-wider">Overall Score</p>
+                    <h4 className="text-lg font-bold text-primary-text mt-1">{totalScore} / {maxPossible}</h4>
                   </div>
                   
-                  <div className="flex flex-col justify-center items-center text-center p-4 bg-white rounded-xl shadow-sm border border-gray-50">
-                    <Sparkles className="w-6 h-6 text-indigo-600 mb-1" />
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Average Score</p>
-                    <h4 className="text-lg font-bold text-gray-800 mt-1">{avgScore.toFixed(1)} / 10</h4>
+                  <div className="flex flex-col justify-center items-center text-center p-4 bg-light-background rounded-xl shadow-sm border border-gray-50">
+                    <Sparkles className="w-6 h-6 text-primary-orange mb-1" />
+                    <p className="text-[10px] text-secondary-text font-bold uppercase tracking-wider">Average Score</p>
+                    <h4 className="text-lg font-bold text-primary-text mt-1">{avgScore.toFixed(1)} / 10</h4>
                   </div>
 
-                  <div className="flex flex-col justify-center items-center text-center p-4 bg-white rounded-xl shadow-sm border border-gray-50">
-                    <BookOpen className="w-6 h-6 text-indigo-600 mb-1" />
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Attempted</p>
-                    <h4 className="text-lg font-bold text-gray-800 mt-1">{sessionResults.length} Qs</h4>
+                  <div className="flex flex-col justify-center items-center text-center p-4 bg-light-background rounded-xl shadow-sm border border-gray-50">
+                    <BookOpen className="w-6 h-6 text-primary-orange mb-1" />
+                    <p className="text-[10px] text-secondary-text font-bold uppercase tracking-wider">Attempted</p>
+                    <h4 className="text-lg font-bold text-primary-text mt-1">{sessionResults.length} Qs</h4>
                   </div>
 
-                  <div className="flex flex-col justify-center items-center text-center p-4 bg-white rounded-xl shadow-sm border border-gray-50">
-                    <FileQuestion className="w-6 h-6 text-indigo-600 mb-1" />
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Questions</p>
-                    <h4 className="text-lg font-bold text-gray-800 mt-1">{questions.length} Qs</h4>
+                  <div className="flex flex-col justify-center items-center text-center p-4 bg-light-background rounded-xl shadow-sm border border-gray-50">
+                    <FileQuestion className="w-6 h-6 text-primary-orange mb-1" />
+                    <p className="text-[10px] text-secondary-text font-bold uppercase tracking-wider">Total Questions</p>
+                    <h4 className="text-lg font-bold text-primary-text mt-1">{questions.length} Qs</h4>
                   </div>
 
-                  <div className="flex flex-col justify-center items-center text-center p-4 bg-white rounded-xl shadow-sm border border-gray-50">
+                  <div className="flex flex-col justify-center items-center text-center p-4 bg-light-background rounded-xl shadow-sm border border-gray-50">
                     <CheckCircle2 className="w-6 h-6 text-green-500 mb-1" />
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Completion</p>
-                    <h4 className="text-lg font-bold text-gray-800 mt-1">
+                    <p className="text-[10px] text-secondary-text font-bold uppercase tracking-wider">Completion</p>
+                    <h4 className="text-lg font-bold text-primary-text mt-1">
                       {questions.length > 0 ? Math.round((sessionResults.length / questions.length) * 100) : 0}%
                     </h4>
                   </div>
 
-                  <div className="flex flex-col justify-center items-center text-center p-4 bg-white rounded-xl shadow-sm border border-gray-50">
-                    <RefreshCw className="w-6 h-6 text-indigo-600 mb-1" />
-                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Time Taken</p>
-                    <h4 className="text-lg font-bold text-gray-800 mt-1">
+                  <div className="flex flex-col justify-center items-center text-center p-4 bg-light-background rounded-xl shadow-sm border border-gray-50">
+                    <RefreshCw className="w-6 h-6 text-primary-orange mb-1" />
+                    <p className="text-[10px] text-secondary-text font-bold uppercase tracking-wider">Time Taken</p>
+                    <h4 className="text-lg font-bold text-primary-text mt-1">
                       {timeTaken >= 60 ? `${Math.floor(timeTaken / 60)}m ${timeTaken % 60}s` : `${timeTaken}s`}
                     </h4>
                   </div>
@@ -1143,9 +1143,9 @@ const AssessmentPage = () => {
             })()}
 
             {overallFeedback && (
-              <div className="bg-gradient-to-br from-indigo-50/50 to-purple-50/50 p-6 rounded-2xl border border-indigo-100/50 shadow-sm space-y-2">
-                <h4 className="text-base font-bold text-indigo-900 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-indigo-600 animate-pulse" />
+              <div className="bg-gradient-to-br from-input-background to-purple-50/50 p-6 rounded-2xl border border-orange-border/50 shadow-sm space-y-2">
+                <h4 className="text-base font-bold text-hover-orange flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary-orange animate-pulse" />
                   Overall AI Assessment Feedback Summary
                 </h4>
                 <p className="text-sm text-gray-700 leading-relaxed font-medium italic">
@@ -1156,25 +1156,25 @@ const AssessmentPage = () => {
 
             {/* Question-wise results breakdown */}
             <div className="space-y-4 pt-4">
-              <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <BookOpen className="text-indigo-600 w-5 h-5" />
+              <h4 className="text-lg font-bold text-primary-text flex items-center gap-2">
+                <BookOpen className="text-primary-orange w-5 h-5" />
                 Question-Wise Report Breakdown
               </h4>
               
               {sessionResults.map((result, idx) => {
                 const isExpanded = expandedQuestions[idx];
                 return (
-                  <div key={idx} className="border border-gray-100 rounded-2xl bg-white overflow-hidden shadow-sm">
+                  <div key={idx} className="border border-gray-100 rounded-2xl bg-light-background overflow-hidden shadow-sm">
                     {/* Header Row */}
                     <div 
                       onClick={() => toggleQuestionExpand(idx)}
-                      className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50/50 transition-colors"
+                      className="p-4 flex justify-between items-center cursor-pointer hover:bg-light-background/50 transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 pr-4">
-                        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full font-sans whitespace-nowrap">
+                        <span className="text-xs font-bold text-primary-orange bg-input-background px-2.5 py-1 rounded-full font-sans whitespace-nowrap">
                           Q {idx + 1}
                         </span>
-                        <h5 className="text-sm font-bold text-gray-800 line-clamp-1">{result.question}</h5>
+                        <h5 className="text-sm font-bold text-primary-text line-clamp-1">{result.question}</h5>
                       </div>
                       
                       <div className="flex items-center gap-4 flex-shrink-0">
@@ -1187,7 +1187,7 @@ const AssessmentPage = () => {
                         }`}>
                           Score: {result.score}/10
                         </span>
-                        <div className="text-gray-400">
+                        <div className="text-secondary-text">
                           {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                         </div>
                       </div>
@@ -1195,13 +1195,13 @@ const AssessmentPage = () => {
                     
                     {/* Collapsible Content */}
                     {isExpanded && (
-                      <div className="p-5 pt-2 border-t border-gray-50 bg-gray-50/30 space-y-4">
+                      <div className="p-5 pt-2 border-t border-gray-50 bg-light-background/30 space-y-4">
                         <div>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Your Answer</p>
-                          <p className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-gray-100 italic">"{result.answer}"</p>
+                          <p className="text-[10px] font-bold text-secondary-text uppercase tracking-wider mb-1">Your Answer</p>
+                          <p className="text-sm text-gray-700 bg-light-background p-3 rounded-lg border border-gray-100 italic">"{result.answer}"</p>
                         </div>
-                        <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-50/50 text-sm text-gray-700">
-                          <p className="font-semibold text-xs text-indigo-500 uppercase tracking-wider mb-1.5">AI Evaluation Feedback</p>
+                        <div className="bg-input-background p-4 rounded-xl border border-input-background text-sm text-gray-700">
+                          <p className="font-semibold text-xs text-primary-orange uppercase tracking-wider mb-1.5">AI Evaluation Feedback</p>
                           <p className="leading-relaxed font-medium">{result.feedback}</p>
                         </div>
                       </div>
@@ -1215,7 +1215,7 @@ const AssessmentPage = () => {
             <div className="pt-6 border-t border-gray-100 flex justify-center">
               <button
                 onClick={handleRestart}
-                className="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-md hover:scale-105"
+                className="px-6 py-3 bg-button-orange text-white font-semibold rounded-xl hover:bg-hover-orange transition-all flex items-center gap-2 shadow-md hover:scale-105"
               >
                 <RefreshCw className="w-5 h-5" />
                 <span>Start New Assessment</span>
@@ -1229,10 +1229,10 @@ const AssessmentPage = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center pb-4 border-b border-gray-100">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">
+                <h3 className="text-xl font-bold text-primary-text">
                   Knowledge Receivers Assessment Results
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-secondary-text mt-1">
                   View scores, overall evaluations, and detail breakdowns of conversational assessments taken by Knowledge Receivers.
                 </p>
               </div>
@@ -1245,23 +1245,23 @@ const AssessmentPage = () => {
                   const isExpanded = expandedAssessments[idx];
                   
                   return (
-                    <div key={idx} className="bg-white rounded-2xl border border-gray-150 shadow-sm hover:shadow-md hover:border-gray-200 transition-all flex flex-col overflow-hidden">
+                    <div key={idx} className="bg-light-background rounded-2xl border border-gray-150 shadow-sm hover:shadow-md hover:border-light-border transition-all flex flex-col overflow-hidden">
                       {/* Header Row (Always visible) */}
                       <div 
                         onClick={() => toggleAssessmentExpand(idx)}
-                        className="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50/50 transition-colors"
+                        className="flex justify-between items-center p-4 cursor-pointer hover:bg-light-background/50 transition-colors"
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 flex-1">
                           <div className="flex flex-col space-y-1">
-                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider font-sans w-fit">
+                            <span className="text-[10px] font-bold text-primary-orange bg-input-background px-2.5 py-1 rounded-full uppercase tracking-wider font-sans w-fit">
                               {planName}
                             </span>
                             <div className="flex flex-wrap items-center gap-2 mt-1">
-                              <h4 className="text-base font-bold text-gray-900">
+                              <h4 className="text-base font-bold text-primary-text">
                                 Receiver: {attempt.stakeholder_name}
                               </h4>
                               {attempt.assessment_type === 'day_wise' ? (
-                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-input-background text-hover-orange border border-orange-border">
                                   Day-wise: {attempt.day_label || 'Daily'} (Optional)
                                 </span>
                               ) : (
@@ -1276,7 +1276,7 @@ const AssessmentPage = () => {
                         <div className="flex items-center gap-6 ml-4">
                           {/* Minimal Score display when collapsed or expanded */}
                           <div className="text-right flex flex-col items-end">
-                            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Score</span>
+                            <span className="text-[10px] text-secondary-text font-bold uppercase tracking-wider">Score</span>
                             <span className={`text-sm font-extrabold ${
                               attempt.overall_score >= 40 
                                 ? 'text-green-600' 
@@ -1287,7 +1287,7 @@ const AssessmentPage = () => {
                               {Math.round(attempt.overall_score)} / 50
                             </span>
                           </div>
-                          <div className="p-1.5 bg-gray-50 rounded-full text-gray-400 hover:text-gray-600">
+                          <div className="p-1.5 bg-light-background rounded-full text-secondary-text hover:text-secondary-text">
                             {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                           </div>
                         </div>
@@ -1297,16 +1297,16 @@ const AssessmentPage = () => {
                       {isExpanded && (() => {
                         const attemptCoveredTopics = parseCoveredTopics(attempt.covered_topics);
                         return (
-                          <div className="p-6 border-t border-gray-100 flex flex-col space-y-4 bg-gray-50/30">
+                          <div className="p-6 border-t border-gray-100 flex flex-col space-y-4 bg-light-background/30">
                             {/* Snapshot of Completed Topics Covered at Assessment time */}
                             {attemptCoveredTopics.length > 0 && (
-                              <div className="bg-white p-4 rounded-xl border border-gray-100 text-sm">
+                              <div className="bg-light-background p-4 rounded-xl border border-gray-100 text-sm">
                                 <span className="font-bold text-gray-700 block mb-2 text-xs uppercase tracking-wider">
                                   Topics Covered During Assessment ({attemptCoveredTopics.length})
                                 </span>
                                 <div className="flex flex-wrap gap-2">
                                   {attemptCoveredTopics.map((topic, i) => (
-                                    <span key={i} className="px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-md text-indigo-700 font-medium text-xs">
+                                    <span key={i} className="px-2.5 py-1 bg-input-background border border-orange-border rounded-md text-hover-orange font-medium text-xs">
                                       {topic}
                                     </span>
                                   ))}
@@ -1315,8 +1315,8 @@ const AssessmentPage = () => {
                             )}
 
                             {/* Performance Feedback */}
-                            <div className="bg-indigo-50/30 p-4 rounded-xl border border-indigo-50/50">
-                              <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1.5">Overall Performance Feedback</span>
+                            <div className="bg-input-background p-4 rounded-xl border border-input-background">
+                              <span className="text-[10px] font-bold text-button-orange uppercase tracking-wider block mb-1.5">Overall Performance Feedback</span>
                               <p className="text-sm text-gray-700 leading-relaxed italic font-medium">
                                 "{attempt.feedback}"
                               </p>
@@ -1324,16 +1324,16 @@ const AssessmentPage = () => {
 
                             {/* Metrics Summary panel */}
                             <div className="grid grid-cols-3 gap-4 text-center">
-                              <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                                <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Attempted</span>
+                              <div className="p-3 bg-light-background border border-gray-100 rounded-xl shadow-sm">
+                                <span className="text-[10px] text-secondary-text block font-semibold uppercase tracking-wider">Attempted</span>
                                 <span className="text-sm font-bold text-gray-700 mt-1 block">5 / 5 Qs</span>
                               </div>
-                              <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                                <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Completion</span>
+                              <div className="p-3 bg-light-background border border-gray-100 rounded-xl shadow-sm">
+                                <span className="text-[10px] text-secondary-text block font-semibold uppercase tracking-wider">Completion</span>
                                 <span className="text-sm font-bold text-gray-700 mt-1 block">100%</span>
                               </div>
-                              <div className="p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                                <span className="text-[10px] text-gray-400 block font-semibold uppercase tracking-wider">Date</span>
+                              <div className="p-3 bg-light-background border border-gray-100 rounded-xl shadow-sm">
+                                <span className="text-[10px] text-secondary-text block font-semibold uppercase tracking-wider">Date</span>
                                 <span className="text-sm font-bold text-gray-700 mt-1 block">
                                   {new Date(attempt.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
@@ -1343,7 +1343,7 @@ const AssessmentPage = () => {
                             <div className="pt-2 flex justify-end">
                               <button
                                 onClick={() => handleViewDetails(attempt)}
-                                className="px-5 py-2.5 bg-indigo-600 text-white hover:bg-indigo-700 font-bold rounded-xl transition-all text-sm shadow-md flex items-center gap-2"
+                                className="px-5 py-2.5 bg-button-orange text-white hover:bg-hover-orange font-bold rounded-xl transition-all text-sm shadow-md flex items-center gap-2"
                               >
                                 <Award className="w-4 h-4" />
                                 View Full Report
@@ -1357,15 +1357,15 @@ const AssessmentPage = () => {
                 })}
               </div>
             ) : (
-              <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center space-y-4">
-                <div className="p-4 bg-gray-50 rounded-full text-gray-400 shadow-inner">
+              <div className="text-center py-20 bg-light-background rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center justify-center space-y-4">
+                <div className="p-4 bg-light-background rounded-full text-secondary-text shadow-inner">
                   <Award className="w-12 h-12 stroke-[1.5]" />
                 </div>
                 <div>
-                  <h4 className="text-base font-bold text-gray-800">
+                  <h4 className="text-base font-bold text-primary-text">
                     {!selectedPlanId ? "Please Select a Knowledge Plan" : "No Assessment Results Found"}
                   </h4>
-                  <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+                  <p className="text-sm text-secondary-text mt-1 max-w-sm mx-auto">
                     {!selectedPlanId
                       ? "Select a Knowledge Plan from the dropdown above to view Knowledge Receivers' assessment results."
                       : "There are no completed assessments for this Knowledge plan yet."}
@@ -1379,23 +1379,23 @@ const AssessmentPage = () => {
         {/* Previous Assessment Attempts List Modal */}
         {isHistoryModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-slideUp">
+            <div className="bg-light-background rounded-2xl shadow-xl border border-gray-100 w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden animate-slideUp">
               {/* Modal Header */}
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-light-background/50">
                 <div className="flex flex-col gap-0.5">
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Award className="text-indigo-600 w-6 h-6" />
+                  <h3 className="text-xl font-bold text-primary-text flex items-center gap-2">
+                    <Award className="text-primary-orange w-6 h-6" />
                     {isReceiver ? 'Latest 5 Assessment Results' : 'Assessment Results History'}
                   </h3>
                   {isReceiver && (
-                    <p className="text-xs text-gray-500 ml-8 font-medium">
+                    <p className="text-xs text-secondary-text ml-8 font-medium">
                       Showing your most recent {groupedAttempts.length > 0 ? groupedAttempts.length : ''} assessment attempt{groupedAttempts.length !== 1 ? 's' : ''} for this plan
                     </p>
                   )}
                 </div>
                 <button 
                   onClick={() => setIsHistoryModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-semibold leading-none p-1"
+                  className="text-secondary-text hover:text-secondary-text transition-colors text-2xl font-semibold leading-none p-1"
                 >
                   &times;
                 </button>
@@ -1405,23 +1405,23 @@ const AssessmentPage = () => {
               <div className="p-6 overflow-y-auto flex-1 space-y-4">
                 {historyLoading ? (
                   <div className="text-center py-16 flex flex-col items-center justify-center space-y-3">
-                    <RefreshCw className="w-10 h-10 text-indigo-600 animate-spin" />
-                    <span className="text-sm text-gray-500 font-medium">Fetching your assessment history...</span>
+                    <RefreshCw className="w-10 h-10 text-primary-orange animate-spin" />
+                    <span className="text-sm text-secondary-text font-medium">Fetching your assessment history...</span>
                   </div>
                 ) : groupedAttempts.length > 0 ? (
-                  <div className="divide-y divide-gray-100 border border-gray-100 rounded-2xl overflow-hidden bg-white shadow-inner">
+                  <div className="divide-y divide-gray-100 border border-gray-100 rounded-2xl overflow-hidden bg-light-background shadow-inner">
                     {groupedAttempts.map((attempt, idx) => {
                       const attemptCoveredTopics = parseCoveredTopics(attempt.covered_topics);
                       return (
-                        <div key={idx} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-indigo-50/10 px-6 rounded-none transition-all">
+                        <div key={idx} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-input-background px-6 rounded-none transition-all">
                           <div className="space-y-1 flex-1">
                             <div className="flex justify-between items-start gap-4">
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-sm font-semibold text-gray-800">
+                                <p className="text-sm font-semibold text-primary-text">
                                   Assessment Date: {new Date(attempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                                 </p>
                                 {attempt.assessment_type === 'day_wise' ? (
-                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-input-background text-hover-orange border border-orange-border">
                                     Day-wise: {attempt.day_label || 'Daily'} (Optional)
                                   </span>
                                 ) : (
@@ -1430,18 +1430,18 @@ const AssessmentPage = () => {
                                   </span>
                                 )}
                               </div>
-                              <span className="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
+                              <span className="px-3 py-1 bg-input-background text-hover-orange rounded-full text-xs font-bold border border-orange-border shadow-sm">
                                 Score: {Math.round(attempt.overall_score)} / 50
                               </span>
                             </div>
-                            <p className="text-xs text-gray-500 line-clamp-2 mt-1 leading-relaxed italic">
+                            <p className="text-xs text-secondary-text line-clamp-2 mt-1 leading-relaxed italic">
                               "{attempt.feedback}"
                             </p>
                             {attemptCoveredTopics.length > 0 && (
                               <div className="flex flex-wrap gap-1 pt-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1 self-center">Covered ({attemptCoveredTopics.length}):</span>
+                                <span className="text-[10px] font-bold text-secondary-text uppercase tracking-wider mr-1 self-center">Covered ({attemptCoveredTopics.length}):</span>
                                 {attemptCoveredTopics.map((topic, ti) => (
-                                  <span key={ti} className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[11px] font-medium border border-indigo-100">
+                                  <span key={ti} className="px-2 py-0.5 bg-input-background text-hover-orange rounded text-[11px] font-medium border border-orange-border">
                                     {topic}
                                   </span>
                                 ))}
@@ -1450,7 +1450,7 @@ const AssessmentPage = () => {
                           </div>
                           <button
                             onClick={() => handleViewDetails(attempt)}
-                            className="px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold rounded-xl transition-all text-xs flex-shrink-0 shadow-sm border border-indigo-100 h-fit self-center"
+                            className="px-4 py-2 bg-input-background text-primary-orange hover:bg-orange-border font-bold rounded-xl transition-all text-xs flex-shrink-0 shadow-sm border border-orange-border h-fit self-center"
                           >
                             View Details
                           </button>
@@ -1460,12 +1460,12 @@ const AssessmentPage = () => {
                   </div>
                 ) : (
                   <div className="text-center py-16 px-4 flex flex-col items-center justify-center space-y-4">
-                    <div className="p-4 bg-gray-50 rounded-full text-gray-400 shadow-inner">
+                    <div className="p-4 bg-light-background rounded-full text-secondary-text shadow-inner">
                       <Award className="w-12 h-12 stroke-[1.5]" />
                     </div>
                     <div>
-                      <h4 className="text-base font-bold text-gray-800">No Assessment History Found</h4>
-                      <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+                      <h4 className="text-base font-bold text-primary-text">No Assessment History Found</h4>
+                      <p className="text-sm text-secondary-text mt-1 max-w-sm mx-auto">
                         Complete your first assessment to see your previous attempts here.
                       </p>
                     </div>
@@ -1474,10 +1474,10 @@ const AssessmentPage = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50/50">
+              <div className="p-4 border-t border-gray-100 flex justify-end bg-light-background/50">
                 <button
                   onClick={() => setIsHistoryModalOpen(false)}
-                  className="px-5 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all text-sm shadow-sm"
+                  className="px-5 py-2 bg-input-background text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all text-sm shadow-sm"
                 >
                   Close
                 </button>
@@ -1489,10 +1489,10 @@ const AssessmentPage = () => {
         {/* Detailed Assessment Attempt Report Modal */}
         {selectedAttempt && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-150 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp">
+            <div className="bg-light-background rounded-2xl shadow-2xl border border-gray-150 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp">
               {/* Header */}
-              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-light-background/50">
+                <h3 className="text-xl font-bold text-primary-text flex items-center gap-2">
                   <CheckCircle2 className="text-green-500 w-6 h-6" />
                   Assessment Report Details
                 </h3>
@@ -1501,42 +1501,42 @@ const AssessmentPage = () => {
                     setSelectedAttempt(null);
                     setAttemptQuestions([]);
                   }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-semibold leading-none p-1"
+                  className="text-secondary-text hover:text-secondary-text transition-colors text-2xl font-semibold leading-none p-1"
                 >
                   &times;
                 </button>
               </div>
 
               {/* Report Content */}
-              <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-gray-50/30">
+              <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-light-background/30">
                 {attemptDetailsLoading ? (
-                  <div className="text-center py-24 flex flex-col items-center justify-center space-y-3 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                    <RefreshCw className="w-10 h-10 text-indigo-600 animate-spin" />
-                    <span className="text-sm text-gray-500 font-medium">Loading session breakdown...</span>
+                  <div className="text-center py-24 flex flex-col items-center justify-center space-y-3 bg-light-background rounded-2xl border border-gray-100 shadow-sm">
+                    <RefreshCw className="w-10 h-10 text-primary-orange animate-spin" />
+                    <span className="text-sm text-secondary-text font-medium">Loading session breakdown...</span>
                   </div>
                 ) : (
                   <>
                     {/* Overall Summary Card */}
-                    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-2xl border border-indigo-100 shadow-sm space-y-3">
+                    <div className="bg-gradient-to-br from-input-background to-purple-50 p-6 rounded-2xl border border-orange-border shadow-sm space-y-3">
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="space-y-1">
-                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-2.5 py-1 rounded-full uppercase tracking-wider font-sans">
+                          <span className="text-[10px] font-bold text-primary-orange bg-orange-border px-2.5 py-1 rounded-full uppercase tracking-wider font-sans">
                             Overall Summary
                           </span>
-                          <h4 className="text-sm font-semibold text-gray-800">
+                          <h4 className="text-sm font-semibold text-primary-text">
                             Candidate: {selectedAttempt.stakeholder_name || user?.name || 'Receiver'}
                           </h4>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-secondary-text">
                             Completed on: {new Date(selectedAttempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                           </p>
                         </div>
-                        <div className="bg-white px-5 py-3 rounded-xl border border-indigo-100 text-center shadow-sm min-w-[120px]">
-                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider block">Final Score</span>
-                          <span className="text-xl font-extrabold text-indigo-600">{Math.round(selectedAttempt.overall_score)} / 50</span>
+                        <div className="bg-light-background px-5 py-3 rounded-xl border border-orange-border text-center shadow-sm min-w-[120px]">
+                          <span className="text-[9px] text-secondary-text font-bold uppercase tracking-wider block">Final Score</span>
+                          <span className="text-xl font-extrabold text-primary-orange">{Math.round(selectedAttempt.overall_score)} / 50</span>
                         </div>
                       </div>
-                      <div className="border-t border-indigo-100/50 pt-3">
-                        <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-wider block mb-1">Final Overall Feedback</span>
+                      <div className="border-t border-orange-border/50 pt-3">
+                        <span className="text-[10px] font-bold text-primary-orange uppercase tracking-wider block mb-1">Final Overall Feedback</span>
                         <p className="text-sm text-gray-700 leading-relaxed italic">
                           "{selectedAttempt.feedback}"
                         </p>
@@ -1547,13 +1547,13 @@ const AssessmentPage = () => {
                     {(() => {
                       const reportCoveredTopics = parseCoveredTopics(selectedAttempt.covered_topics);
                       return reportCoveredTopics.length > 0 ? (
-                        <div className="bg-white p-4 rounded-2xl border border-indigo-100 shadow-sm text-sm">
-                          <span className="font-bold text-indigo-900 block mb-2 text-xs uppercase tracking-wider">
+                        <div className="bg-light-background p-4 rounded-2xl border border-orange-border shadow-sm text-sm">
+                          <span className="font-bold text-hover-orange block mb-2 text-xs uppercase tracking-wider">
                             Topics Covered During This Assessment ({reportCoveredTopics.length})
                           </span>
                           <div className="flex flex-wrap gap-2">
                             {reportCoveredTopics.map((topic, i) => (
-                              <span key={i} className="px-3 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 font-medium text-xs">
+                              <span key={i} className="px-3 py-1 bg-input-background border border-orange-border rounded-lg text-hover-orange font-medium text-xs">
                                 {topic}
                               </span>
                             ))}
@@ -1564,34 +1564,34 @@ const AssessmentPage = () => {
 
                     {/* Question-wise results breakdown */}
                     <div className="space-y-4 pt-2">
-                      <h4 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                        <BookOpen className="text-indigo-600 w-5 h-5" />
+                      <h4 className="text-base font-bold text-primary-text flex items-center gap-2">
+                        <BookOpen className="text-primary-orange w-5 h-5" />
                         Question-by-Question Breakdown
                       </h4>
                       
                       {attemptQuestions.map((result, idx) => {
                         const isExpanded = expandedAttemptQuestions[idx];
                         return (
-                          <div key={idx} className="border border-gray-100 rounded-2xl bg-white shadow-sm overflow-hidden">
+                          <div key={idx} className="border border-gray-100 rounded-2xl bg-light-background shadow-sm overflow-hidden">
                             <div 
                               onClick={() => toggleAttemptQuestionExpand(idx)}
-                              className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50/50 transition-colors"
+                              className="p-4 flex justify-between items-center cursor-pointer hover:bg-light-background/50 transition-colors"
                             >
                               <div className="flex items-center gap-3 flex-1 pr-4">
-                                <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full font-sans whitespace-nowrap">
+                                <span className="text-xs font-bold text-primary-orange bg-input-background px-2.5 py-1 rounded-full font-sans whitespace-nowrap">
                                   Q {idx + 1}
                                 </span>
-                                <h5 className="text-sm font-bold text-gray-800 line-clamp-1">{result.question}</h5>
+                                <h5 className="text-sm font-bold text-primary-text line-clamp-1">{result.question}</h5>
                               </div>
-                              <div className="text-gray-400 flex-shrink-0">
+                              <div className="text-secondary-text flex-shrink-0">
                                 {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                               </div>
                             </div>
                             
                             {isExpanded && (
-                              <div className="p-5 pt-2 border-t border-gray-50 bg-gray-50/30">
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Answer</p>
-                                <p className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-gray-100 italic">"{result.answer}"</p>
+                              <div className="p-5 pt-2 border-t border-gray-50 bg-light-background/30">
+                                <p className="text-[10px] font-bold text-secondary-text uppercase tracking-wider mb-1">Answer</p>
+                                <p className="text-sm text-gray-700 bg-light-background p-3 rounded-lg border border-gray-100 italic">"{result.answer}"</p>
                               </div>
                             )}
                           </div>
@@ -1603,13 +1603,13 @@ const AssessmentPage = () => {
               </div>
 
               {/* Footer */}
-              <div className="p-4 border-t border-gray-100 flex justify-between bg-gray-50/50">
+              <div className="p-4 border-t border-gray-100 flex justify-between bg-light-background/50">
                 <button
                   onClick={() => {
                     setSelectedAttempt(null);
                     setAttemptQuestions([]);
                   }}
-                  className="px-5 py-2 bg-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all text-sm shadow-sm"
+                  className="px-5 py-2 bg-input-background text-gray-700 font-semibold rounded-xl hover:bg-gray-300 transition-all text-sm shadow-sm"
                 >
                   Back to History
                 </button>
@@ -1619,7 +1619,7 @@ const AssessmentPage = () => {
                     setAttemptQuestions([]);
                     setIsHistoryModalOpen(false);
                   }}
-                  className="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all text-sm shadow-sm"
+                  className="px-5 py-2 bg-button-orange text-white font-semibold rounded-xl hover:bg-hover-orange transition-all text-sm shadow-sm"
                 >
                   Close Report
                 </button>
@@ -1629,33 +1629,33 @@ const AssessmentPage = () => {
         )}
       {/* Sleek Popup Modal / Toast Component */}
       {toastModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-150 flex flex-col space-y-4 animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-sidebar/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-light-background rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-150 flex flex-col space-y-4 animate-scaleUp">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className={`p-2.5 rounded-xl ${
                   toastModal.type === 'error' ? 'bg-red-100 text-red-600' :
-                  toastModal.type === 'info' ? 'bg-indigo-100 text-indigo-600' : 'bg-amber-100 text-amber-600'
+                  toastModal.type === 'info' ? 'bg-orange-border text-primary-orange' : 'bg-amber-100 text-amber-600'
                 }`}>
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">
+                  <h3 className="text-base font-bold text-primary-text">
                     {toastModal.title || 'Notice'}
                   </h3>
-                  <p className="text-xs text-gray-500 font-medium">Final Assessment Notification</p>
+                  <p className="text-xs text-secondary-text font-medium">Final Assessment Notification</p>
                 </div>
               </div>
               <button
                 onClick={() => setToastModal({ isOpen: false, title: '', message: '', type: 'warning' })}
-                className="text-gray-400 hover:text-gray-600 p-1.5 rounded-xl hover:bg-gray-100 transition-colors font-bold text-sm"
+                className="text-secondary-text hover:text-secondary-text p-1.5 rounded-xl hover:bg-input-background transition-colors font-bold text-sm"
               >
                 ✕
               </button>
             </div>
 
             <div className="bg-gradient-to-br from-amber-50/80 to-orange-50/50 p-4 rounded-xl border border-amber-200/80">
-              <p className="text-xs font-semibold text-gray-800 leading-relaxed">
+              <p className="text-xs font-semibold text-primary-text leading-relaxed">
                 {toastModal.message}
               </p>
             </div>
@@ -1664,7 +1664,7 @@ const AssessmentPage = () => {
               <button
                 type="button"
                 onClick={() => setToastModal({ isOpen: false, title: '', message: '', type: 'warning' })}
-                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-all shadow-md active:scale-95"
+                className="px-5 py-2 bg-button-orange hover:bg-hover-orange text-white font-bold text-xs rounded-xl transition-all shadow-md active:scale-95"
               >
                 Got It
               </button>

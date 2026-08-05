@@ -1,3 +1,4 @@
+// Force rebuild
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -6,6 +7,20 @@ export default {
   ],
   theme: {
     extend: {
+      colors: {
+        'primary-orange': '#FF5A14',
+        'button-orange': '#FF7A45',
+        'hover-orange': '#F56B2F',
+        'sidebar': '#4A4A4A',
+        'light-background': '#FFFFFF',
+        'input-background': '#FFF7F2',
+        'light-border': '#D8D8D8',
+        'orange-border': '#FF8A55',
+        'primary-text': '#666666',
+        'secondary-text': '#888888',
+        'placeholder': '#B0B0B0',
+        'white': '#FFFFFF',
+      },
       animation: {
         blob: "blob 7s infinite",
       },

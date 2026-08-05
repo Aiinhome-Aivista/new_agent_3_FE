@@ -208,22 +208,22 @@ const KnowledgeBasePage = () => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-light-background p-6 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <div className="p-2 bg-indigo-50 rounded-lg">
-              <Database className="text-indigo-600" size={24} />
+          <h2 className="text-2xl font-bold text-primary-text flex items-center gap-3">
+            <div className="p-2 bg-input-background rounded-lg">
+              <Database className="text-primary-orange" size={24} />
             </div>
             Knowledge Base Manager
           </h2>
-          <p className="text-sm text-gray-500 mt-1 ml-11">Manage and index documents day-wise for your KT plans</p>
+          <p className="text-sm text-secondary-text mt-1 ml-11">Manage and index documents day-wise for your KT plans</p>
         </div>
 
         <div className="flex-shrink-0 w-full md:w-80">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Selected KT Plan</label>
+          <label className="block text-xs font-semibold text-secondary-text uppercase tracking-wider mb-2">Selected KT Plan</label>
           <div className="relative">
             <select
-              className="appearance-none block w-full px-5 py-3 bg-white border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all font-semibold text-gray-700 cursor-pointer shadow-sm truncate pr-10"
+              className="appearance-none block w-full px-5 py-3 bg-light-background border border-light-border rounded-xl focus:bg-light-background focus:ring-4 focus:ring-input-background focus:border-primary-orange transition-all font-semibold text-gray-700 cursor-pointer shadow-sm truncate pr-10"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
             >
@@ -234,7 +234,7 @@ const KnowledgeBasePage = () => {
                 </option>
               ))}
             </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-secondary-text">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
             </div>
           </div>
@@ -246,16 +246,16 @@ const KnowledgeBasePage = () => {
           {/* Left Column: Upload Tools */}
           <div className="flex flex-col xl:col-span-4">
             {/* Document Upload Card */}
-            <div className="w-full bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)]">
-              <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 px-8 py-6 border-b border-gray-100 relative overflow-hidden">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full opacity-20 blur-2xl"></div>
-                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3 relative z-10">
-                  <div className="bg-white p-2.5 rounded-xl shadow-sm">
-                    <Upload className="text-indigo-600" size={22} />
+            <div className="w-full bg-light-background rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)]">
+              <div className="bg-gradient-to-r from-blue-50 via-input-background to-purple-50 px-8 py-6 border-b border-gray-100 relative overflow-hidden">
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-orange-border to-purple-200 rounded-full opacity-20 blur-2xl"></div>
+                <h3 className="text-xl font-bold text-primary-text flex items-center gap-3 relative z-10">
+                  <div className="bg-light-background p-2.5 rounded-xl shadow-sm">
+                    <Upload className="text-primary-orange" size={22} />
                   </div>
                   Upload Knowledge Document
                 </h3>
-                <p className="text-sm text-gray-500 mt-2 ml-[3.25rem] relative z-10">Select a KT Day and upload the relevant study materials.</p>
+                <p className="text-sm text-secondary-text mt-2 ml-[3.25rem] relative z-10">Select a KT Day and upload the relevant study materials.</p>
               </div>
 
               <div className="p-8">
@@ -278,7 +278,7 @@ const KnowledgeBasePage = () => {
                     <div className="relative">
                       {topicOptions.length > 0 ? (
                         <select
-                          className="appearance-none block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
+                          className="appearance-none block w-full px-5 py-3.5 bg-light-background border border-light-border rounded-xl focus:bg-light-background focus:ring-4 focus:ring-input-background focus:border-primary-orange transition-all font-medium text-gray-700 shadow-sm truncate pr-10 cursor-pointer"
                           value={ktDay}
                           onChange={(e) => setKtDay(e.target.value)}
                           required
@@ -292,14 +292,14 @@ const KnowledgeBasePage = () => {
                         <input
                           type="text"
                           placeholder="e.g., 1 or Day 1"
-                          className="block w-full px-5 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all shadow-sm"
+                          className="block w-full px-5 py-3.5 bg-light-background border border-light-border rounded-xl focus:bg-light-background focus:ring-4 focus:ring-input-background focus:border-primary-orange transition-all shadow-sm"
                           value={ktDay}
                           onChange={(e) => setKtDay(e.target.value)}
                           required
                         />
                       )}
                       {topicOptions.length > 0 && (
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-secondary-text">
                           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
                         </div>
                       )}
@@ -307,7 +307,7 @@ const KnowledgeBasePage = () => {
                     {ktDay && topicOptions.find(t => t.value === ktDay)?.topics?.length > 0 && (
                       <div className="mt-3 flex flex-wrap gap-2">
                         {topicOptions.find(t => t.value === ktDay).topics.map((topicName, idx) => (
-                          <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm">
+                          <span key={idx} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-input-background text-hover-orange border border-orange-border shadow-sm">
                             {topicName}
                           </span>
                         ))}
@@ -323,14 +323,14 @@ const KnowledgeBasePage = () => {
                         multiple
                         ref={fileInputRef}
                         accept=".txt,.pdf,.doc,.docx,.ppt,.pptx"
-                        className="block w-full text-sm text-gray-500 
+                        className="block w-full text-sm text-secondary-text 
                                   file:mr-4 file:py-2.5 file:px-4 
                                   file:rounded-l-xl file:border-0 
                                   file:text-sm file:font-semibold 
-                                  file:bg-indigo-50 file:text-indigo-700 
-                                  hover:file:bg-indigo-100 file:cursor-pointer
-                                  border border-gray-200 rounded-xl bg-gray-50 
-                                  focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+                                  file:bg-input-background file:text-hover-orange 
+                                  hover:file:bg-orange-border file:cursor-pointer
+                                  border border-light-border rounded-xl bg-light-background 
+                                  focus:outline-none focus:ring-2 focus:ring-orange-border transition-all cursor-pointer"
                         onChange={(e) => setFiles(Array.from(e.target.files))}
                         required
                       />
@@ -340,8 +340,8 @@ const KnowledgeBasePage = () => {
                   <button
                     type="submit"
                     disabled={uploading}
-                    className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-indigo-300 cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-indigo-500/30 hover:-translate-y-1'
-                      } focus:outline-none focus:ring-4 focus:ring-indigo-100 flex justify-center items-center`}
+                    className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-button-orange cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-primary-orange via-purple-500 to-primary-orange bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-primary-orange/30 hover:-translate-y-1'
+                      } focus:outline-none focus:ring-4 focus:ring-orange-border flex justify-center items-center`}
                   >
                     {uploading ? (
                       <>
@@ -361,35 +361,35 @@ const KnowledgeBasePage = () => {
           </div>
 
           {/* Right Column: Uploaded Documents Table */}
-          <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden flex flex-col transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] h-full xl:col-span-8">
-            <div className="bg-white px-8 py-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3">
-                <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+          <div className="bg-light-background rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100 overflow-hidden flex flex-col transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.1)] h-full xl:col-span-8">
+            <div className="bg-light-background px-8 py-6 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-primary-text flex items-center gap-3">
+                <div className="p-2 bg-input-background rounded-lg text-primary-orange">
                   <FileText size={20} />
                 </div>
                 Indexed Documents
               </h3>
-              <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-4 py-1.5 rounded-full border border-indigo-100 shadow-sm">
+              <span className="bg-input-background text-hover-orange text-xs font-bold px-4 py-1.5 rounded-full border border-orange-border shadow-sm">
                 {documents.length} Total
               </span>
             </div>
 
             <div className="flex-1 overflow-x-auto p-0">
               <table className="min-w-full divide-y divide-gray-100">
-                <thead className="bg-gray-50">
+                <thead className="bg-light-background">
                   <tr>
-                    <th className="px-8 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Day</th>
-                    <th className="px-6 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Document Name</th>
-                    <th className="px-6 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Status</th>
-                    <th className="px-8 py-5 text-left text-[11px] font-extrabold text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-8 py-5 text-left text-[11px] font-extrabold text-secondary-text uppercase tracking-wider">Day</th>
+                    <th className="px-6 py-5 text-left text-[11px] font-extrabold text-secondary-text uppercase tracking-wider">Document Name</th>
+                    <th className="px-6 py-5 text-left text-[11px] font-extrabold text-secondary-text uppercase tracking-wider">Status</th>
+                    <th className="px-8 py-5 text-left text-[11px] font-extrabold text-secondary-text uppercase tracking-wider">Date</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-50">
+                <tbody className="bg-light-background divide-y divide-gray-50">
                   {currentDocuments.map((doc) => (
                     <tr key={doc.id} className="hover:bg-slate-50 transition-colors group">
                       <td className="px-8 py-5 max-w-[260px]">
                         <div className="flex items-start gap-3">
-                          <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 flex-shrink-0 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
+                          <div className="w-2 h-2 rounded-full bg-primary-orange mt-1.5 flex-shrink-0 shadow-[0_0_8px_rgba(99,102,241,0.5)]"></div>
                           <span className="text-sm font-semibold text-gray-700 leading-relaxed" title={doc.kt_day}>
                             {doc.kt_day || 'N/A'}
                           </span>
@@ -397,8 +397,8 @@ const KnowledgeBasePage = () => {
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex items-center">
-                          <FileText className="text-gray-300 mr-3 flex-shrink-0 group-hover:text-indigo-400 transition-colors" size={18} />
-                          <span className="text-sm font-medium text-gray-800 line-clamp-1" title={doc.filename}>{doc.filename}</span>
+                          <FileText className="text-gray-300 mr-3 flex-shrink-0 group-hover:text-button-orange transition-colors" size={18} />
+                          <span className="text-sm font-medium text-primary-text line-clamp-1" title={doc.filename}>{doc.filename}</span>
                         </div>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap">
@@ -406,7 +406,7 @@ const KnowledgeBasePage = () => {
                           {doc.chunk_count} Chunks
                         </span>
                       </td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-gray-500">
+                      <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-secondary-text">
                         {new Date(doc.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                     </tr>
@@ -414,9 +414,9 @@ const KnowledgeBasePage = () => {
                   {documents.length === 0 && (
                     <tr>
                       <td colSpan="4" className="px-6 py-16 text-center">
-                        <div className="flex flex-col items-center justify-center text-gray-400">
+                        <div className="flex flex-col items-center justify-center text-secondary-text">
                           <Database size={48} className="mb-4 opacity-20" />
-                          <p className="text-base font-medium text-gray-500">No documents indexed yet</p>
+                          <p className="text-base font-medium text-secondary-text">No documents indexed yet</p>
                           <p className="text-sm mt-1">Upload a file or extract a transcript to get started.</p>
                         </div>
                       </td>
@@ -428,19 +428,19 @@ const KnowledgeBasePage = () => {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="bg-white px-8 py-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between mt-auto gap-4">
+              <div className="bg-light-background px-8 py-5 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between mt-auto gap-4">
                 <div className="flex-1 flex justify-between sm:hidden w-full">
                   <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`relative inline-flex items-center px-4 py-2 border border-light-border text-sm font-medium rounded-md ${currentPage === 1 ? 'bg-input-background text-secondary-text cursor-not-allowed' : 'bg-light-background text-gray-700 hover:bg-light-background'}`}
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
-                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-light-border text-sm font-medium rounded-md ${currentPage === totalPages ? 'bg-input-background text-secondary-text cursor-not-allowed' : 'bg-light-background text-gray-700 hover:bg-light-background'}`}
                   >
                     Next
                   </button>
@@ -456,7 +456,7 @@ const KnowledgeBasePage = () => {
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-light-border bg-light-background text-sm font-medium ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-secondary-text hover:bg-light-background'}`}
                       >
                         <span className="sr-only">Previous</span>
                         <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -469,8 +469,8 @@ const KnowledgeBasePage = () => {
                           key={i}
                           onClick={() => handlePageChange(i + 1)}
                           className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === i + 1
-                            ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            ? 'z-10 bg-input-background border-primary-orange text-primary-orange'
+                            : 'bg-light-background border-light-border text-secondary-text hover:bg-light-background'
                             }`}
                         >
                           {i + 1}
@@ -480,7 +480,7 @@ const KnowledgeBasePage = () => {
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-light-border bg-light-background text-sm font-medium ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-secondary-text hover:bg-light-background'}`}
                       >
                         <span className="sr-only">Next</span>
                         <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
@@ -495,14 +495,14 @@ const KnowledgeBasePage = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
+        <div className="bg-light-background rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
           <div className="flex justify-center mb-6">
-            <div className="p-4 bg-indigo-50 rounded-full">
-              <Database size={48} className="text-indigo-300" />
+            <div className="p-4 bg-input-background rounded-full">
+              <Database size={48} className="text-button-orange" />
             </div>
           </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">No Plan Selected</h3>
-          <p className="text-gray-500 max-w-md mx-auto">Please select a KT plan from the dropdown above to manage its knowledge base documents.</p>
+          <h3 className="text-xl font-bold text-primary-text mb-2">No Plan Selected</h3>
+          <p className="text-secondary-text max-w-md mx-auto">Please select a KT plan from the dropdown above to manage its knowledge base documents.</p>
         </div>
       )}
     </div>

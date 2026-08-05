@@ -55,9 +55,9 @@ const Sidebar = () => {
   const filteredNavItems = navItems.filter(item => allowedItems.includes(item.name));
 
   return (
-    <div className="flex flex-col w-64 bg-gray-900 text-white shadow-xl">
-      <div className="flex items-center justify-center h-20 border-b border-gray-800">
-        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
+    <div className="flex flex-col w-64 bg-sidebar text-white shadow-xl">
+      <div className="flex items-center justify-center h-20 border-b border-light-border">
+        <h1 className="text-2xl font-bold text-primary-orange">
           KT Manager
         </h1>
       </div>
@@ -70,7 +70,7 @@ const Sidebar = () => {
               className={({ isActive }) =>
                 `flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors duration-200 ${
                   isActive
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-primary-orange text-white'
                     : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                 }`
               }
@@ -81,7 +81,7 @@ const Sidebar = () => {
           ))}
         </nav>
       </div>
-      <div className="p-4 border-t border-gray-800">
+      <div className="p-4 border-t border-light-border">
         <button
           onClick={handleLogout}
           className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-300 rounded-lg hover:bg-red-600 hover:text-white transition-colors duration-200 w-full text-left"

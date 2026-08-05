@@ -122,16 +122,16 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   const manager = stakeholders.find(s => s.id == plan.created_by);
   
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div 
-        className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center cursor-pointer hover:bg-gray-100 transition-colors"
+        className="px-6 py-4 border-b border-light-border bg-light-background flex justify-between items-center cursor-pointer hover:bg-input-background transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex items-center">
-          {expanded ? <ChevronUp className="mr-3 text-gray-500" size={20} /> : <ChevronDown className="mr-3 text-gray-500" size={20} />}
+          {expanded ? <ChevronUp className="mr-3 text-secondary-text" size={20} /> : <ChevronDown className="mr-3 text-secondary-text" size={20} />}
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-              <FileText className="mr-2 text-blue-500" size={20} />
+            <h3 className="text-lg font-semibold text-primary-text flex items-center">
+              <FileText className="mr-2 text-primary-orange" size={20} />
               {plan.application_name} ({plan.plan_type})
             </h3>
           </div>
@@ -146,7 +146,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                 e.stopPropagation();
                 handleCloseClick(plan.id);
               }}
-              className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50"
+              className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-light-background hover:bg-red-50"
             >
               <X size={16} className="mr-1" /> Close Plan
             </button>
@@ -158,14 +158,14 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                   <button
                     onClick={handleSaveClick}
                     disabled={saving}
-                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-button-orange hover:bg-hover-orange disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : 'Save'}
                   </button>
                   <button
                     onClick={handleCancelClick}
                     disabled={saving}
-                    className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                    className="inline-flex items-center px-3 py-1.5 border border-light-border text-xs font-medium rounded text-gray-700 bg-light-background hover:bg-light-background disabled:opacity-50"
                   >
                     Cancel
                   </button>
@@ -173,7 +173,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               ) : (
                 <button
                   onClick={handleEditClick}
-                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                  className="inline-flex items-center px-3 py-1.5 border border-light-border text-xs font-medium rounded text-gray-700 bg-light-background hover:bg-light-background"
                 >
                   Edit
                 </button>
@@ -201,14 +201,14 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               <button
                 type="button"
                 onClick={() => setShowTopicsView(false)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!showTopicsView ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${!showTopicsView ? 'bg-blue-50 text-primary-orange font-semibold' : 'text-secondary-text hover:bg-input-background'}`}
               >
                 Plan Document
               </button>
               <button
                 type="button"
                 onClick={() => setShowTopicsView(true)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center ${showTopicsView ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-600 hover:bg-gray-100'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors flex items-center ${showTopicsView ? 'bg-blue-50 text-primary-orange font-semibold' : 'text-secondary-text hover:bg-input-background'}`}
               >
                 <List size={14} className="mr-1" />
                 Plan Topics ({topics.length})
@@ -219,7 +219,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                 type="button"
                 onClick={handleResync}
                 disabled={loadingTopics}
-                className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md"
+                className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-gray-700 bg-input-background hover:bg-input-background rounded-md"
               >
                 <RefreshCw size={12} className={`mr-1 ${loadingTopics ? 'animate-spin' : ''}`} />
                 Re-sync from Plan
@@ -231,42 +231,42 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
             <div>
               {isEditing ? (
                 <div>
-                  <p className="text-xs text-gray-500 mb-2">
-                    💡 Tip: Editing and saving this plan document will automatically re-extract and update the topics in the database (<code className="bg-gray-100 px-1 rounded">plan_topics</code> table).
+                  <p className="text-xs text-secondary-text mb-2">
+                    💡 Tip: Editing and saving this plan document will automatically re-extract and update the topics in the database (<code className="bg-input-background px-1 rounded">plan_topics</code> table).
                   </p>
                   <textarea
                     value={editedContent}
                     onChange={(e) => setEditedContent(e.target.value)}
-                    className="w-full h-96 p-4 border border-gray-300 rounded-lg text-sm font-mono text-gray-800 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    className="w-full h-96 p-4 border border-light-border rounded-lg text-sm font-mono text-primary-text focus:ring-orange-border focus:border-orange-border outline-none"
                     placeholder="Edit your markdown plan here..."
                   />
                 </div>
               ) : (
                 <div 
-                  className="prose prose-sm max-w-none text-gray-600 whitespace-pre-wrap"
+                  className="prose prose-sm max-w-none text-secondary-text whitespace-pre-wrap"
                   dangerouslySetInnerHTML={parseMarkdown(plan.generated_content)}
                 />
               )}
             </div>
           ) : (
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-gray-800">Plan Topic</h4>
+              <h4 className="text-sm font-semibold text-primary-text">Plan Topic</h4>
               {loadingTopics ? (
-                <p className="text-xs text-gray-500">Loading topics...</p>
+                <p className="text-xs text-secondary-text">Loading topics...</p>
               ) : topics.length === 0 ? (
-                <p className="text-xs text-gray-500 italic">No topics stored yet. Click "Re-sync from Plan" or add a topic below.</p>
+                <p className="text-xs text-secondary-text italic">No topics stored yet. Click "Re-sync from Plan" or add a topic below.</p>
               ) : (
-                <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <div className="overflow-x-auto border border-light-border rounded-lg">
                   <table className="min-w-full divide-y divide-gray-200 text-xs">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-light-background">
                       <tr>
-                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Day / Section</th>
-                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Topic / Sub-topic Name</th>
-                        <th className="px-4 py-2 text-left font-medium text-gray-500 uppercase">Duration</th>
-                        <th className="px-4 py-2 text-right font-medium text-gray-500 uppercase">Action</th>
+                        <th className="px-4 py-2 text-left font-medium text-secondary-text uppercase">Day / Section</th>
+                        <th className="px-4 py-2 text-left font-medium text-secondary-text uppercase">Topic / Sub-topic Name</th>
+                        <th className="px-4 py-2 text-left font-medium text-secondary-text uppercase">Duration</th>
+                        <th className="px-4 py-2 text-right font-medium text-secondary-text uppercase">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 bg-white">
+                    <tbody className="divide-y divide-gray-200 bg-light-background">
                       {(() => {
                         const rowSpans = [];
                         for (let i = 0; i < topics.length; i++) {
@@ -288,7 +288,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                         return topics.map((t, index) => {
                           const rSpan = rowSpans[index];
                           return (
-                            <tr key={t.id} className="hover:bg-gray-50">
+                            <tr key={t.id} className="hover:bg-light-background">
                               {rSpan > 0 && (
                                 <td 
                                   rowSpan={rSpan} 
@@ -297,8 +297,8 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                                   {t.day_label || 'General'}
                                 </td>
                               )}
-                              <td className="px-4 py-2.5 font-medium text-gray-900">{t.topic_name}</td>
-                              <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{t.estimated_duration_hours || 'N/A'}</td>
+                              <td className="px-4 py-2.5 font-medium text-primary-text">{t.topic_name}</td>
+                              <td className="px-4 py-2.5 text-secondary-text whitespace-nowrap">{t.estimated_duration_hours || 'N/A'}</td>
                               <td className="px-4 py-2.5 text-right whitespace-nowrap">
                                 <button
                                   onClick={() => handleDeleteTopic(t.id)}
@@ -318,14 +318,14 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               )}
 
               {/* Add Topic Form */}
-              <form onSubmit={handleAddTopic} className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex flex-wrap items-center gap-2">
+              <form onSubmit={handleAddTopic} className="bg-light-background p-3 rounded-lg border border-light-border flex flex-wrap items-center gap-2">
                 <span className="text-xs font-medium text-gray-700">Add Topic:</span>
                 <input
                   type="text"
                   placeholder="Day (e.g. Day 1)"
                   value={newDayLabel}
                   onChange={(e) => setNewDayLabel(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-300 rounded shadow-sm w-28 focus:ring-blue-500"
+                  className="px-2 py-1 text-xs border border-light-border rounded shadow-sm w-28 focus:ring-orange-border"
                 />
                 <input
                   type="text"
@@ -333,18 +333,18 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                   placeholder="Main topic or sub-topic name"
                   value={newTopicName}
                   onChange={(e) => setNewTopicName(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-300 rounded shadow-sm flex-1 min-w-[200px] focus:ring-blue-500"
+                  className="px-2 py-1 text-xs border border-light-border rounded shadow-sm flex-1 min-w-[200px] focus:ring-orange-border"
                 />
                 <input
                   type="text"
                   placeholder="Duration (e.g. 1 hour)"
                   value={newDuration}
                   onChange={(e) => setNewDuration(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-300 rounded shadow-sm w-32 focus:ring-blue-500"
+                  className="px-2 py-1 text-xs border border-light-border rounded shadow-sm w-32 focus:ring-orange-border"
                 />
                 <button
                   type="submit"
-                  className="inline-flex items-center px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded shadow-sm"
+                  className="inline-flex items-center px-3 py-1 bg-primary-orange hover:bg-hover-orange text-white text-xs font-medium rounded shadow-sm"
                 >
                   <Plus size={12} className="mr-1" /> Add
                 </button>
@@ -362,17 +362,17 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
             <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6" role="dialog" aria-modal="true">
+            <div className="inline-block align-bottom bg-light-background rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6" role="dialog" aria-modal="true">
               <div className="sm:flex sm:items-start">
                 <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
                   <Trash2 className="h-6 w-6 text-red-600" aria-hidden="true" />
                 </div>
                 <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                  <h3 className="text-lg leading-6 font-medium text-primary-text">
                     Delete Topic
                   </h3>
                   <div className="mt-2">
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-secondary-text">
                       Are you sure you want to delete this topic? This action cannot be undone.
                     </p>
                   </div>
@@ -388,7 +388,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                 </button>
                 <button
                   type="button"
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-light-border shadow-sm px-4 py-2 bg-light-background text-base font-medium text-gray-700 hover:bg-light-background focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-orange sm:mt-0 sm:w-auto sm:text-sm"
                   onClick={() => setTopicToDelete(null)}
                 >
                   Cancel
@@ -612,10 +612,10 @@ const PlanPage = () => {
   const parseMarkdown = (text) => {
     if (!text) return { __html: '' };
     let html = text.replace(/```markdown\n?/g, '').replace(/```\n?/g, '');
-    html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-gray-800 mt-4">$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-gray-800 mt-6 mb-2">$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-blue-600 mt-2 mb-4 border-b pb-2">$1</h1>');
-    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="text-gray-900 font-semibold">$1</strong>');
+    html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-primary-text mt-4">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-primary-text mt-6 mb-2">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-primary-orange mt-2 mb-4 border-b pb-2">$1</h1>');
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="text-primary-text font-semibold">$1</strong>');
     html = html.replace(/^\s*\-\s+(.*$)/gim, '<div class="ml-4 flex"><span class="mr-2">•</span><span>$1</span></div>');
     return { __html: html };
   };
@@ -628,14 +628,14 @@ const PlanPage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">KT Plans</h2>
+      <h2 className="text-2xl font-bold text-primary-text">KT Plans</h2>
 
       {canGenerate && (
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
           {/* Card 1: Generate Plan with AI */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
             <div className="flex-1 flex flex-col justify-between">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Generate Plan with AI</h3>
+              <h3 className="text-lg font-semibold text-primary-text mb-4">Generate Plan with AI</h3>
               <form onSubmit={handleGenerate} className="flex-1 flex flex-col justify-between space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -643,7 +643,7 @@ const PlanPage = () => {
                     <input
                       type="text" required
                       placeholder="e.g. Payment Gateway Service"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                       value={formData.application_name}
                       onChange={(e) => setFormData({...formData, application_name: e.target.value})}
                     />
@@ -651,7 +651,7 @@ const PlanPage = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Plan Type</label>
                     <select
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                       value={formData.plan_type}
                       onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
                     >
@@ -666,7 +666,7 @@ const PlanPage = () => {
                       required
                       rows={2}
                       placeholder="Enter main topics or scope details"
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                       value={formData.scope_description}
                       onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
                     />
@@ -678,7 +678,7 @@ const PlanPage = () => {
                       <input
                         type="text" required
                         placeholder="e.g. Test incident resolution or backend deployment"
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                         value={formData.reverse_kt_focus}
                         onChange={(e) => setFormData({...formData, reverse_kt_focus: e.target.value})}
                       />
@@ -690,7 +690,7 @@ const PlanPage = () => {
                   <button
                     type="submit"
                     disabled={generating}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50"
                   >
                     {generating ? 'Generating...' : 'Generate Plan'}
                   </button>
@@ -700,12 +700,12 @@ const PlanPage = () => {
           </div>
 
           {/* Card 2: Generate Plan with Document */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-blue-600 h-full">
             <div className="flex-1 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                    <FileUp className="mr-2 text-blue-600" size={20} />
+                  <h3 className="text-lg font-semibold text-primary-text flex items-center">
+                    <FileUp className="mr-2 text-primary-orange" size={20} />
                     Generate Plan with Document
                   </h3>
                   <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-medium border border-blue-100">
@@ -718,7 +718,7 @@ const PlanPage = () => {
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-sm font-medium text-gray-700">Document Upload (.pdf, .docx)</label>
                     {selectedFiles.length > 0 && (
-                      <span className="text-xs text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                      <span className="text-xs text-primary-orange font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
                         {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} selected
                       </span>
                     )}
@@ -735,9 +735,9 @@ const PlanPage = () => {
                         disabled={analyzingDoc}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                       />
-                      <div className="flex items-center justify-between text-xs text-gray-600">
+                      <div className="flex items-center justify-between text-xs text-secondary-text">
                         <span className="flex items-center font-medium text-blue-800 truncate pr-1">
-                          <Upload className="mr-1.5 text-blue-600 flex-shrink-0" size={15} />
+                          <Upload className="mr-1.5 text-primary-orange flex-shrink-0" size={15} />
                           {selectedFiles.length === 0
                             ? 'Click or drop PDF / Word file(s)...'
                             : 'Click / drop to add more...'}
@@ -749,7 +749,7 @@ const PlanPage = () => {
                       type="button"
                       onClick={handleExtractFromDocs}
                       disabled={selectedFiles.length === 0 || analyzingDoc}
-                      className="w-[115px] h-[38px] px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
+                      className="w-[115px] h-[38px] px-3 py-2 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
                     >
                       {analyzingDoc ? (
                         <>
@@ -765,19 +765,19 @@ const PlanPage = () => {
 
                   {/* Selected files list */}
                   {selectedFiles.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-gray-50 rounded-md border border-gray-100">
+                    <div className="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-light-background rounded-md border border-gray-100">
                       {selectedFiles.map((file, idx) => (
                         <div
                           key={`${file.name}-${idx}`}
-                          className="inline-flex items-center bg-white border border-blue-200 text-blue-900 text-xs px-2 py-1 rounded-md shadow-xs group"
+                          className="inline-flex items-center bg-light-background border border-blue-200 text-blue-900 text-xs px-2 py-1 rounded-md shadow-xs group"
                         >
-                          <FileText size={12} className="mr-1 text-blue-500 flex-shrink-0" />
+                          <FileText size={12} className="mr-1 text-primary-orange flex-shrink-0" />
                           <span className="max-w-[150px] truncate font-medium">{file.name}</span>
                           <button
                             type="button"
                             onClick={() => handleRemoveFile(idx)}
                             disabled={analyzingDoc}
-                            className="ml-1.5 text-gray-400 hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                            className="ml-1.5 text-secondary-text hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
                             title="Remove file"
                           >
                             <X size={12} />
@@ -797,7 +797,7 @@ const PlanPage = () => {
                       type="text" required
                       disabled={!isDocExtracted || analyzingDoc}
                       placeholder={isDocExtracted ? "Extracted Plan Name" : "Upload document(s) to unlock"}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                       value={docFormData.application_name}
                       onChange={(e) => setDocFormData({...docFormData, application_name: e.target.value})}
                     />
@@ -807,7 +807,7 @@ const PlanPage = () => {
                     <label className="block text-sm font-medium text-gray-700">Plan Type</label>
                     <select
                       disabled={!isDocExtracted || analyzingDoc}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                       value={docFormData.plan_type}
                       onChange={(e) => setDocFormData({...docFormData, plan_type: e.target.value})}
                     >
@@ -823,7 +823,7 @@ const PlanPage = () => {
                       rows={2}
                       disabled={!isDocExtracted || analyzingDoc}
                       placeholder={isDocExtracted ? "Main topic names extracted from document(s)" : "Upload document(s) to unlock & auto-fill"}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                       value={docFormData.scope_description}
                       onChange={(e) => setDocFormData({...docFormData, scope_description: e.target.value})}
                     />
@@ -836,7 +836,7 @@ const PlanPage = () => {
                         type="text" required
                         disabled={!isDocExtracted || analyzingDoc}
                         placeholder="e.g. Test incident resolution or backend deployment"
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                         value={docFormData.reverse_kt_focus}
                         onChange={(e) => setDocFormData({...docFormData, reverse_kt_focus: e.target.value})}
                       />
@@ -848,7 +848,7 @@ const PlanPage = () => {
                   <button
                     type="submit"
                     disabled={!isDocExtracted || generatingDocPlan || analyzingDoc}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {generatingDocPlan ? 'Generating...' : 'Generate Plan'}
                   </button>
@@ -860,10 +860,10 @@ const PlanPage = () => {
       )}
 
       {workflowResult && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 relative">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 relative">
           <button 
             onClick={() => setWorkflowResult(null)} 
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            className="absolute top-4 right-4 text-secondary-text hover:text-secondary-text"
           >
             <X size={20} />
           </button>
@@ -873,7 +873,7 @@ const PlanPage = () => {
           <div className="relative border-l-2 border-purple-200 ml-3 space-y-6">
             {workflowResult.logs?.map((log, idx) => (
               <div key={idx} className="relative flex items-start">
-                <span className="absolute -left-3.5 bg-white p-1 rounded-full text-purple-600">
+                <span className="absolute -left-3.5 bg-light-background p-1 rounded-full text-purple-600">
                   <CheckCircle size={20} className="fill-current text-white" />
                 </span>
                 <div className="ml-6 bg-purple-50 px-4 py-3 rounded-lg shadow-sm w-full border border-purple-100">
@@ -903,22 +903,22 @@ const PlanPage = () => {
             onPlanUpdate={handlePlanUpdate}
           />
         ))}
-        {plans.length === 0 && <p className="text-gray-500 text-center py-8">No plans generated yet.</p>}
+        {plans.length === 0 && <p className="text-secondary-text text-center py-8">No plans generated yet.</p>}
         
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
+          <div className="flex items-center justify-between border-t border-light-border bg-light-background px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
             <div className="flex flex-1 justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 disabled={currentPage === totalPages}
-                className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="relative ml-3 inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
               >
                 Next
               </button>
@@ -935,7 +935,7 @@ const PlanPage = () => {
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-secondary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background focus:z-20 focus:outline-offset-0 disabled:opacity-50"
                   >
                     <span className="sr-only">Previous</span>
                     <ChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -946,8 +946,8 @@ const PlanPage = () => {
                       onClick={() => setCurrentPage(i + 1)}
                       className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
                         currentPage === i + 1
-                          ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+                          ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                          : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
                       }`}
                     >
                       {i + 1}
@@ -956,7 +956,7 @@ const PlanPage = () => {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-secondary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background focus:z-20 focus:outline-offset-0 disabled:opacity-50"
                   >
                     <span className="sr-only">Next</span>
                     <ChevronRight className="h-5 w-5" aria-hidden="true" />
@@ -970,13 +970,13 @@ const PlanPage = () => {
 
       {planToApprove && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Approve KT Plan</h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to approve this plan? This action cannot be undone.</p>
+          <div className="bg-light-background rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-primary-text mb-2">Approve KT Plan</h3>
+            <p className="text-secondary-text mb-6">Are you sure you want to approve this plan? This action cannot be undone.</p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setPlanToApprove(null)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-light-border rounded-md text-sm font-medium text-gray-700 hover:bg-light-background focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border"
               >
                 Cancel
               </button>
@@ -993,13 +993,13 @@ const PlanPage = () => {
 
       {planToClose && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Close KT Plan</h3>
-            <p className="text-gray-600 mb-6">Are you sure you want to close this KT Plan? Closed plans will be archived from active modules.</p>
+          <div className="bg-light-background rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-primary-text mb-2">Close KT Plan</h3>
+            <p className="text-secondary-text mb-6">Are you sure you want to close this KT Plan? Closed plans will be archived from active modules.</p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setPlanToClose(null)}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-light-border rounded-md text-sm font-medium text-gray-700 hover:bg-light-background focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border"
               >
                 Cancel
               </button>
