@@ -1,3 +1,4 @@
+import CustomSelect from './CustomSelect';
 import React, { useState, useEffect, useMemo } from 'react';
 import { getLeadershipRiskSummary, escalateRisk } from '../api/api';
 import Loader from './Loader';
@@ -8,8 +9,8 @@ const getSeverityColor = (severity) => {
     case 'critical': return 'bg-red-100 text-red-800 border-red-200';
     case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
     case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-    case 'low': return 'bg-gray-100 text-gray-800 border-gray-200';
-    default: return 'bg-gray-100 text-gray-800';
+    case 'low': return 'bg-input-background text-primary-text border-light-border';
+    default: return 'bg-input-background text-primary-text';
   }
 };
 
@@ -68,42 +69,42 @@ const ManagerRow = ({ m }) => {
 
   return (
     <React.Fragment>
-      <tr onClick={() => setExpanded(!expanded)} className="cursor-pointer hover:bg-gray-50 transition-colors">
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 flex items-center">
-          {expanded ? <ChevronUp size={16} className="mr-2 text-gray-500" /> : <ChevronDown size={16} className="mr-2 text-gray-500" />}
+      <tr onClick={() => setExpanded(!expanded)} className="cursor-pointer hover:bg-light-background transition-colors">
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-text flex items-center">
+          {expanded ? <ChevronUp size={16} className="mr-2 text-secondary-text" /> : <ChevronDown size={16} className="mr-2 text-secondary-text" />}
           {m.manager_name}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{m.total_plans}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{m.open_risks}</td>
-        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{m.total_plans}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{m.open_risks}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
           <div className="flex space-x-2">
             {m.severity_counts.critical > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">{m.severity_counts.critical} Critical</span>}
             {m.severity_counts.high > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">{m.severity_counts.high} High</span>}
             {m.severity_counts.medium > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">{m.severity_counts.medium} Med</span>}
-            {m.severity_counts.low > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">{m.severity_counts.low} Low</span>}
-            {m.severity_counts.in_progress > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">{m.severity_counts.in_progress} In Progress</span>}
+            {m.severity_counts.low > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-input-background text-primary-text">{m.severity_counts.low} Low</span>}
+            {m.severity_counts.in_progress > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-input-background text-hover-orange">{m.severity_counts.in_progress} In Progress</span>}
             {m.severity_counts.deferred > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">{m.severity_counts.deferred} Deferred</span>}
             {m.severity_counts.solved > 0 && <span className="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">{m.severity_counts.solved} Solved</span>}
-            {m.total_risks === 0 && <span className="text-gray-400">No Risks</span>}
+            {m.total_risks === 0 && <span className="text-secondary-text">No Risks</span>}
           </div>
         </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan="4" className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <td colSpan="4" className="px-6 py-4 bg-light-background border-t border-gray-100">
             <div className="pl-6">
-              <h4 className="text-xs font-semibold text-gray-500 uppercase mb-3">Plans under {m.manager_name}</h4>
+              <h4 className="text-xs font-semibold text-secondary-text uppercase mb-3">Plans under {m.manager_name}</h4>
               {m.plans && m.plans.length > 0 ? (
                 <div className="space-y-4 mb-2">
                   {m.plans.map(plan => (
-                    <div key={plan.plan_id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                    <div key={plan.plan_id} className="bg-light-background p-4 rounded-lg shadow-sm border border-light-border">
                       <div className="flex justify-between items-center mb-3 border-b pb-2">
-                        <span className="text-sm font-semibold text-gray-900">{plan.application_name}</span>
+                        <span className="text-sm font-semibold text-primary-text">{plan.application_name}</span>
                         <div className="flex space-x-2">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
                                 {plan.status.toUpperCase()}
                             </span>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-input-background text-primary-text">
                                 {plan.open_risks} Risks
                             </span>
                         </div>
@@ -116,7 +117,7 @@ const ManagerRow = ({ m }) => {
                             return (
                             <div key={risk.id} className={`rounded-lg shadow-sm border p-3 ${isSolved ? 'bg-green-100 text-green-800 border-green-200' : isWaiting ? 'bg-purple-100 text-purple-800 border-purple-200' : getSeverityColor(risk.severity)} bg-opacity-30`}>
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-white shadow-sm ${isSolved ? 'text-green-700' : isWaiting ? 'text-purple-700' : ''}`}>
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-light-background shadow-sm ${isSolved ? 'text-green-700' : isWaiting ? 'text-purple-700' : ''}`}>
                                         {isSolved ? 'SOLVED' : isWaiting ? 'DEFERRED' : risk.severity}
                                     </span>
                                 </div>
@@ -124,10 +125,10 @@ const ManagerRow = ({ m }) => {
                                 
                                 {risk.assigned_stakeholders && risk.assigned_stakeholders.length > 0 && (
                                     <div className="mb-3">
-                                        <span className="text-[10px] font-semibold text-gray-500 uppercase block mb-1">Assigned to:</span>
+                                        <span className="text-[10px] font-semibold text-secondary-text uppercase block mb-1">Assigned to:</span>
                                         <div className="flex flex-wrap gap-1">
                                             {risk.assigned_stakeholders.map((name, idx) => (
-                                                <span key={idx} className="bg-white border border-gray-200 text-gray-700 text-[9px] px-1.5 py-0.5 rounded shadow-sm font-medium">
+                                                <span key={idx} className="bg-light-background border border-light-border text-gray-700 text-[9px] px-1.5 py-0.5 rounded shadow-sm font-medium">
                                                     {name}
                                                 </span>
                                             ))}
@@ -136,15 +137,15 @@ const ManagerRow = ({ m }) => {
                                 )}
                                 
                                 {risk.comments && risk.comments.length > 0 && (
-                                    <div className="mb-3 bg-white bg-opacity-70 rounded p-2 max-h-24 overflow-y-auto border border-gray-100 shadow-inner">
-                                        <h4 className="text-[10px] font-bold uppercase text-gray-500 mb-1">Resolution Updates</h4>
+                                    <div className="mb-3 bg-light-background bg-opacity-70 rounded p-2 max-h-24 overflow-y-auto border border-gray-100 shadow-inner">
+                                        <h4 className="text-[10px] font-bold uppercase text-secondary-text mb-1">Resolution Updates</h4>
                                         <div className="space-y-1">
                                             {risk.comments.map(c => (
                                                 <div key={c.id} className="text-[10px] border-b border-gray-100 pb-1 last:border-0 last:pb-0">
                                                     <div className="flex items-center justify-between gap-2 mb-0.5">
-                                                        <span className="font-semibold text-gray-800">{c.stakeholder_name}:</span>
+                                                        <span className="font-semibold text-primary-text">{c.stakeholder_name}:</span>
                                                         {c.created_at && (
-                                                            <span className="text-[9px] text-gray-400 font-normal whitespace-nowrap">
+                                                            <span className="text-[9px] text-secondary-text font-normal whitespace-nowrap">
                                                                 {formatCommentDateTime(c.created_at)}
                                                             </span>
                                                         )}
@@ -166,13 +167,13 @@ const ManagerRow = ({ m }) => {
                           })}
                         </div>
                       ) : (
-                        <p className="text-xs text-gray-500 italic">No open risks for this plan.</p>
+                        <p className="text-xs text-secondary-text italic">No open risks for this plan.</p>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 italic">No plans assigned yet.</p>
+                <p className="text-sm text-secondary-text italic">No plans assigned yet.</p>
               )}
             </div>
           </td>
@@ -221,7 +222,7 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   if (loading) return <Loader />;
 
   if (!data) {
-    return <div className="text-center text-gray-500 mt-10">No data available yet.</div>;
+    return <div className="text-center text-secondary-text mt-10">No data available yet.</div>;
   }
 
   const { managers = [], total_open_risks = 0 } = data;
@@ -270,8 +271,8 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center items-center">
-          <h3 className="text-lg font-semibold text-center text-gray-800 mb-2">Total Open Risks Across All Engagements</h3>
+        <div className="lg:col-span-1 bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center items-center">
+          <h3 className="text-lg font-semibold text-center text-primary-text mb-2">Total Open Risks Across All Engagements</h3>
           <span className="text-4xl font-bold text-red-600">{total_open_risks}</span>
         </div>
         
@@ -280,12 +281,12 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
         <div className="flex flex-col md:flex-row justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-2 md:mb-0">Risk Summary by Manager</h3>
+          <h3 className="text-lg font-semibold text-primary-text mb-2 md:mb-0">Risk Summary by Manager</h3>
           <div className="w-full md:w-64">
-            <select
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            <CustomSelect
+              className="block w-full px-3 py-2 border border-light-border rounded-md text-sm focus:outline-none focus:ring-primary-orange focus:border-primary-orange"
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
             >
@@ -293,24 +294,24 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
               {allPlanNames.map(name => (
                 <option key={name} value={name}>{name}</option>
               ))}
-            </select>
+            </CustomSelect>
           </div>
         </div>
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-light-background">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Manager</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Plans</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Risks</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Severity Breakdown</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase">Manager</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase">Total Plans</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase">Total Risks</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase">Severity Breakdown</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-light-background divide-y divide-gray-200">
             {filteredManagers.map((m, idx) => (
               <ManagerRow key={idx} m={m} />
             ))}
             {filteredManagers.length === 0 && (
-              <tr><td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">No data available yet.</td></tr>
+              <tr><td colSpan="4" className="px-6 py-4 text-center text-sm text-secondary-text">No data available yet.</td></tr>
             )}
           </tbody>
         </table>

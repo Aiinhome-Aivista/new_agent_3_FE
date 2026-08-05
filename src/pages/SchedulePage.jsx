@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
 import Loader from '../components/Loader';
@@ -23,25 +24,25 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder }
     <div className="relative" ref={dropdownRef}>
       <label className="block text-sm font-medium text-gray-700">{label}</label>
       <div
-        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-white cursor-pointer flex justify-between items-center"
+        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-light-background cursor-pointer flex justify-between items-center"
         onClick={() => setIsOpen(!isOpen)}
       >
         <span className="truncate text-gray-700">
           {selected.length === 0 ? placeholder : `${selected.length} selected`}
         </span>
-        <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+        <svg className="w-4 h-4 text-secondary-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
       </div>
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-10 mt-1 w-full bg-light-background border border-light-border rounded-md shadow-lg max-h-60 overflow-y-auto">
           {options.length === 0 ? (
-            <div className="p-3 text-sm text-gray-500">No options available.</div>
+            <div className="p-3 text-sm text-secondary-text">No options available.</div>
           ) : (
             <div className="p-2 space-y-1">
               {options.map(opt => (
-                <label key={opt.id} className="flex items-center px-2 py-1.5 hover:bg-gray-50 cursor-pointer rounded">
+                <label key={opt.id} className="flex items-center px-2 py-1.5 hover:bg-light-background cursor-pointer rounded">
                   <input
                     type="checkbox"
-                    className="rounded text-blue-600 focus:ring-blue-500 mr-2"
+                    className="rounded text-primary-orange focus:ring-orange-border mr-2"
                     checked={selected.includes(opt.id)}
                     onChange={(e) => {
                       if (e.target.checked) {
@@ -51,7 +52,7 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder }
                       }
                     }}
                   />
-                  <span className="text-sm text-gray-700">{opt.name} <span className="text-gray-400 text-xs">({opt.role})</span></span>
+                  <span className="text-sm text-gray-700">{opt.name} <span className="text-secondary-text text-xs">({opt.role})</span></span>
                 </label>
               ))}
             </div>
@@ -441,16 +442,16 @@ const SchedulePage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Meeting Schedule</h2>
+      <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
 
       {canManage && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Schedule New Meeting</h3>
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-lg font-semibold text-primary-text mb-4">Schedule New Meeting</h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Select Plan</label>
-              <select
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              <CustomSelect
+                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
                 value={formData.plan_id}
                 onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
                 required
@@ -459,7 +460,7 @@ const SchedulePage = () => {
                 {plans.map(p => (
                   <option key={p.id} value={p.id}>{p.application_name}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
             <div>
               {user?.role === 'Delivery / Engagement Manager' ? (
@@ -476,7 +477,7 @@ const SchedulePage = () => {
                   <input
                     type="text"
                     disabled
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-500 cursor-not-allowed"
+                    className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-input-background text-secondary-text cursor-not-allowed"
                     value={user?.name ? `${user.name} (${user.role})` : ''}
                   />
                 </>
@@ -486,7 +487,7 @@ const SchedulePage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
               <input
                 type="date" required
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
                 value={formData.scheduled_at}
                 onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
               />
@@ -495,7 +496,7 @@ const SchedulePage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link</label>
               <input
                 type="url"
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
                 value={formData.meeting_link}
                 onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
                 placeholder="https://meet.google.com/..."
@@ -517,10 +518,10 @@ const SchedulePage = () => {
                 type="submit"
                 disabled={scheduling || (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)}
                 className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${scheduling
-                  ? 'bg-blue-400 cursor-not-allowed'
+                  ? 'bg-button-orange cursor-not-allowed'
                   : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
                     ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-primary-orange hover:bg-hover-orange'
                   }`}
               >
                 {scheduling ? (
@@ -543,33 +544,33 @@ const SchedulePage = () => {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-light-background">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plan Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Plan Name</th>
                 {user?.role === 'Delivery / Engagement Manager' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Knowledge Giver(s)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Knowledge Giver(s)</th>
                 )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Day</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Title</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Day</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Meeting Title</th>
                 {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
                   <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meeting Link</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feedback</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Meeting Link</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Attendance Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Feedback</th>
                   </>
                 )}
                 {user?.role === 'Delivery / Engagement Manager' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance Rate</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Attendance Rate</th>
                 )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>}
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Status</th>
+                {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-secondary-text uppercase tracking-wider">Actions</th>}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-light-background divide-y divide-gray-200">
               {meetings.map((m) => {
                 const dayStr = m.day_label || '-';
                 const cleanTitle = m.title.replace(/^.*?(Day\s*\d+[^:-]*[:-]\s*)/i, '').replace(/^Day\s*\d+\s*/i, '');
@@ -577,7 +578,7 @@ const SchedulePage = () => {
 
                 return (
                   <tr key={m.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-medium">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text font-medium">
                       {plans.find(p => p.id === m.plan_id)?.application_name || 'N/A'}
                     </td>
                     {user?.role === 'Delivery / Engagement Manager' && (
@@ -585,14 +586,14 @@ const SchedulePage = () => {
                         {m.knowledge_giver_names || 'N/A'}
                       </td>
                     )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                       {m.dayLabel || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900 break-words min-w-[150px] max-w-[200px]">{m.title}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-primary-text break-words min-w-[150px] max-w-[200px]">{m.title}</td>
                     {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
                       <>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                           {m.meeting_link ? (
                             <div className="relative group inline-block">
                               {m.status === 'completed' ? (
@@ -606,14 +607,14 @@ const SchedulePage = () => {
                                   href={m.meeting_link}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border transition-colors"
                                 >
                                   Join Meeting
                                 </a>
                               )}
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-gray-900 text-white text-xs rounded py-1 px-2 shadow-lg">
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-sidebar text-white text-xs rounded py-1 px-2 shadow-lg">
                                 {m.meeting_link}
-                                <svg className="absolute text-gray-900 h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
+                                <svg className="absolute text-primary-text h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
                               </div>
                             </div>
                           ) : (
@@ -650,7 +651,7 @@ const SchedulePage = () => {
                               )}
                             </button>
                           ) : (
-                            <span className="text-xs text-gray-400 italic">
+                            <span className="text-xs text-secondary-text italic">
                               {m.status !== 'completed' ? 'Available after KT' : 'Not eligible'}
                             </span>
                           )}
@@ -658,13 +659,13 @@ const SchedulePage = () => {
                       </>
                     )}
                     {user?.role === 'Delivery / Engagement Manager' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-semibold text-indigo-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text font-semibold text-primary-orange">
                         {m.attendance_rate_percent !== undefined ? `${m.attendance_rate_percent}%` : 'N/A'}
                       </td>
                     )}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${isOverdue ? 'bg-red-100 text-red-800 font-semibold' : m.status === 'completed' ? 'bg-green-100 text-green-800' : m.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {isOverdue ? 'overdue' : m.status}
+                      <span className={`inline-flex items-center justify-center px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${isOverdue ? 'bg-red-50 text-red-700 border-red-200' : m.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : m.status === 'cancelled' ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-input-background text-primary-orange border-primary-orange/20'}`}>
+                        {isOverdue ? 'Overdue' : m.status}
                       </span>
                     </td>
                     {canManage && (
@@ -673,7 +674,7 @@ const SchedulePage = () => {
                           <button
                             onClick={() => handleOpenAttendanceModal(m)}
                             disabled={fetchingAttendees === m.id}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4 inline-flex items-center"
+                            className="text-primary-orange hover:text-hover-orange mr-4 inline-flex items-center"
                             title="Attendance"
                           >
                             {fetchingAttendees === m.id ? (
@@ -693,7 +694,7 @@ const SchedulePage = () => {
                                 <CheckCircle size={20} />
                               </span>
                             ) : (
-                              <button onClick={() => handleNotify(m.id)} className="text-blue-600 hover:text-blue-900 mr-4" title="Notify">
+                              <button onClick={() => handleNotify(m.id)} className="text-primary-orange hover:text-hover-orange mr-4" title="Notify">
                                 <Bell size={20} />
                               </button>
                             )}
@@ -725,9 +726,9 @@ const SchedulePage = () => {
       {/* Attendance Modal */}
       {isAttendanceModalOpen && attendanceMeeting && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-100 overflow-hidden">
+          <div className="bg-light-background rounded-xl shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col border border-gray-100 overflow-hidden">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-primary-orange to-primary-orange text-white px-6 py-4 flex justify-between items-center">
               <h3 className="text-lg font-semibold">
                 {attendanceMeeting.status === 'completed'
                   ? 'View Attendance: '
@@ -746,24 +747,24 @@ const SchedulePage = () => {
 
             {/* Content */}
             <div className="p-6 overflow-y-auto flex-1 space-y-4">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-secondary-text">
                 {attendanceMeeting.status === 'completed'
                   ? 'Attendance is locked because the meeting is completed.'
                   : 'Please check the box next to each participant who was present in this meeting.'}
               </p>
 
-              <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-white">
+              <div className="divide-y divide-gray-100 border border-light-border rounded-lg overflow-hidden bg-light-background">
                 {attendees.map((attendee) => (
                   <div key={attendee.stakeholder_id} className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1">
-                      <div className="font-semibold text-gray-800">{attendee.stakeholder_name}</div>
-                      <div className="text-xs text-gray-500 capitalize">{attendee.role}</div>
+                      <div className="font-semibold text-primary-text">{attendee.stakeholder_name}</div>
+                      <div className="text-xs text-secondary-text capitalize">{attendee.role}</div>
                     </div>
                     <div className="flex items-center space-x-4">
                       <label className="inline-flex items-center space-x-2 cursor-pointer">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-primary-orange focus:ring-orange-border border-light-border rounded"
                           checked={attendee.attended || false}
                           onChange={(e) => handleAttendanceChange(attendee.stakeholder_id, e.target.checked)}
                           disabled={attendanceMeeting.status === 'completed'}
@@ -773,7 +774,7 @@ const SchedulePage = () => {
                       <input
                         type="text"
                         placeholder="Notes (optional)"
-                        className={`w-full px-3 py-1 text-sm border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 ${attendanceMeeting.status === 'completed' ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+                        className={`w-full px-3 py-1 text-sm border border-light-border rounded-md focus:ring-orange-border focus:border-orange-border ${attendanceMeeting.status === 'completed' ? 'bg-light-background cursor-not-allowed' : ''}`}
                         value={attendee.notes || ''}
                         onChange={(e) => handleNotesChange(attendee.stakeholder_id, e.target.value)}
                         disabled={attendanceMeeting.status === 'completed'}
@@ -783,7 +784,7 @@ const SchedulePage = () => {
                 ))}
 
                 {attendees.length === 0 && (
-                  <div className="p-6 text-center text-sm text-gray-500">
+                  <div className="p-6 text-center text-sm text-secondary-text">
                     No participants invited to this meeting.
                   </div>
                 )}
@@ -791,11 +792,11 @@ const SchedulePage = () => {
             </div>
 
             {/* Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
+            <div className="bg-light-background px-6 py-4 flex justify-end space-x-3 border-t border-gray-100">
               <button
                 type="button"
                 onClick={() => { setIsAttendanceModalOpen(false); setAttendanceMeeting(null); setAttendees([]); setOverdueOverrideMeetingId(null); }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 border border-light-border rounded-md text-sm font-medium text-gray-700 hover:bg-input-background"
                 disabled={savingAttendance}
               >
                 {attendanceMeeting.status === 'completed' ? 'Close' : 'Cancel'}
@@ -804,7 +805,7 @@ const SchedulePage = () => {
                 <button
                   type="button"
                   onClick={overdueOverrideMeetingId === attendanceMeeting.id ? handleSaveAttendanceAndComplete : handleSaveAttendance}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium disabled:bg-blue-400"
+                  className="px-4 py-2 bg-primary-orange hover:bg-hover-orange text-white rounded-md text-sm font-medium disabled:bg-button-orange"
                   disabled={savingAttendance || attendees.length === 0}
                 >
                   {savingAttendance
@@ -822,7 +823,7 @@ const SchedulePage = () => {
       {/* ── Reschedule Modal ── */}
       {isRescheduleModalOpen && rescheduleTarget && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full flex flex-col border border-amber-200 overflow-hidden max-h-[90vh]">
+          <div className="bg-light-background rounded-xl shadow-xl max-w-lg w-full flex flex-col border border-amber-200 overflow-hidden max-h-[90vh]">
 
             {/* Header */}
             <div className="bg-gradient-to-r from-amber-600 to-orange-500 text-white px-6 py-4 flex justify-between items-center">
@@ -843,7 +844,7 @@ const SchedulePage = () => {
               {/* Meeting Info Banner */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                 <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Meeting</p>
-                <p className="text-sm font-medium text-gray-800">{rescheduleTarget.title}</p>
+                <p className="text-sm font-medium text-primary-text">{rescheduleTarget.title}</p>
               </div>
 
               {/* Overdue Resolution Option (Option B for Case 2) */}
@@ -865,7 +866,7 @@ const SchedulePage = () => {
               )}
 
               {/* Alert */}
-              <div className="flex items-start space-x-2 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
+              <div className="flex items-start space-x-2 bg-input-background border border-input-background rounded-lg px-4 py-3 text-sm text-primary-orange">
                 <Bell size={15} className="mt-0.5 flex-shrink-0" />
                 <span>
                   {resolveOverdueAsCompleted
@@ -884,7 +885,7 @@ const SchedulePage = () => {
                     <input
                       type="date"
                       required
-                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-gray-800 text-sm"
+                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-primary-text text-sm"
                       value={rescheduleDate}
                       onChange={(e) => setRescheduleDate(e.target.value)}
                     />
@@ -899,7 +900,7 @@ const SchedulePage = () => {
                       id="reschedule-time-input"
                       type="time"
                       required
-                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-gray-800 text-sm"
+                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-primary-text text-sm"
                       value={rescheduleTime}
                       onChange={(e) => setRescheduleTime(e.target.value)}
                     />
@@ -907,12 +908,12 @@ const SchedulePage = () => {
 
                   {/* Reason field */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-xs text-gray-400">(optional — included in notification email)</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-xs text-secondary-text">(optional — included in notification email)</span></label>
                     <textarea
                       id="reschedule-reason-input"
                       rows={3}
                       placeholder="e.g. Knowledge Giver is unavailable at the original time..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-sm resize-none"
+                      className="w-full px-3 py-2 border border-light-border rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-sm resize-none"
                       value={rescheduleReason}
                       onChange={(e) => setRescheduleReason(e.target.value)}
                     />
@@ -923,7 +924,7 @@ const SchedulePage = () => {
                     <input
                       id="reschedule-subsequent-checkbox"
                       type="checkbox"
-                      className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-amber-600 focus:ring-amber-500 border-light-border rounded"
                       checked={rescheduleSubsequent}
                       onChange={(e) => setRescheduleSubsequent(e.target.checked)}
                     />
@@ -940,7 +941,7 @@ const SchedulePage = () => {
               <button
                 type="button"
                 onClick={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); setResolveOverdueAsCompleted(false); }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 border border-light-border rounded-md text-sm font-medium text-gray-700 hover:bg-input-background"
                 disabled={rescheduling}
               >
                 Cancel
@@ -981,9 +982,9 @@ const SchedulePage = () => {
       {/* ── Feedback Modal ── */}
       {isFeedbackModalOpen && feedbackMeeting && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full flex flex-col border border-gray-200 overflow-hidden max-h-[90vh]">
+          <div className="bg-light-background rounded-xl shadow-xl max-w-xl w-full flex flex-col border border-light-border overflow-hidden max-h-[90vh]">
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-4 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-primary-orange to-primary-orange text-white px-6 py-4 flex justify-between items-center">
               <div className="flex items-center space-x-2">
                 <Star size={20} className="fill-amber-300 text-amber-300" />
                 <h3 className="text-lg font-semibold">KT Session Feedback</h3>
@@ -997,9 +998,9 @@ const SchedulePage = () => {
             </div>
 
             {/* Meeting Info */}
-            <div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Meeting Title</p>
-              <p className="text-sm font-medium text-gray-900">{feedbackMeeting.title}</p>
+            <div className="bg-light-background border-b border-light-border px-6 py-3">
+              <p className="text-xs font-semibold text-secondary-text uppercase tracking-wide">Meeting Title</p>
+              <p className="text-sm font-medium text-primary-text">{feedbackMeeting.title}</p>
             </div>
 
             {isAlreadySubmitted && (
@@ -1012,20 +1013,20 @@ const SchedulePage = () => {
             {/* Content List */}
             <div className="p-6 space-y-6 overflow-y-auto max-h-[60vh]">
               {feedbackGivers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 text-sm">
+                <div className="text-center py-8 text-secondary-text text-sm">
                   No Knowledge Givers associated with this KT meeting session.
                 </div>
               ) : (
                 feedbackGivers.map((giver) => (
-                  <div key={giver.id} className="p-4 border border-gray-200 rounded-lg bg-gray-50 space-y-3">
+                  <div key={giver.id} className="p-4 border border-light-border rounded-lg bg-light-background space-y-3">
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="font-semibold text-gray-800 text-base">{giver.name}</span>
-                        <span className="ml-2 text-xs bg-indigo-100 text-indigo-700 font-medium px-2 py-0.5 rounded-full">
+                        <span className="font-semibold text-primary-text text-base">{giver.name}</span>
+                        <span className="ml-2 text-xs bg-input-background text-primary-orange font-medium px-2 py-0.5 rounded-full">
                           Knowledge Giver
                         </span>
                       </div>
-                      {/* <div className="text-xs text-gray-500">{giver.email}</div> */}
+                      {/* <div className="text-xs text-secondary-text">{giver.email}</div> */}
                     </div>
 
                     {/* Star Rating */}
@@ -1071,7 +1072,7 @@ const SchedulePage = () => {
                         placeholder={isAlreadySubmitted ? "No detailed feedback recorded." : `Share your feedback on the KT provided by ${giver.name}...`}
                         value={giver.feedback_text || ''}
                         onChange={(e) => !isAlreadySubmitted && handleFeedbackTextChange(giver.id, e.target.value)}
-                        className={`w-full p-2.5 text-sm border border-gray-300 rounded-md bg-white ${isAlreadySubmitted ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        className={`w-full p-2.5 text-sm border border-light-border rounded-md bg-light-background ${isAlreadySubmitted ? 'bg-input-background text-secondary-text cursor-not-allowed' : 'focus:ring-2 focus:ring-orange-border focus:border-orange-border'}`}
                       />
                     </div>
                   </div>
@@ -1080,11 +1081,11 @@ const SchedulePage = () => {
             </div>
 
             {/* Footer */}
-            <div className="bg-gray-50 px-6 py-4 flex justify-end space-x-3 border-t border-gray-200">
+            <div className="bg-light-background px-6 py-4 flex justify-end space-x-3 border-t border-light-border">
               <button
                 type="button"
                 onClick={() => { setIsFeedbackModalOpen(false); setFeedbackMeeting(null); setFeedbackGivers([]); }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+                className="px-4 py-2 border border-light-border rounded-md text-sm font-medium text-gray-700 hover:bg-input-background"
                 disabled={submittingFeedback}
               >
                 Close
@@ -1094,7 +1095,7 @@ const SchedulePage = () => {
                   type="button"
                   onClick={handleSubmitFeedback}
                   disabled={submittingFeedback}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-md text-sm font-medium transition-colors"
+                  className="inline-flex items-center px-4 py-2 bg-primary-orange hover:bg-hover-orange disabled:bg-button-orange text-white rounded-md text-sm font-medium transition-colors"
                 >
                   {submittingFeedback ? (
                     <><span className="animate-spin mr-2">&#x21BB;</span> Submitting...</>
@@ -1116,7 +1117,7 @@ const SchedulePage = () => {
       {/* ── Toast Notification ── */}
       {schedulePopup && (
         <div className="fixed top-6 right-6 z-[60] max-w-sm w-full">
-          <div className={`rounded-lg shadow-xl overflow-hidden border-l-4 bg-white ${schedulePopup.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
+          <div className={`rounded-lg shadow-xl overflow-hidden border-l-4 bg-light-background ${schedulePopup.type === 'success' ? 'border-green-500' : 'border-red-500'}`}>
             <div className="p-4 flex items-start">
               <div className="flex-shrink-0">
                 {schedulePopup.type === 'success' ? (
@@ -1126,17 +1127,17 @@ const SchedulePage = () => {
                 )}
               </div>
               <div className="ml-3 w-0 flex-1 pt-0.5">
-                <p className="text-sm font-bold text-gray-900">
+                <p className="text-sm font-bold text-primary-text">
                   {schedulePopup.type === 'success' ? 'Success' : 'Error'}
                 </p>
-                <p className="mt-1 text-sm text-gray-600">
+                <p className="mt-1 text-sm text-secondary-text">
                   {schedulePopup.message}
                 </p>
               </div>
               <div className="ml-4 flex-shrink-0 flex">
                 <button
                   onClick={() => setSchedulePopup(null)}
-                  className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  className="bg-light-background rounded-md inline-flex text-secondary-text hover:text-secondary-text focus:outline-none focus:ring-2 focus:ring-gray-300"
                 >
                   <span className="sr-only">Close</span>
                   <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

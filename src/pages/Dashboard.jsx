@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, getStakeholders, getMeetings, getRisks, getLeadershipCompletionSummary, getLeadershipGiverSummary } from '../api/api';
 import Loader from '../components/Loader';
@@ -214,7 +215,7 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
+      <h2 className="text-2xl font-bold text-primary-text">Dashboard</h2>
 
       {error && (
         <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
@@ -224,44 +225,44 @@ const Dashboard = () => {
 
       {/* Top Stat Cards */}
       <div className={`grid grid-cols-1 md:grid-cols-2 ${!isKnowledgeReceiver ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
-          <div className="p-4 bg-blue-50 text-blue-600 rounded-lg mr-4">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+          <div className="p-4 bg-input-background text-primary-orange rounded-lg mr-4">
             <FileText size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Total KT Plans</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.plans}</h3>
+            <p className="text-sm font-medium text-secondary-text">Total KT Plans</p>
+            <h3 className="text-2xl font-bold text-primary-text">{stats.plans}</h3>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
-          <div className="p-4 bg-indigo-50 text-indigo-600 rounded-lg mr-4">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+          <div className="p-4 bg-input-background text-primary-orange rounded-lg mr-4">
             <Users size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Stakeholders</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.stakeholders}</h3>
+            <p className="text-sm font-medium text-secondary-text">Stakeholders</p>
+            <h3 className="text-2xl font-bold text-primary-text">{stats.stakeholders}</h3>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
           <div className="p-4 bg-amber-50 text-amber-600 rounded-lg mr-4">
             <Calendar size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500">Upcoming Meetings</p>
-            <h3 className="text-2xl font-bold text-gray-800">{stats.upcomingMeetings.length}</h3>
+            <p className="text-sm font-medium text-secondary-text">Upcoming Meetings</p>
+            <h3 className="text-2xl font-bold text-primary-text">{stats.upcomingMeetings.length}</h3>
           </div>
         </div>
 
         {!isKnowledgeReceiver && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
             <div className="p-4 bg-red-50 text-red-600 rounded-lg mr-4">
               <AlertTriangle size={24} />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Active Risks</p>
-              <h3 className="text-2xl font-bold text-gray-800">{stats.activeRisks.length}</h3>
+              <p className="text-sm font-medium text-secondary-text">Active Risks</p>
+              <h3 className="text-2xl font-bold text-primary-text">{stats.activeRisks.length}</h3>
             </div>
           </div>
         )}
@@ -269,23 +270,23 @@ const Dashboard = () => {
 
       {/* Performance & Ranking Section */}
       {!isKnowledgeReceiver && (stats.performanceData || stats.giverData) && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-8">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 mt-8">
           <div className="flex flex-col md:flex-row items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-              <BarChart2 className="mr-2 text-indigo-500" /> KT Performance & Ranking
+            <h3 className="text-lg font-semibold text-primary-text flex items-center">
+              <BarChart2 className="mr-2 text-primary-orange" /> KT Performance & Ranking
             </h3>
 
             {/* Tabs */}
-            <div className="flex space-x-1 mt-4 md:mt-0 bg-gray-100 p-1 rounded-lg">
+            <div className="flex space-x-1 mt-4 md:mt-0 bg-input-background p-1 rounded-lg">
               <button
                 onClick={() => setRankingTab('receivers')}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${rankingTab === 'receivers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${rankingTab === 'receivers' ? 'bg-light-background text-primary-orange shadow-sm' : 'text-secondary-text hover:text-gray-700'}`}
               >
                 Knowledge Receivers
               </button>
               <button
                 onClick={() => setRankingTab('givers')}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${rankingTab === 'givers' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${rankingTab === 'givers' ? 'bg-light-background text-primary-orange shadow-sm' : 'text-secondary-text hover:text-gray-700'}`}
               >
                 Knowledge Givers
               </button>
@@ -294,8 +295,8 @@ const Dashboard = () => {
 
           <div className="flex justify-end mb-6">
             <div className="w-full md:w-64">
-              <select
-                className="block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-indigo-500 disabled:bg-gray-100 disabled:opacity-75"
+              <CustomSelect
+                className="block w-full px-3 py-2 border border-light-border rounded-md text-sm focus:outline-none focus:ring-primary-orange disabled:bg-input-background disabled:opacity-75"
                 value={selectedPerfPlan}
                 onChange={(e) => setSelectedPerfPlan(e.target.value)}
                 disabled={allPerfPlans.length === 0}
@@ -307,20 +308,20 @@ const Dashboard = () => {
                     <option key={p.plan_id} value={p.plan_id}> {p.application_name}</option>
                   ))
                 )}
-              </select>
+              </CustomSelect>
             </div>
           </div>
 
           {rankingTab === 'receivers' && stats.performanceData && displayedPerf && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-indigo-50 rounded-lg p-4 flex flex-col justify-center items-center border border-indigo-100">
-                  <span className="text-indigo-800 text-sm font-medium mb-1">Assessment (Weight 80%)</span>
-                  <span className="text-3xl font-bold text-indigo-600">{Math.round(displayedPerf.completion)}%</span>
+                <div className="bg-input-background rounded-lg p-4 flex flex-col justify-center items-center">
+                  <span className="text-hover-orange text-sm font-medium mb-1">Assessment (Weight 80%)</span>
+                  <span className="text-3xl font-bold text-primary-orange">{Math.round(displayedPerf.completion)}%</span>
                 </div>
-                <div className="bg-blue-50 rounded-lg p-4 flex flex-col justify-center items-center border border-blue-100">
-                  <span className="text-blue-800 text-sm font-medium mb-1">Attendance (Weight 20%)</span>
-                  <span className="text-3xl font-bold text-blue-600">{Math.round(displayedPerf.attendance)}%</span>
+                <div className="bg-input-background rounded-lg p-4 flex flex-col justify-center items-center border border-input-background">
+                  <span className="text-hover-orange text-sm font-medium mb-1">Attendance (Weight 20%)</span>
+                  <span className="text-3xl font-bold text-primary-orange">{Math.round(displayedPerf.attendance)}%</span>
                 </div>
                 <div className="bg-emerald-50 rounded-lg p-4 flex flex-col justify-center items-center border border-emerald-100 shadow-sm">
                   <span className="text-emerald-800 text-sm font-medium mb-1 flex items-center">
@@ -334,29 +335,29 @@ const Dashboard = () => {
                 <h4 className="text-sm font-bold text-gray-700 uppercase mb-3">Receiver Rankings (by W.M.O)</h4>
                 <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-lg">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-light-background">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receiver Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assessment</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attendance</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Rank</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Receiver Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Assessment</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Attendance</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Weightage Score</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="bg-light-background divide-y divide-gray-200">
                       {receiverRankings.map((p, idx) => (
-                        <tr key={idx} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-gray-50'}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        <tr key={idx} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-light-background'}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-primary-text">
                             #{idx + 1}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-text">
                             {p.receiver_name}
-                            <div className="text-xs text-gray-400 mt-0.5">{p.application_name}</div>
+                            <div className="text-xs text-secondary-text mt-0.5">{p.application_name}</div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                             {p.completion_percent}%
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                             {p.attendance_percent}%
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-emerald-600">
@@ -365,7 +366,7 @@ const Dashboard = () => {
                         </tr>
                       ))}
                       {receiverRankings.length === 0 && (
-                        <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No plans available for ranking.</td></tr>
+                        <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-secondary-text">No plans available for ranking.</td></tr>
                       )}
                     </tbody>
                   </table>
@@ -379,28 +380,28 @@ const Dashboard = () => {
               <h4 className="text-sm font-bold text-gray-700 uppercase mb-3">Knowledge Giver Rankings (by Star Rating)</h4>
               <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-lg">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-light-background">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Giver Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feedback Count</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Rank</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Giver Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Role</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Feedback Count</th>
                       <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Avg Rating</th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-light-background divide-y divide-gray-200">
                     {displayedGivers.map((g, idx) => (
-                      <tr key={idx} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-gray-50'}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                      <tr key={idx} className={idx < 3 ? 'bg-yellow-50 bg-opacity-30' : 'hover:bg-light-background'}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-primary-text">
                           #{idx + 1}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-text">
                           {g.giver_name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                           {g.role}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                           {g.total_feedbacks}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-amber-500 flex items-center">
@@ -409,7 +410,7 @@ const Dashboard = () => {
                       </tr>
                     ))}
                     {displayedGivers.length === 0 && (
-                      <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">No knowledge giver ratings available.</td></tr>
+                      <tr><td colSpan="5" className="px-6 py-4 text-center text-sm text-secondary-text">No knowledge giver ratings available.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -422,30 +423,30 @@ const Dashboard = () => {
       {/* Detailed Dynamic Sections */}
       <div className={`grid grid-cols-1 ${!isKnowledgeReceiver ? 'lg:grid-cols-2' : ''} gap-6 mt-8`}>
         {/* Upcoming Meetings Panel */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Upcoming Sessions</h3>
+            <h3 className="text-lg font-semibold text-primary-text">Upcoming Sessions</h3>
           </div>
           <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
             {stats.upcomingMeetings.length === 0 ? (
-              <p className="text-sm text-gray-500">No upcoming meetings scheduled.</p>
+              <p className="text-sm text-secondary-text">No upcoming meetings scheduled.</p>
             ) : (
               stats.upcomingMeetings.map(meeting => (
-                <div key={meeting.id} className="flex items-start justify-between p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                <div key={meeting.id} className="flex items-start justify-between p-3 border border-gray-100 rounded-lg hover:bg-light-background transition-colors">
                   <div className="flex items-start">
-                    <div className="mt-1 mr-3 p-2 bg-blue-50 text-blue-600 rounded-full">
+                    <div className="mt-1 mr-3 p-2 bg-input-background text-primary-orange rounded-full">
                       <Clock size={16} />
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-800">{meeting.title || 'KT Session'}</h4>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <h4 className="text-sm font-medium text-primary-text">{meeting.title || 'KT Session'}</h4>
+                      <p className="text-xs text-secondary-text mt-1">
                         {new Date(meeting.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>
                   {stats.plansMap && stats.plansMap[meeting.plan_id] && (
                     <div className="ml-4 flex-shrink-0 mt-1">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 line-clamp-1 max-w-[150px]" title={stats.plansMap[meeting.plan_id]}>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-input-background text-hover-orange border border-orange-border line-clamp-1 max-w-[150px]" title={stats.plansMap[meeting.plan_id]}>
                         {stats.plansMap[meeting.plan_id]}
                       </span>
                     </div>
@@ -458,26 +459,26 @@ const Dashboard = () => {
 
         {/* Active Risks Panel */}
         {!isKnowledgeReceiver && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">High Priority and Critical Risks</h3>
+              <h3 className="text-lg font-semibold text-primary-text">High Priority and Critical Risks</h3>
             </div>
             <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
               {highPriorityRisks.length === 0 ? (
-                <p className="text-sm text-gray-500">No high priority risks detected. You're on track!</p>
+                <p className="text-sm text-secondary-text">No high priority risks detected. You're on track!</p>
               ) : (
                 highPriorityRisks.map(risk => (
-                  <div key={risk.id} className="flex items-start p-3 border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div key={risk.id} className="flex items-start p-3 border border-gray-100 rounded-lg hover:bg-light-background transition-colors">
                     <div className={`mt-1 mr-3 p-2 rounded-full ${risk.severity === 'high' || risk.severity === 'critical' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'}`}>
                       <AlertTriangle size={16} />
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-800">{risk.description}</h4>
+                      <h4 className="text-sm font-medium text-primary-text">{risk.description}</h4>
                       <div className="flex gap-2 mt-2">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${risk.severity === 'high' || risk.severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                           Severity: {risk.severity || 'Unknown'}
                         </span>
-                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-input-background text-secondary-text">
                           Status: {risk.status || 'Open'}
                         </span>
                       </div>

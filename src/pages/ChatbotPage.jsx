@@ -1,3 +1,4 @@
+import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import { askChatbot, getChatHistory, askChatbot2, getChatHistory2, getPlans } from '../api/api';
 import { Send, Bot, User } from 'lucide-react';
@@ -113,23 +114,23 @@ const ChatbotPage = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-120px)] bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       {/* Chat Header */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+      <div className="px-6 py-4 bg-light-background border-b border-light-border flex justify-between items-center">
         <div className="flex items-center">
-          <Bot className="text-blue-500 mr-3" size={24} />
+          <Bot className="text-primary-orange mr-3" size={24} />
           <div>
-            <h2 className="text-lg font-bold text-gray-800">KT Assistant</h2>
-            <p className="text-xs text-gray-500">
+            <h2 className="text-lg font-bold text-primary-text">KT Assistant</h2>
+            <p className="text-xs text-secondary-text">
               {selectedPlanId ? `Answering with knowledge from: ${selectedPlanName}` : 'Ask questions about KT plans, risks, and progress.'}
             </p>
           </div>
         </div>
         {!isSpecialRole && (
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600 font-medium">Context:</span>
-            <select
-              className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <span className="text-sm text-secondary-text font-medium">Context:</span>
+            <CustomSelect
+              className="text-sm border border-light-border rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-orange-border"
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
             >
@@ -137,7 +138,7 @@ const ChatbotPage = () => {
               {plans.map(plan => (
                 <option key={plan.id} value={plan.id}>{plan.application_name}</option>
               ))}
-            </select>
+            </CustomSelect>
           </div>
         )}
       </div>
@@ -145,7 +146,7 @@ const ChatbotPage = () => {
       {/* Chat Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 && (
-          <div className="text-center text-gray-400 mt-20">
+          <div className="text-center text-secondary-text mt-20">
             <Bot size={48} className="mx-auto mb-4 opacity-50" />
             <p>Hello! I'm your AI assistant. Ask me anything about the KT process.</p>
           </div>
@@ -153,10 +154,10 @@ const ChatbotPage = () => {
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`flex max-w-[75%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-              <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${msg.role === 'user' ? 'bg-blue-600 ml-3' : 'bg-gray-200 mr-3'}`}>
-                {msg.role === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-gray-600" />}
+              <div className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center ${msg.role === 'user' ? 'bg-primary-orange ml-3' : 'bg-input-background mr-3'}`}>
+                {msg.role === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-secondary-text" />}
               </div>
-              <div className={`px-4 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-tr-none' : 'bg-gray-100 text-gray-800 rounded-tl-none'}`}>
+              <div className={`px-4 py-3 rounded-2xl ${msg.role === 'user' ? 'bg-primary-orange text-white rounded-tr-none' : 'bg-input-background text-primary-text rounded-tl-none'}`}>
                 {msg.role === 'user' ? (
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 ) : (
@@ -172,10 +173,10 @@ const ChatbotPage = () => {
         {loading && (
           <div className="flex justify-start">
             <div className="flex max-w-[75%] flex-row">
-              <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-gray-200 mr-3">
-                <Bot size={16} className="text-gray-600" />
+              <div className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center bg-input-background mr-3">
+                <Bot size={16} className="text-secondary-text" />
               </div>
-              <div className="px-4 py-3 rounded-2xl bg-gray-100 text-gray-800 rounded-tl-none flex items-center space-x-1">
+              <div className="px-4 py-3 rounded-2xl bg-input-background text-primary-text rounded-tl-none flex items-center space-x-1">
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                 <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
@@ -187,11 +188,11 @@ const ChatbotPage = () => {
       </div>
       
       {/* Input Area */}
-      <div className="p-4 bg-white border-t border-gray-200">
+      <div className="p-4 bg-light-background border-t border-light-border">
         <form onSubmit={handleSend} className="flex space-x-2">
           <input
             type="text"
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="flex-1 px-4 py-2 border border-light-border rounded-full focus:outline-none focus:ring-2 focus:ring-orange-border focus:border-orange-border"
             placeholder="Type your message..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -200,7 +201,7 @@ const ChatbotPage = () => {
           <button
             type="submit"
             disabled={loading || !input.trim()}
-            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-orange text-white hover:bg-hover-orange disabled:opacity-50"
           >
             <Send size={18} />
           </button>
