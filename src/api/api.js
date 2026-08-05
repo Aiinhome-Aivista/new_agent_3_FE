@@ -27,7 +27,7 @@ api.interceptors.response.use(
       if (!error.config.url.includes('/auth/login')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '#/login';
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);
@@ -68,8 +68,8 @@ export const deletePlanTopic = (topicId) => api.delete(`/plans/topics/${topicId}
 // Schedule
 export const createMeeting = (data) => api.post('/schedule/meetings', data);
 export const getMeetings = (planId) => {
-    const url = planId ? `/schedule/meetings?plan_id=${planId}` : '/schedule/meetings';
-    return api.get(url);
+  const url = planId ? `/schedule/meetings?plan_id=${planId}` : '/schedule/meetings';
+  return api.get(url);
 };
 export const updateMeetingStatus = (id, status) => api.put(`/schedule/meetings/${id}/status`, { status });
 export const notifyMeeting = (id, data = {}) => api.post(`/schedule/meetings/${id}/notify`, data);
@@ -87,8 +87,8 @@ export const getPlanTopics = (planId) => api.get(`/tracking/plan/${planId}/topic
 // Risks
 export const detectRisks = (planId) => api.post('/risks/detect', { plan_id: planId });
 export const getRisks = (planId) => {
-    const url = planId ? `/risks/?plan_id=${planId}` : '/risks/';
-    return api.get(url);
+  const url = planId ? `/risks/?plan_id=${planId}` : '/risks/';
+  return api.get(url);
 };
 export const escalateRisk = (id, assigned_to, initial_note) => api.put(`/risks/${id}/escalate`, { assigned_to, initial_note });
 export const getAssignedRisks = () => api.get('/risks/assigned');
@@ -97,7 +97,7 @@ export const updateRiskStatus = (id, status) => api.put(`/risks/${id}/status`, {
 export const downloadRisksDoc = (planId) => api.get(`/risks/export-doc?plan_id=${planId}`, { responseType: 'blob' });
 
 // Assessments
-export const generateQuestions = (planId, assessmentType = 'final', dayLabel = null, stakeholderId = null) => 
+export const generateQuestions = (planId, assessmentType = 'final', dayLabel = null, stakeholderId = null) =>
   api.post('/assessments/generate-questions', { plan_id: planId, assessment_type: assessmentType, day_label: dayLabel, stakeholder_id: stakeholderId });
 export const submitAnswer = (data) => api.post('/assessments/submit', data);
 export const getResults = (planId, stakeholderId, limit) => {
@@ -130,7 +130,7 @@ export const viewReport = (id) => api.get(`/reports/view/${id}`);
 export const updateReportStatus = (id, status) => api.put(`/reports/${id}/status`, { status });
 
 // Chatbot
-export const askChatbot = (sessionId, question, userId, contextId, planId = null) => 
+export const askChatbot = (sessionId, question, userId, contextId, planId = null) =>
   api.post('/chat/ask', { session_id: sessionId, question, user_id: userId, context_id: contextId, ...(planId ? { plan_id: planId } : {}) });
 export const getChatHistory = (userId, contextId) => api.get(`/chat/history?user_id=${encodeURIComponent(userId)}&context_id=${encodeURIComponent(contextId)}`);
 
@@ -155,15 +155,15 @@ export const getLeadershipRiskSummary = () => api.get('/leadership/risk-summary'
 export const getLeadershipGiverSummary = () => api.get('/leadership/giver-summary');
 
 export const askChatbot2 = (sessionId, question, userId, contextId, planId = null) =>
-    api.post('/chatbot2/ask', {
-        session_id: sessionId,
-        question,
-        user_id: userId,
-        context_id: contextId,
-        ...(planId ? { plan_id: planId } : {})
-    });
+  api.post('/chatbot2/ask', {
+    session_id: sessionId,
+    question,
+    user_id: userId,
+    context_id: contextId,
+    ...(planId ? { plan_id: planId } : {})
+  });
 
 export const getChatHistory2 = (userId, contextId) =>
-    api.get(`/chatbot2/history?user_id=${encodeURIComponent(userId)}&context_id=${encodeURIComponent(contextId)}`);
+  api.get(`/chatbot2/history?user_id=${encodeURIComponent(userId)}&context_id=${encodeURIComponent(contextId)}`);
 
 export default api;
