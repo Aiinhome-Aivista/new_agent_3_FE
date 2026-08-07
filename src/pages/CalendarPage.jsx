@@ -24,7 +24,7 @@ const CalendarPage = () => {
       if (scrollTargetRef.current) {
         scrollTargetRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else if (timelineContainerRef.current) {
-        timelineContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        timelineContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
       }
     }, 100);
   }, [selectedPlan, meetings]);
@@ -211,17 +211,17 @@ const CalendarPage = () => {
 
     if (sortedDates.length === 0) {
       return (
-        <div className="py-8 text-center text-secondary-text text-sm">
+        <div className="py-8 text-center text-secondary-text text-sm bg-light-background rounded-xl border border-light-border w-full">
           No schedules found for this plan.
         </div>
       );
     }
 
     return (
-      <div className="">
+      <div className="bg-light-background rounded-xl shadow-sm border border-light-border p-5 w-full">
         <h3 className="font-semibold text-primary-text mb-4 text-sm">Plan Timeline</h3>
-        <div ref={timelineContainerRef} className="overflow-y-auto max-h-[400px] custom-scrollbar pr-2">
-          <div className="relative ml-2 space-y-6 pb-2">
+        <div ref={timelineContainerRef} className="overflow-x-auto pb-4 custom-scrollbar">
+          <div className="flex relative mt-4">
             {sortedDates.map((dateStr, index) => {
               const dateObj = new Date(dateStr);
               const todayStr = new Date().toISOString().split('T')[0];
@@ -233,43 +233,39 @@ const CalendarPage = () => {
               const isDateOverdue = isPastDate && !isDateCompleted;
 
               return (
-                <div key={dateStr} className="relative" ref={isUpcomingScrollTarget ? scrollTargetRef : null}>
-                  {/* Vertical line connecting to next item */}
+                <div key={dateStr} className="relative min-w-[280px] pr-8" ref={isUpcomingScrollTarget ? scrollTargetRef : null}>
+                  {/* Horizontal line connecting to next item */}
                   {index < sortedDates.length - 1 && (
-                    <div className={`absolute left-[7px] top-[20px] h-[calc(100%+8px)] w-0.5 ${isDateCompleted ? 'bg-green-500' : 'bg-input-background'}`}></div>
+                    <div className={`absolute top-[7px] left-[16px] w-[calc(100%+8px)] h-[2px] ${isDateCompleted ? 'bg-green-500' : 'bg-gray-200'}`}></div>
                   )}
                   {/* Date dot */}
-                  <div className={`absolute left-0 top-1 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-primary-orange ring-2 ring-input-background animate-pulse' : (isDateOverdue ? 'bg-red-500 ring-2 ring-red-200' : 'bg-gray-300'))}`}></div>
-                  <div className="ml-6">
-                    <h4 className={`text-xs font-bold mb-2 flex items-center gap-2 ${isToday ? 'text-primary-orange' : (isDateOverdue ? 'text-red-600' : 'text-primary-text')}`}>
+                  <div className={`absolute left-0 top-0 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-primary-orange ring-2 ring-orange-200 animate-pulse' : (isDateOverdue ? 'bg-red-500 ring-2 ring-red-200' : 'bg-gray-300'))}`}></div>
+                  <div className="mt-8 ml-0">
+                    <h4 className={`text-xs font-bold mb-3 flex items-center gap-2 ${isToday ? 'text-primary-orange' : (isDateOverdue ? 'text-red-600' : 'text-primary-text')}`}>
                       <span>{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
-                      {isToday && <span className="text-[9px] bg-input-background text-hover-orange px-1.5 py-0.5 rounded-full font-bold">Today</span>}
+                      {isToday && <span className="text-[9px] bg-input-background text-hover-orange px-1.5 py-0.5 rounded-full font-bold shadow-sm border border-orange-100">Today</span>}
                     </h4>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {dayItems.map((meeting, i) => {
                         const isCompleted = meeting.status?.toLowerCase() === 'completed';
                         const isOverdueItem = isPastDate && !isCompleted;
                         return (
-                          <div key={meeting.id} className={`bg-light-background border rounded-md p-2 hover:shadow-sm transition-shadow ${isCompleted ? 'border-l-4 border-l-green-500 border-y-gray-200 border-r-gray-200' : (isOverdueItem ? 'border-l-4 border-l-red-500 border-y-red-200 border-r-red-200 bg-red-50' : 'border-light-border')}`}>
-                            <div className="flex flex-col gap-1">
-                               <div className="flex justify-between items-start">
-                                 <div className="flex items-center gap-1.5">
-                                   <span className={`text-xs font-semibold ${isOverdueItem ? 'text-red-800' : 'text-primary-text'} leading-tight`}>
-                                     {meeting.dayLabel && <span className={`${isOverdueItem ? 'text-red-600' : 'text-primary-orange'} font-bold mr-1`}>{meeting.dayLabel} -</span>}
-                                     {meeting.title || 'KT Session'}
-                                   </span>
-                                 </div>
-                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ml-2 ${isCompleted ? 'bg-green-100 text-green-800 font-bold border border-green-200' : (isOverdueItem ? 'bg-red-100 text-red-800 font-bold border border-red-200' : 'bg-input-background text-primary-orange font-bold border border-primary-orange/20')}`}>
+                          <div key={meeting.id} className={`bg-white border rounded-md p-3 hover:shadow-sm transition-shadow ${isCompleted ? 'border-l-4 border-l-green-500 border-y-gray-200 border-r-gray-200' : (isOverdueItem ? 'border-l-4 border-l-red-500 border-y-red-200 border-r-red-200 bg-red-50' : 'border-light-border')}`}>
+                            <div className="flex flex-col gap-1.5">
+                               <div className="flex justify-between items-start gap-2">
+                                 <span className={`text-xs font-semibold ${isOverdueItem ? 'text-red-800' : 'text-primary-text'} leading-tight line-clamp-2`}>
+                                   {meeting.dayLabel && <span className={`${isOverdueItem ? 'text-red-600' : 'text-primary-orange'} font-bold mr-1`}>{meeting.dayLabel} -</span>}
+                                   {meeting.title || 'KT Session'}
+                                 </span>
+                                 <span className={`flex-shrink-0 text-[9px] px-1.5 py-0.5 rounded font-medium ${isCompleted ? 'bg-green-100 text-green-800 border border-green-200' : (isOverdueItem ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-input-background text-primary-orange border border-primary-orange/20')}`}>
                                    {isCompleted ? 'Completed' : (isOverdueItem ? 'Overdue' : 'Upcoming')}
                                  </span>
                                </div>
-                               <p className="text-[10px] text-secondary-text flex items-center flex-wrap gap-1 mt-0.5">
+                               <p className="text-[10px] text-secondary-text flex items-center flex-wrap gap-1 mt-1">
                                  <span>{new Date(meeting.scheduled_at).toLocaleTimeString([], {timeZone: 'UTC', hour: '2-digit', minute:'2-digit'})}</span>
-                                 {plansMap[meeting.plan_id] && <span className="mx-0.5">•</span>}
-                                 {plansMap[meeting.plan_id] && <span className="text-primary-orange truncate max-w-[120px]" title={plansMap[meeting.plan_id]}>{plansMap[meeting.plan_id]}</span>}
                                </p>
                                {meeting.meeting_link && (
-                                 <a href={meeting.meeting_link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary-orange hover:underline mt-0.5">
+                                 <a href={meeting.meeting_link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary-orange hover:underline mt-1 w-max font-medium">
                                    Join Meeting
                                  </a>
                                )}
@@ -313,6 +309,8 @@ const CalendarPage = () => {
           </CustomSelect>
         </div>
       </div>
+
+      {selectedPlan !== 'All' && renderTimeline()}
 
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Calendar Main Section */}
@@ -414,13 +412,6 @@ const CalendarPage = () => {
              )}
            </div>
           </div>
-
-          {/* Monthly Timeline Card */}
-          {selectedPlan !== 'All' && (
-            <div className="bg-light-background rounded-xl shadow-sm border border-light-border p-5">
-              {renderTimeline()}
-            </div>
-          )}
 
         </div>
       </div>
