@@ -386,7 +386,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
     </div>
   );
 };
-const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
+const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate, onViewProject, hideProjectDetailsBtn }) => {
   const { showToast } = useToast();
   const [topicToDelete, setTopicToDelete] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -518,11 +518,11 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
           </div>
         </div>
         <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
-          {plan.project_config && (
+          {!hideProjectDetailsBtn && plan.project_config && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                onViewProject(plan.project_config);
+                onViewProject && onViewProject(plan.project_config);
               }}
               className="inline-flex items-center px-3 py-1.5 border border-primary-orange text-xs font-medium rounded text-primary-orange bg-light-background hover:bg-orange-50"
             >
@@ -642,9 +642,25 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
             </div>
           ) : (
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-primary-text">Plan Topic</h4>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-sm font-semibold text-primary-text">Sessions / Topics Breakdown</h4>
+                {(plan.status === 'draft' || canApprove) && (
+                  <button
+                    onClick={handleResync}
+                    disabled={loadingTopics}
+                    className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-primary-orange border border-primary-orange rounded hover:bg-orange-50 disabled:opacity-50"
+                  >
+                    <RefreshCw size={14} className={`mr-1 ${loadingTopics ? 'animate-spin' : ''}`} /> 
+                    {loadingTopics ? 'Syncing...' : 'Resync Topics'}
+                  </button>
+                )}
+              </div>
               {loadingTopics ? (
-                <p className="text-xs text-secondary-text">Loading topics...</p>
+                <div className="flex flex-col items-center justify-center p-8 bg-gray-50 border border-gray-100 rounded-lg">
+                  <RefreshCw className="animate-spin text-primary-orange mb-3" size={32} />
+                  <p className="text-sm font-medium text-gray-600">Extracting and Syncing Topics...</p>
+                  <p className="text-xs text-gray-400 mt-1">This may take a moment while the AI analyzes your plan.</p>
+                </div>
               ) : topics.length === 0 ? (
                 <p className="text-xs text-secondary-text italic">No topics stored yet. Click "Re-sync from Plan" or add a topic below.</p>
               ) : (
@@ -794,8 +810,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   );
 };
 
-
-const ProjectDetailsModal = ({ projectData, onClose, onGeneratePlan, canGenerate }) => {
+const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate, onViewPlan, stakeholders, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, handleAssignManager, handlePlanUpdate, allPlans }) => {
   if (!projectData) return null;
 
   const renderConfigOptions = (options, inputs) => {
@@ -833,25 +848,23 @@ const ProjectDetailsModal = ({ projectData, onClose, onGeneratePlan, canGenerate
   };
 
   return (
-    <div className="fixed inset-0 z-[300] overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
-        <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={onClose}>
-          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+    <div className="space-y-6 mt-6">
+      <button 
+        onClick={onClose}
+        className="flex items-center text-sm font-medium text-secondary-text hover:text-primary-orange transition-colors"
+      >
+        <ChevronLeft size={16} className="mr-1" /> Back to Projects
+      </button>
+
+      <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-5 border-b border-light-border bg-gray-50 flex items-center">
+          <List className="mr-3 text-primary-orange" size={24} />
+          <h3 className="text-xl font-bold text-primary-text">
+            Project Details: {projectData.name}
+          </h3>
         </div>
-        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div className="inline-block align-bottom bg-light-background rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full" role="dialog" aria-modal="true">
-          <div className="bg-light-background px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-light-border">
-            <div className="sm:flex sm:items-start justify-between">
-              <h3 className="text-xl leading-6 font-bold text-primary-text flex items-center">
-                <List className="mr-2 text-primary-orange" size={24} />
-                Project Details: {projectData.name}
-              </h3>
-              <button onClick={onClose} className="text-secondary-text hover:text-gray-800 transition-colors">
-                <X size={24} />
-              </button>
-            </div>
-          </div>
-          <div className="px-6 py-4 max-h-[60vh] overflow-y-auto bg-gray-50/50">
+        <div className="p-6">
+          <div className="space-y-8">
             {projectData.config?.tracks?.map((track) => (
               <div key={track.id} className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-light-border">
                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
@@ -873,7 +886,7 @@ const ProjectDetailsModal = ({ projectData, onClose, onGeneratePlan, canGenerate
                 </div>
                 
                 {track.options && Object.keys(track.options).length > 0 && (
-                  <div className="mb-4 bg-gray-50 p-3 rounded border border-gray-100">
+                  <div className="mb-4 bg-gray-50 p-3 rounded border border-light-border">
                     <h5 className="text-sm font-semibold text-gray-700 mb-2">Track Configuration:</h5>
                     {renderConfigOptions(track.options, track.inputs)}
                   </div>
@@ -915,32 +928,36 @@ const ProjectDetailsModal = ({ projectData, onClose, onGeneratePlan, canGenerate
               </div>
             ))}
             
-            <div className="mt-8">
-              <h4 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-200">Generated Plans</h4>
+            <div className="mt-8 border-t border-gray-200 pt-6">
+              <h4 className="text-xl font-bold text-gray-800 mb-6">Generated Plans</h4>
               {projectData.plans && projectData.plans.length > 0 ? (
-                <div className="space-y-3">
-                  {projectData.plans.map(p => (
-                    <div key={p.id} className="bg-white p-3 rounded border border-gray-200 flex justify-between items-center shadow-sm">
-                      <span className="font-medium text-gray-800">{p.application_name}</span>
-                      <span className={`text-xs px-2 py-1 rounded font-semibold ${p.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                        {p.status.toUpperCase()}
-                      </span>
-                    </div>
-                  ))}
+                <div className="space-y-4">
+                  {projectData.plans.map(p => {
+                     // Find full plan if available, else pass partial plan
+                     const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
+                     return (
+                       <PlanCard 
+                         key={p.id}
+                         plan={fullPlan || p}
+                         canApprove={canApprove}
+                         handleApproveClick={handleApproveClick}
+                         handleCloseClick={handleCloseClick}
+                         parseMarkdown={parseMarkdown}
+                         stakeholders={stakeholders}
+                         onAssignManager={handleAssignManager}
+                         onPlanUpdate={handlePlanUpdate}
+                         hideProjectDetailsBtn={true}
+                       />
+                     );
+                  })}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 italic">No plans generated yet for this project.</p>
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                  <p className="text-gray-500 italic mb-2">No plans generated yet for this project.</p>
+                  <p className="text-sm text-gray-400">Click 'Add Plan +' on any track or module to get started.</p>
+                </div>
               )}
             </div>
-          </div>
-          <div className="bg-light-background px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-light-border">
-            <button
-              type="button"
-              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-orange text-base font-medium text-white hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-orange sm:ml-3 sm:w-auto sm:text-sm"
-              onClick={onClose}
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>
@@ -966,6 +983,7 @@ const PlanPage = () => {
   const [showGenerateForms, setShowGenerateForms] = useState(false);
   
   const [projectToView, setProjectToView] = useState(null);
+  const [planToView, setPlanToView] = useState(null);
 
   const [projectConfig, setProjectConfig] = useState(null);
   const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
@@ -1023,6 +1041,24 @@ const PlanPage = () => {
     setShowGenerateForms(true);
   };
   
+  const handleViewPlan = async (partialPlan) => {
+    let fullPlan = plans.find(p => p.id === partialPlan.id);
+    if (!fullPlan) {
+      try {
+        const { getPlan } = await import('../api/api');
+        const res = await getPlan(partialPlan.id);
+        if (res.data?.success) {
+           fullPlan = res.data.data;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (fullPlan) {
+      setPlanToView(fullPlan);
+    }
+  };
+
   const { docFormData, selectedFiles, analyzingDoc, isDocExtracted } = docExtractionState || {
     docFormData: { application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' },
     selectedFiles: [], analyzingDoc: false, isDocExtracted: false
@@ -1273,7 +1309,42 @@ const PlanPage = () => {
         )}
       </div>
 
-      {isAddingProject ? (
+      {planToView ? (
+        <div className="space-y-4 mt-6">
+          <button 
+            onClick={() => setPlanToView(null)}
+            className="flex items-center text-sm font-medium text-secondary-text hover:text-primary-orange transition-colors"
+          >
+            <ChevronLeft size={16} className="mr-1" /> Back to Projects
+          </button>
+          <PlanCard 
+            plan={planToView} 
+            canApprove={canApprove} 
+            handleApproveClick={() => setPlanToApprove(planToView)} 
+            handleCloseClick={() => setPlanToClose(planToView)} 
+            parseMarkdown={parseMarkdown} 
+            stakeholders={stakeholders} 
+            onAssignManager={handleAssignManager} 
+            onPlanUpdate={handlePlanUpdate} 
+          />
+        </div>
+      ) : projectToView ? (
+        <ProjectDetailsView 
+          projectData={projectToView} 
+          onClose={() => setProjectToView(null)} 
+          onGeneratePlan={handleGeneratePlan}
+          canGenerate={canGenerate}
+          onViewPlan={handleViewPlan}
+          stakeholders={stakeholders}
+          canApprove={canApprove}
+          handleApproveClick={() => setPlanToApprove(planToView)}
+          handleCloseClick={() => setPlanToClose(planToView)}
+          parseMarkdown={parseMarkdown}
+          handleAssignManager={handleAssignManager}
+          handlePlanUpdate={handlePlanUpdate}
+          allPlans={plans}
+        />
+      ) : isAddingProject ? (
         <AddProjectForm onCancel={() => setIsAddingProject(false)} onSave={handleSaveNewProject} onGeneratePlan={handleGeneratePlan} initialData={projectConfig} />
       ) : (
         <>
@@ -1597,14 +1668,6 @@ const PlanPage = () => {
             </div>
           </div>
         </div>
-      )}
-      {projectToView && (
-        <ProjectDetailsModal 
-          projectData={projectToView} 
-          onClose={() => setProjectToView(null)} 
-          onGeneratePlan={handleGeneratePlan}
-          canGenerate={canGenerate}
-        />
       )}
       
       {showSaveProjectModal && (
