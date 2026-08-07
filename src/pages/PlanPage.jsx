@@ -1,8 +1,9 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic } from '../api/api';
+import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
+import { getProjects, createProject, getProjectById } from '../api/projects';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
@@ -79,6 +80,17 @@ const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, han
     </div>
   );
 };
+
+const ProjectCard = ({ project, onClick }) => (
+  <div 
+    onClick={onClick}
+    className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-primary-orange transition-all cursor-pointer flex flex-col justify-center items-center h-40 p-6 relative group"
+  >
+    <FolderOpen size={32} className="text-gray-400 group-hover:text-primary-orange mb-3 transition-colors" />
+    <h3 className="text-lg font-bold text-gray-800 text-center">{project.name}</h3>
+    <p className="text-xs text-gray-500 mt-2">{project.plan_count || 0} Plans</p>
+  </div>
+);
 
 const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
   const [projectName, setProjectName] = useState(initialData?.name || '');
@@ -263,10 +275,13 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
                     >
                       Configuration {track.showConfig ? '-' : '+'}
                     </button>
-                    <button 
-                      type="button" 
-                      onClick={() => onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: null })} 
-                      className="px-3 py-1.5 text-xs border border-primary-orange bg-button-orange text-white rounded hover:bg-hover-orange font-medium ml-2"
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!projectName) { alert("Please enter a Project Name first."); return; }
+                        onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: null });
+                      }}
+                      className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
                     >
                       Add Plan +
                     </button>
@@ -293,10 +308,13 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
                         >
                           Configuration {mod.showConfig ? '-' : '+'}
                         </button>
-                        <button 
-                          type="button" 
-                          onClick={() => onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: mod })} 
-                          className="px-3 py-1.5 text-xs border border-primary-orange bg-button-orange text-white rounded hover:bg-hover-orange font-medium ml-2"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!projectName) { alert("Please enter a Project Name first."); return; }
+                            onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: mod });
+                          }}
+                          className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange ml-2"
                         >
                           Add Plan +
                         </button>
@@ -380,37 +398,40 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   const [topics, setTopics] = useState([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
   const [showTopicsView, setShowTopicsView] = useState(false);
-  const [newDayLabel, setNewDayLabel] = useState('Day 1');
+  const [newDayLabel, setNewDayLabel] = useState('');
   const [newTopicName, setNewTopicName] = useState('');
-  const [newDuration, setNewDuration] = useState('1 hour');
-
-  useEffect(() => {
-    setEditedContent(plan.generated_content || '');
-  }, [plan.generated_content]);
+  const [newDuration, setNewDuration] = useState('');
 
   const fetchTopics = async () => {
     setLoadingTopics(true);
     try {
       const res = await getPlanTopicOptions(plan.id);
-      setTopics(res.data.data || []);
+      if (res.data && res.data.success) {
+        setTopics(res.data.data);
+      }
     } catch (err) {
-      console.error("Error fetching topics:", err);
+      console.error(err);
     } finally {
       setLoadingTopics(false);
     }
   };
 
   useEffect(() => {
-    if (expanded) {
+    if (expanded && showTopicsView) {
       fetchTopics();
     }
-  }, [expanded, plan.id]);
+  }, [expanded, showTopicsView]);
 
   const handleEditClick = (e) => {
     e.stopPropagation();
-    setEditedContent(plan.generated_content || '');
     setIsEditing(true);
-    setExpanded(true);
+    setEditedContent(plan.generated_content);
+  };
+
+  const handleCancelClick = (e) => {
+    e.stopPropagation();
+    setIsEditing(false);
+    setEditedContent('');
   };
 
   const handleSaveClick = async (e) => {
@@ -419,7 +440,10 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     try {
       await onPlanUpdate(plan.id, editedContent);
       setIsEditing(false);
-      await fetchTopics();
+      
+      if (showTopicsView) {
+         fetchTopics();
+      }
       showToast('Plan updated successfully', 'success');
     } catch (err) {
       showToast('Error updating plan: ' + err.message, 'error');
@@ -428,22 +452,19 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     }
   };
 
-  const handleCancelClick = (e) => {
-    e.stopPropagation();
-    setEditedContent(plan.generated_content || '');
-    setIsEditing(false);
-  };
-
   const handleAddTopic = async (e) => {
     e.preventDefault();
     if (!newTopicName.trim()) return;
+    
     try {
       await addPlanTopic(plan.id, {
-        day_label: newDayLabel,
-        topic_name: newTopicName,
-        estimated_duration_hours: newDuration
+        day_label: newDayLabel.trim(),
+        topic_name: newTopicName.trim(),
+        estimated_duration_hours: newDuration.trim()
       });
+      setNewDayLabel('');
       setNewTopicName('');
+      setNewDuration('');
       await fetchTopics();
       showToast('Topic added successfully', 'success');
     } catch (err) {
@@ -480,8 +501,6 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
       setLoadingTopics(false);
     }
   };
-
-  const manager = stakeholders.find(s => s.id == plan.created_by);
   
   return (
     <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -499,6 +518,17 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
           </div>
         </div>
         <div className="flex items-center space-x-3" onClick={(e) => e.stopPropagation()}>
+          {plan.project_config && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewProject(plan.project_config);
+              }}
+              className="inline-flex items-center px-3 py-1.5 border border-primary-orange text-xs font-medium rounded text-primary-orange bg-light-background hover:bg-orange-50"
+            >
+              <List size={16} className="mr-1" /> Project Details
+            </button>
+          )}
           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.status === 'closed' ? 'bg-red-100 text-red-800 border border-red-200' : plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
             {plan.status.toUpperCase()}
           </span>
@@ -765,9 +795,164 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
 };
 
 
+const ProjectDetailsModal = ({ projectData, onClose, onGeneratePlan, canGenerate }) => {
+  if (!projectData) return null;
+
+  const renderConfigOptions = (options, inputs) => {
+    if (!options || Object.keys(options).length === 0) return null;
+    
+    // helper to find label from checkboxConfig
+    const getLabel = (id) => {
+      let found = null;
+      const search = (nodes) => {
+        for (const n of nodes) {
+          if (n.id === id) found = n;
+          if (n.subItems) search(n.subItems);
+        }
+      };
+      search(checkboxConfig);
+      return found;
+    };
+
+    return (
+      <ul className="list-disc ml-5 text-sm space-y-1 text-secondary-text">
+        {Object.keys(options).filter(k => options[k]).map(key => {
+          const opt = getLabel(key);
+          if (!opt) return null;
+          return (
+            <li key={key}>
+              <span className="font-medium text-gray-800">{opt.label}</span>
+              {opt.hasInput && inputs && inputs[key] && (
+                <span className="ml-2 text-primary-orange">({inputs[key]})</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={onClose}>
+          <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+        </div>
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div className="inline-block align-bottom bg-light-background rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full" role="dialog" aria-modal="true">
+          <div className="bg-light-background px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-light-border">
+            <div className="sm:flex sm:items-start justify-between">
+              <h3 className="text-xl leading-6 font-bold text-primary-text flex items-center">
+                <List className="mr-2 text-primary-orange" size={24} />
+                Project Details: {projectData.name}
+              </h3>
+              <button onClick={onClose} className="text-secondary-text hover:text-gray-800 transition-colors">
+                <X size={24} />
+              </button>
+            </div>
+          </div>
+          <div className="px-6 py-4 max-h-[60vh] overflow-y-auto bg-gray-50/50">
+            {projectData.config?.tracks?.map((track) => (
+              <div key={track.id} className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-light-border">
+                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                  <h4 className="text-lg font-bold text-gray-800 flex items-center">
+                    <span className="bg-primary-orange/10 text-primary-orange px-2 py-0.5 rounded text-sm mr-2 border border-primary-orange/20">Track</span>
+                    {track.name}
+                  </h4>
+                  {canGenerate && (
+                    <button
+                      onClick={() => {
+                        onClose();
+                        onGeneratePlan({ projectData, projectName: projectData.name, track, module: null });
+                      }}
+                      className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
+                    >
+                      Add Plan +
+                    </button>
+                  )}
+                </div>
+                
+                {track.options && Object.keys(track.options).length > 0 && (
+                  <div className="mb-4 bg-gray-50 p-3 rounded border border-gray-100">
+                    <h5 className="text-sm font-semibold text-gray-700 mb-2">Track Configuration:</h5>
+                    {renderConfigOptions(track.options, track.inputs)}
+                  </div>
+                )}
+                
+                {track.modules?.length > 0 && (
+                  <div className="ml-4 space-y-4 border-l-2 border-orange-200 pl-4">
+                    {track.modules.map(mod => (
+                      <div key={mod.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100 shadow-sm">
+                        <div className="flex justify-between items-center mb-2">
+                          <h5 className="font-semibold text-gray-800 flex items-center">
+                            <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-xs mr-2 border border-orange-200">Module</span>
+                            {mod.name}
+                          </h5>
+                          {canGenerate && (
+                            <button
+                              onClick={() => {
+                                onClose();
+                                onGeneratePlan({ projectData, projectName: projectData.name, track, module: mod });
+                              }}
+                              className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
+                            >
+                              Add Plan +
+                            </button>
+                          )}
+                        </div>
+                        {mod.options && Object.keys(mod.options).length > 0 ? (
+                          <div className="mt-2">
+                             <h6 className="text-xs font-semibold text-gray-500 mb-1">Module Configuration:</h6>
+                             {renderConfigOptions(mod.options, mod.inputs)}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400 italic">No configuration selected.</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+            
+            <div className="mt-8">
+              <h4 className="text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-200">Generated Plans</h4>
+              {projectData.plans && projectData.plans.length > 0 ? (
+                <div className="space-y-3">
+                  {projectData.plans.map(p => (
+                    <div key={p.id} className="bg-white p-3 rounded border border-gray-200 flex justify-between items-center shadow-sm">
+                      <span className="font-medium text-gray-800">{p.application_name}</span>
+                      <span className={`text-xs px-2 py-1 rounded font-semibold ${p.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                        {p.status.toUpperCase()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500 italic">No plans generated yet for this project.</p>
+              )}
+            </div>
+          </div>
+          <div className="bg-light-background px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-light-border">
+            <button
+              type="button"
+              className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-orange text-base font-medium text-white hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-orange sm:ml-3 sm:w-auto sm:text-sm"
+              onClick={onClose}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 const PlanPage = () => {
   const { user } = useAuth();
   const [plans, setPlans] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [planToApprove, setPlanToApprove] = useState(null);
   const [planToClose, setPlanToClose] = useState(null);
@@ -779,35 +964,45 @@ const PlanPage = () => {
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
   const [isAddingProject, setIsAddingProject] = useState(false);
   const [showGenerateForms, setShowGenerateForms] = useState(false);
+  
+  const [projectToView, setProjectToView] = useState(null);
 
   const [projectConfig, setProjectConfig] = useState(null);
+  const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
+  const [pendingPlanId, setPendingPlanId] = useState(null);
   const { showToast } = useToast();
 
-  const handleSaveNewProject = (projectData) => {
-    setProjectConfig(projectData);
-    setFormData(prev => ({ ...prev, application_name: projectData.name }));
-    setIsAddingProject(false);
-    showToast("Project Configuration Saved Successfully!", "success");
+  const handleSaveNewProject = async (projectData) => {
+    try {
+      const res = await createProject(projectData);
+      if (res.data && res.data.success) {
+        showToast("Project Configuration Saved Successfully!", "success");
+        setIsAddingProject(false);
+        fetchProjects();
+      }
+    } catch (err) {
+      alert("Error saving project configuration");
+    }
   };
 
-  const getSelectedConfigText = (options, inputs) => {
-    let text = [];
-    const traverse = (items) => {
-      items.forEach(item => {
-        if (options[item.id]) {
-          let line = `- ${item.label}`;
-          if (item.hasInput && inputs[item.id]) {
-            line += `: ${inputs[item.id]}`;
-          }
-          text.push(line);
-          if (item.subItems) {
-            traverse(item.subItems);
-          }
+  const handleSaveProjectAfterPlan = async () => {
+    try {
+      const res = await createProject(projectConfig);
+      if (res.data && res.data.success) {
+        const newProjectId = res.data.data.id;
+        if (pendingPlanId) {
+          await linkPlanToProject(pendingPlanId, newProjectId);
         }
-      });
-    };
-    traverse(checkboxConfig);
-    return text.join('\n');
+        showToast("Project and Plan Linked Successfully!", "success");
+        setShowSaveProjectModal(false);
+        setProjectConfig(null);
+        setPendingPlanId(null);
+        fetchProjects();
+        fetchPlans();
+      }
+    } catch (err) {
+      alert("Error saving project: " + err.message);
+    }
   };
 
   const handleGeneratePlan = ({ projectData, projectName, track, module }) => {
@@ -817,17 +1012,11 @@ const PlanPage = () => {
       ? `${projectName} - ${track.name} - ${module.name}`
       : `${projectName} - ${track.name}`;
 
-    const activeNode = module || track;
-    const configText = getSelectedConfigText(activeNode.options || {}, activeNode.inputs || {});
-    
-    let scopeDesc = `Project Name: ${projectName}\nTrack: ${track.name}`;
-    if (module) scopeDesc += `\nModule: ${module.name}`;
-    if (configText) scopeDesc += `\n\nConfiguration Requirements:\n${configText}`;
-
     setDocFormData(prev => ({ 
       ...prev, 
       application_name: contextName,
-      scope_description: scopeDesc
+      project_config: projectData,
+      project_id: projectData.id
     }));
 
     setIsAddingProject(false);
@@ -848,6 +1037,17 @@ const PlanPage = () => {
 
   const [stakeholders, setStakeholders] = useState([]);
 
+  const fetchProjects = async () => {
+    try {
+      const res = await getProjects();
+      setProjects(res.data.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchPlans = async () => {
     try {
       const res = await getPlans();
@@ -859,8 +1059,6 @@ const PlanPage = () => {
       setPlans(sortedPlans);
     } catch (err) {
       console.error(err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -875,6 +1073,7 @@ const PlanPage = () => {
   };
 
   useEffect(() => {
+    fetchProjects();
     fetchPlans();
     fetchStakeholders();
   }, []);
@@ -892,9 +1091,13 @@ const PlanPage = () => {
     e.preventDefault();
     startOperation('create-plan');
     try {
-      await generatePlan(formData);
+      const res = await generatePlan(formData);
       setFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
       fetchPlans();
+      if (projectConfig && !projectConfig.id && res.data?.data?.id) {
+        setPendingPlanId(res.data.data.id);
+        setShowSaveProjectModal(true);
+      }
     } catch (err) {
       alert('Error generating plan');
     } finally {
@@ -917,7 +1120,7 @@ const PlanPage = () => {
       if (res.data?.success && res.data?.data) {
         setDocFormData(prev => ({
           ...prev,
-          application_name: res.data.data.application_name || '',
+          application_name: prev.application_name ? prev.application_name : (res.data.data.application_name || ''),
           scope_description: res.data.data.scope_description || ''
         }));
         setIsDocExtracted(true);
@@ -965,11 +1168,15 @@ const PlanPage = () => {
     }
     startOperation('create-plan-doc');
     try {
-      await generatePlan(docFormData);
+      const res = await generatePlan(docFormData);
       setDocFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
       setSelectedFiles([]);
       setIsDocExtracted(false);
       fetchPlans();
+      if (projectConfig && !projectConfig.id && res.data?.data?.id) {
+        setPendingPlanId(res.data.data.id);
+        setShowSaveProjectModal(true);
+      }
     } catch (err) {
       alert('Error generating plan from document: ' + (err.response?.data?.message || err.message));
     } finally {
@@ -1038,16 +1245,16 @@ const PlanPage = () => {
     return { __html: html };
   };
 
-  const itemsPerPage = 5;
-  const indexOfLastPlan = currentPage * itemsPerPage;
-  const indexOfFirstPlan = indexOfLastPlan - itemsPerPage;
-  const currentPlans = plans.slice(indexOfFirstPlan, indexOfLastPlan);
-  const totalPages = Math.ceil(plans.length / itemsPerPage);
+  const itemsPerPage = 9;
+  const indexOfLastProject = currentPage * itemsPerPage;
+  const indexOfFirstProject = indexOfLastProject - itemsPerPage;
+  const currentProjects = projects.slice(indexOfFirstProject, indexOfLastProject);
+  const totalPages = Math.ceil(projects.length / itemsPerPage);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-primary-text">Projects</h2>
+        <h2 className="text-2xl font-bold text-primary-text">Projects {/* Force reload */}</h2>
         {!isAddingProject && canGenerate && !showGenerateForms && (
           <button 
             onClick={() => { setIsAddingProject(true); setProjectConfig(null); }}
@@ -1262,22 +1469,25 @@ const PlanPage = () => {
         </div>
       )}
 
-      {showGenerateForms && (
+      {!isAddingProject && !showGenerateForms && (
         <div className="space-y-6">
-          {currentPlans.map((plan) => (
-            <PlanCard 
-              key={plan.id} 
-              plan={plan} 
-              canApprove={canApprove && String(plan.created_by) === String(user?.id)} 
-              handleApproveClick={setPlanToApprove} 
-              handleCloseClick={setPlanToClose}
-              parseMarkdown={parseMarkdown}
-              stakeholders={stakeholders}
-              onAssignManager={handleAssignManager}
-              onPlanUpdate={handlePlanUpdate}
-            />
-          ))}
-          {plans.length === 0 && <p className="text-secondary-text text-center py-8">No plans generated yet.</p>}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {currentProjects.map((project) => (
+              <ProjectCard 
+                key={project.id} 
+                project={project}
+                onClick={async () => {
+                  try {
+                    const res = await getProjectById(project.id);
+                    setProjectToView(res.data.data);
+                  } catch (err) {
+                    console.error("Error fetching project details");
+                  }
+                }}
+              />
+            ))}
+          </div>
+          {projects.length === 0 && <p className="text-secondary-text text-center py-8">No projects created yet.</p>}
           
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-light-border bg-light-background px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
@@ -1300,8 +1510,8 @@ const PlanPage = () => {
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm text-gray-700">
-                    Showing <span className="font-medium">{indexOfFirstPlan + 1}</span> to <span className="font-medium">{Math.min(indexOfLastPlan, plans.length)}</span> of{' '}
-                    <span className="font-medium">{plans.length}</span> results
+                    Showing <span className="font-medium">{indexOfFirstProject + 1}</span> to <span className="font-medium">{Math.min(indexOfLastProject, projects.length)}</span> of{' '}
+                    <span className="font-medium">{projects.length}</span> projects
                   </p>
                 </div>
                 <div>
@@ -1383,6 +1593,40 @@ const PlanPage = () => {
                 className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
               >
                 Yes, Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {projectToView && (
+        <ProjectDetailsModal 
+          projectData={projectToView} 
+          onClose={() => setProjectToView(null)} 
+          onGeneratePlan={handleGeneratePlan}
+          canGenerate={canGenerate}
+        />
+      )}
+      
+      {showSaveProjectModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-light-background rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-primary-text mb-2">Plan Generated Successfully!</h3>
+            <p className="text-secondary-text mb-6">Would you like to save this project configuration now so you can generate more plans for it later?</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowSaveProjectModal(false);
+                  setPendingPlanId(null);
+                }}
+                className="px-4 py-2 border border-light-border rounded-md text-sm font-medium text-gray-700 hover:bg-light-background focus:outline-none"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleSaveProjectAfterPlan}
+                className="px-4 py-2 bg-primary-orange text-white rounded-md text-sm font-medium hover:bg-hover-orange focus:outline-none"
+              >
+                Save Project
               </button>
             </div>
           </div>

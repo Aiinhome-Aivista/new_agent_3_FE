@@ -56,6 +56,7 @@ export const getPlans = (params) => {
 };
 export const approvePlan = (id) => api.put(`/plans/${id}/approve`);
 export const closePlan = (id) => api.put(`/plans/${id}/close`);
+export const linkPlanToProject = (planId, projectId) => api.put(`/plans/${planId}/link-project`, { project_id: projectId });
 export const editPlan = (id, data) => api.put(`/plans/${id}/edit`, data);
 export const getPlanTopicOptions = (planId) => api.get(`/plans/${planId}/topics`);
 export const resyncPlanTopics = (planId) => api.post(`/plans/${planId}/topics/resync`);
