@@ -50,7 +50,11 @@ const LoginPage = () => {
     setLoading(false);
 
     if (result.success) {
-      navigate('/dashboard');
+      if (result.role === 'Delivery / Engagement Manager' || result.role?.toLowerCase().includes('manager')) {
+        navigate('/plans');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setApiError(result.message);
     }
