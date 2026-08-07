@@ -230,7 +230,7 @@ const Dashboard = () => {
             <FileText size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-secondary-text">Total KT Plans</p>
+            <p className="text-sm font-medium text-secondary-text">Total Projects</p>
             <h3 className="text-2xl font-bold text-primary-text">{stats.plans}</h3>
           </div>
         </div>

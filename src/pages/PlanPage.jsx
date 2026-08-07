@@ -7,6 +7,367 @@ import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
 
+const checkboxConfig = [
+  { 
+    id: 'ka', 
+    label: 'Knowledge Acquisition',
+    subItems: [
+      { 
+        id: 'rkt', 
+        label: 'Reverse KT',
+        subItems: [
+          { id: 'upload_sud', label: 'By uploading SUD' }
+        ]
+      },
+      { id: 'sud_mandatory', label: 'SUD Mandatory' },
+      { id: 'assessment', label: 'Assessment' }
+    ]
+  },
+  { 
+    id: 'shadow_resourcing', 
+    label: 'Shadow Resourcing', 
+    subItems: [
+      { id: 'ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' },
+      { id: 'weeks_shadow', label: 'Required weeks for shadow resourcing', hasInput: true, inputLabel: 'e.g. 4' },
+    ]
+  },
+  { id: 'lead_resourcing', label: 'Lead Resourcing' },
+];
+
+const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, handleInputChange, level = 0 }) => {
+  const nodeId = moduleId ? `${trackId}-${moduleId}` : trackId;
+  return (
+    <div className={`flex flex-col space-y-2 ${level > 0 ? 'mt-2 border-l-2 border-gray-200 ml-2 py-1 pl-5' : ''}`}>
+      <div className="flex items-center space-x-3">
+        <input
+          type="checkbox"
+          id={`chk-${nodeId}-${item.id}`}
+          checked={node.options[item.id] || false}
+          onChange={() => handleCheckboxChange(trackId, item.id, moduleId)}
+          className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange"
+        />
+        <label htmlFor={`chk-${nodeId}-${item.id}`} className={`text-sm cursor-pointer ${level > 0 ? 'text-secondary-text' : 'text-primary-text'}`}>
+          {item.label}
+        </label>
+        {item.hasInput && node.options[item.id] && (
+          <input
+            type="text"
+            className={`w-16 px-2 py-1 text-xs border border-light-border rounded ml-2`}
+            placeholder={item.inputLabel || ''}
+            value={node.inputs[item.id] || ''}
+            onChange={(e) => handleInputChange(trackId, item.id, e.target.value, moduleId)}
+          />
+        )}
+      </div>
+      
+      {item.subItems && node.options[item.id] && (
+        <div className="space-y-3">
+          {item.subItems.map((sub) => (
+            <CheckboxNode 
+              key={sub.id} 
+              item={sub} 
+              node={node} 
+              trackId={trackId}
+              moduleId={moduleId}
+              handleCheckboxChange={handleCheckboxChange} 
+              handleInputChange={handleInputChange} 
+              level={level + 1} 
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
+  const [projectName, setProjectName] = useState(initialData?.name || '');
+  const [tracks, setTracks] = useState(initialData?.tracks || []);
+
+  const handleAddTrack = () => {
+    setTracks([...tracks, { 
+      id: Date.now(), 
+      name: `Track ${tracks.length + 1}`, 
+      modules: [],
+      options: {},
+      inputs: {},
+      showConfig: false
+    }]);
+  };
+
+  const handleTrackNameChange = (trackId, val) => {
+    setTracks(tracks.map(t => t.id === trackId ? { ...t, name: val } : t));
+  };
+
+  const handleAddModule = (trackId) => {
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        return { 
+          ...t, 
+          modules: [...t.modules, { 
+            id: Date.now(), 
+            name: '', 
+            options: {}, 
+            inputs: {}, 
+            showConfig: false 
+          }] 
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleRemoveTrack = (trackId) => {
+    setTracks(tracks.filter(t => t.id !== trackId));
+  };
+
+  const handleRemoveModule = (trackId, moduleId) => {
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        return { ...t, modules: t.modules.filter(m => m.id !== moduleId) };
+      }
+      return t;
+    }));
+  };
+
+  const handleModuleChange = (trackId, moduleId, val) => {
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        return { ...t, modules: t.modules.map(m => m.id === moduleId ? { ...m, name: val } : m) };
+      }
+      return t;
+    }));
+  };
+
+  const toggleConfig = (trackId, moduleId = null) => {
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        if (moduleId) {
+          return { ...t, modules: t.modules.map(m => m.id === moduleId ? { ...m, showConfig: !m.showConfig } : m) };
+        }
+        return { ...t, showConfig: !t.showConfig };
+      }
+      return t;
+    }));
+  };
+
+  const handleCheckboxChange = (trackId, optionId, moduleId = null) => {
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        if (moduleId) {
+          return {
+            ...t,
+            modules: t.modules.map(m => {
+              if (m.id === moduleId) {
+                const newOptions = { ...m.options, [optionId]: !m.options[optionId] };
+                if (optionId === 'upload_sud' && newOptions['upload_sud']) {
+                  newOptions['sud_mandatory'] = true;
+                }
+                return { ...m, options: newOptions };
+              }
+              return m;
+            })
+          };
+        }
+        const newOptions = { ...t.options, [optionId]: !t.options[optionId] };
+        if (optionId === 'upload_sud' && newOptions['upload_sud']) {
+          newOptions['sud_mandatory'] = true;
+        }
+        return { ...t, options: newOptions };
+      }
+      return t;
+    }));
+  };
+
+  const handleInputChange = (trackId, optionId, val, moduleId = null) => {
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        if (moduleId) {
+          return {
+            ...t,
+            modules: t.modules.map(m => {
+              if (m.id === moduleId) {
+                return { ...m, inputs: { ...m.inputs, [optionId]: val } };
+              }
+              return m;
+            })
+          };
+        }
+        return { ...t, inputs: { ...t.inputs, [optionId]: val } };
+      }
+      return t;
+    }));
+  };
+
+  return (
+    <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
+      <div className="flex justify-between items-center pb-4 border-b border-light-border">
+        <h3 className="text-xl font-bold text-primary-text">Add New Project</h3>
+        <button type="button" onClick={onCancel} className="text-secondary-text hover:text-red-500">
+          <X size={20} />
+        </button>
+      </div>
+      
+      <div className="space-y-6">
+        <div>
+          <label className="block text-sm font-semibold text-primary-text mb-1">Project Name</label>
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              className="w-full lg:w-1/2 px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-primary-orange focus:border-primary-orange text-sm"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+            />
+            <button 
+              type="button"
+              onClick={handleAddTrack}
+              className="px-3 py-2 bg-input-background border border-light-border text-primary-text text-sm rounded-md font-medium hover:bg-gray-100 whitespace-nowrap"
+            >
+              Track +
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {tracks.map((track) => (
+            <div key={track.id} className="p-4 border border-light-border rounded-lg shadow-sm space-y-4 relative">
+              <button 
+                type="button" 
+                onClick={() => handleRemoveTrack(track.id)}
+                className="absolute top-2 right-2 text-secondary-text hover:text-red-500 p-1"
+                title="Remove Track"
+              >
+                <X size={16} />
+              </button>
+              <div className="flex flex-wrap items-center gap-2 pr-6">
+                <input
+                  type="text"
+                  className="px-3 py-1.5 border border-light-border rounded-md text-sm font-medium w-full sm:w-auto min-w-[200px]"
+                  value={track.name}
+                  onChange={(e) => handleTrackNameChange(track.id, e.target.value)}
+                  placeholder="Track Name"
+                />
+                <button 
+                  type="button" 
+                  onClick={() => handleAddModule(track.id)} 
+                  className="px-3 py-1.5 text-xs border border-light-border bg-input-background rounded hover:bg-gray-100 font-medium"
+                >
+                  Module +
+                </button>
+                {track.modules.length === 0 && (
+                  <>
+                    <button 
+                      type="button" 
+                      onClick={() => toggleConfig(track.id)} 
+                      className={`px-3 py-1.5 text-xs border rounded font-medium transition-colors ${track.showConfig ? 'bg-primary-orange border-primary-orange text-white' : 'border-light-border bg-input-background hover:bg-gray-100 text-primary-text'}`}
+                    >
+                      Configuration {track.showConfig ? '-' : '+'}
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: null })} 
+                      className="px-3 py-1.5 text-xs border border-primary-orange bg-button-orange text-white rounded hover:bg-hover-orange font-medium ml-2"
+                    >
+                      Add Plan +
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              {track.modules.length > 0 && (
+                <div className="pl-4 space-y-2 border-l-2 border-gray-200 ml-2 mt-3">
+                  {track.modules.map((mod) => (
+                    <div key={mod.id} className="flex flex-col space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          className="px-3 py-1.5 border border-light-border rounded-md shadow-sm text-sm w-full max-w-[300px]"
+                          value={mod.name}
+                          onChange={(e) => handleModuleChange(track.id, mod.id, e.target.value)}
+                          placeholder="Module Name"
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => toggleConfig(track.id, mod.id)} 
+                          className={`px-3 py-1.5 text-xs border rounded font-medium transition-colors ${mod.showConfig ? 'bg-primary-orange border-primary-orange text-white' : 'border-light-border bg-input-background hover:bg-gray-100 text-primary-text'}`}
+                        >
+                          Configuration {mod.showConfig ? '-' : '+'}
+                        </button>
+                        <button 
+                          type="button" 
+                          onClick={() => onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: mod })} 
+                          className="px-3 py-1.5 text-xs border border-primary-orange bg-button-orange text-white rounded hover:bg-hover-orange font-medium ml-2"
+                        >
+                          Add Plan +
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => handleRemoveModule(track.id, mod.id)}
+                          className="text-secondary-text hover:text-red-500 p-1 ml-auto"
+                          title="Remove Module"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      
+                      {mod.showConfig && (
+                        <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200">
+                          <h4 className="text-sm font-semibold mb-3 text-primary-text">Module Requirements</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {checkboxConfig.map((item) => (
+                              <CheckboxNode 
+                                key={item.id} 
+                                item={item} 
+                                node={mod} 
+                                trackId={track.id}
+                                moduleId={mod.id}
+                                handleCheckboxChange={handleCheckboxChange} 
+                                handleInputChange={handleInputChange} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {track.modules.length === 0 && track.showConfig && (
+                <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
+                  <h4 className="text-sm font-semibold mb-3 text-primary-text">Track Requirements</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {checkboxConfig.map((item) => (
+                      <CheckboxNode 
+                        key={item.id} 
+                        item={item} 
+                        node={track}
+                        trackId={track.id}
+                        moduleId={null}
+                        handleCheckboxChange={handleCheckboxChange} 
+                        handleInputChange={handleInputChange} 
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      
+      <div className="flex justify-end pt-4 border-t border-light-border">
+        <button
+          type="button"
+          onClick={() => onSave({ name: projectName, tracks })}
+          className="px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+};
 const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate }) => {
   const { showToast } = useToast();
   const [topicToDelete, setTopicToDelete] = useState(null);
@@ -416,6 +777,62 @@ const PlanPage = () => {
   const [runningWorkflow, setRunningWorkflow] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
+  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [showGenerateForms, setShowGenerateForms] = useState(false);
+
+  const [projectConfig, setProjectConfig] = useState(null);
+  const { showToast } = useToast();
+
+  const handleSaveNewProject = (projectData) => {
+    setProjectConfig(projectData);
+    setFormData(prev => ({ ...prev, application_name: projectData.name }));
+    setIsAddingProject(false);
+    showToast("Project Configuration Saved Successfully!", "success");
+  };
+
+  const getSelectedConfigText = (options, inputs) => {
+    let text = [];
+    const traverse = (items) => {
+      items.forEach(item => {
+        if (options[item.id]) {
+          let line = `- ${item.label}`;
+          if (item.hasInput && inputs[item.id]) {
+            line += `: ${inputs[item.id]}`;
+          }
+          text.push(line);
+          if (item.subItems) {
+            traverse(item.subItems);
+          }
+        }
+      });
+    };
+    traverse(checkboxConfig);
+    return text.join('\n');
+  };
+
+  const handleGeneratePlan = ({ projectData, projectName, track, module }) => {
+    setProjectConfig(projectData);
+    
+    const contextName = module 
+      ? `${projectName} - ${track.name} - ${module.name}`
+      : `${projectName} - ${track.name}`;
+
+    const activeNode = module || track;
+    const configText = getSelectedConfigText(activeNode.options || {}, activeNode.inputs || {});
+    
+    let scopeDesc = `Project Name: ${projectName}\nTrack: ${track.name}`;
+    if (module) scopeDesc += `\nModule: ${module.name}`;
+    if (configText) scopeDesc += `\n\nConfiguration Requirements:\n${configText}`;
+
+    setDocFormData(prev => ({ 
+      ...prev, 
+      application_name: contextName,
+      scope_description: scopeDesc
+    }));
+
+    setIsAddingProject(false);
+    setShowGenerateForms(true);
+  };
   
   const { docFormData, selectedFiles, analyzingDoc, isDocExtracted } = docExtractionState || {
     docFormData: { application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' },
@@ -629,79 +1046,34 @@ const PlanPage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-primary-text">KT Plans</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-primary-text">Projects</h2>
+        {!isAddingProject && canGenerate && !showGenerateForms && (
+          <button 
+            onClick={() => { setIsAddingProject(true); setProjectConfig(null); }}
+            className="flex items-center px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
+          >
+            <Plus size={16} className="mr-2" /> Add Project
+          </button>
+        )}
+        {!isAddingProject && canGenerate && showGenerateForms && (
+          <button 
+            onClick={() => { setShowGenerateForms(false); setIsAddingProject(true); }}
+            className="flex items-center px-4 py-2 bg-gray-500 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-600"
+          >
+            Back
+          </button>
+        )}
+      </div>
 
-      {canGenerate && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-stretch">
-          {/* Card 1: Generate Plan with AI */}
-          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full">
-            <div className="flex-1 flex flex-col justify-between">
-              <h3 className="text-lg font-semibold text-primary-text mb-4">Generate Plan with AI</h3>
-              <form onSubmit={handleGenerate} className="flex-1 flex flex-col justify-between space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Plan Name</label>
-                    <input
-                      type="text" required
-                      placeholder="e.g. Payment Gateway Service"
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
-                      value={formData.application_name}
-                      onChange={(e) => setFormData({...formData, application_name: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Plan Type</label>
-                    <CustomSelect
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
-                      value={formData.plan_type}
-                      onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
-                    >
-                      <option value="KT">KT</option>
-                      <option value="Reverse-KT">Reverse-KT</option>
-                    </CustomSelect>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Scope Description</label>
-                    <textarea
-                      required
-                      rows={2}
-                      placeholder="Enter main topics or scope details"
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
-                      value={formData.scope_description}
-                      onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
-                    />
-                  </div>
-
-                  {formData.plan_type === 'Reverse-KT' && (
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
-                      <input
-                        type="text" required
-                        placeholder="e.g. Test incident resolution or backend deployment"
-                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
-                        value={formData.reverse_kt_focus}
-                        onChange={(e) => setFormData({...formData, reverse_kt_focus: e.target.value})}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end pt-4 mt-auto">
-                  <button
-                    type="submit"
-                    disabled={generating}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50"
-                  >
-                    {generating ? 'Generating...' : 'Generate Plan'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-
+      {isAddingProject ? (
+        <AddProjectForm onCancel={() => setIsAddingProject(false)} onSave={handleSaveNewProject} onGeneratePlan={handleGeneratePlan} initialData={projectConfig} />
+      ) : (
+        <>
+          {canGenerate && showGenerateForms && (
+            <div className="grid grid-cols-1 gap-6 items-stretch">
           {/* Card 2: Generate Plan with Document */}
-          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full">
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full w-full max-w-4xl mx-auto">
             <div className="flex-1 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-4">
@@ -890,84 +1262,86 @@ const PlanPage = () => {
         </div>
       )}
 
-      <div className="space-y-6">
-        {currentPlans.map((plan) => (
-          <PlanCard 
-            key={plan.id} 
-            plan={plan} 
-            canApprove={canApprove && String(plan.created_by) === String(user?.id)} 
-            handleApproveClick={setPlanToApprove} 
-            handleCloseClick={setPlanToClose}
-            parseMarkdown={parseMarkdown}
-            stakeholders={stakeholders}
-            onAssignManager={handleAssignManager}
-            onPlanUpdate={handlePlanUpdate}
-          />
-        ))}
-        {plans.length === 0 && <p className="text-secondary-text text-center py-8">No plans generated yet.</p>}
-        
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-light-border bg-light-background px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
-            <div className="flex flex-1 justify-between sm:hidden">
-              <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-                className="relative inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="relative ml-3 inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{indexOfFirstPlan + 1}</span> to <span className="font-medium">{Math.min(indexOfLastPlan, plans.length)}</span> of{' '}
-                  <span className="font-medium">{plans.length}</span> results
-                </p>
+      {showGenerateForms && (
+        <div className="space-y-6">
+          {currentPlans.map((plan) => (
+            <PlanCard 
+              key={plan.id} 
+              plan={plan} 
+              canApprove={canApprove && String(plan.created_by) === String(user?.id)} 
+              handleApproveClick={setPlanToApprove} 
+              handleCloseClick={setPlanToClose}
+              parseMarkdown={parseMarkdown}
+              stakeholders={stakeholders}
+              onAssignManager={handleAssignManager}
+              onPlanUpdate={handlePlanUpdate}
+            />
+          ))}
+          {plans.length === 0 && <p className="text-secondary-text text-center py-8">No plans generated yet.</p>}
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between border-t border-light-border bg-light-background px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
+              <div className="flex flex-1 justify-between sm:hidden">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="relative ml-3 inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
+                >
+                  Next
+                </button>
               </div>
-              <div>
-                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-secondary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                  >
-                    <span className="sr-only">Previous</span>
-                    <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                  {Array.from({ length: totalPages }).map((_, i) => (
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{indexOfFirstPlan + 1}</span> to <span className="font-medium">{Math.min(indexOfLastPlan, plans.length)}</span> of{' '}
+                    <span className="font-medium">{plans.length}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
                     <button
-                      key={i}
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
-                        currentPage === i + 1
-                          ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-orange'
-                          : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
-                      }`}
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center rounded-l-md px-2 py-2 text-secondary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background focus:z-20 focus:outline-offset-0 disabled:opacity-50"
                     >
-                      {i + 1}
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-5 w-5" aria-hidden="true" />
                     </button>
-                  ))}
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-secondary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-                  >
-                    <span className="sr-only">Next</span>
-                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                </nav>
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i + 1)}
+                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
+                          currentPage === i + 1
+                            ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-orange'
+                            : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center rounded-r-md px-2 py-2 text-secondary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </nav>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {planToApprove && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
@@ -1013,6 +1387,8 @@ const PlanPage = () => {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </div>
   );
