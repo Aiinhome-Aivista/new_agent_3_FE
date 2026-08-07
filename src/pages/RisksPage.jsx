@@ -57,6 +57,23 @@ const formatCommentDateTime = (dtStr) => {
   }
 };
 
+const formatDateOnly = (dtStr) => {
+  if (!dtStr) return '';
+  if (typeof dtStr === 'string') {
+    const match = dtStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      return `${match[3]}/${match[2]}/${match[1]}`;
+    }
+    // Strip GMT and Z to prevent browser from interpreting backend's naive local time as UTC
+    dtStr = dtStr.replace(' GMT', '').replace('Z', '');
+  }
+  try {
+    const d = new Date(dtStr);
+    if (!isNaN(d.getTime())) return d.toLocaleDateString();
+  } catch (e) {}
+  return dtStr;
+};
+
 const RisksPage = () => {
   const { user } = useAuth();
   const [plans, setPlans] = useState([]);
@@ -72,6 +89,7 @@ const RisksPage = () => {
   const [decisionSubmitting, setDecisionSubmitting] = useState(false);
   const [commentSubmittingId, setCommentSubmittingId] = useState(null);
   const [downloadingDoc, setDownloadingDoc] = useState(false);
+  const [activeTab, setActiveTab] = useState('open');
   
   const { activeOperations, startOperation, endOperation } = useOperations();
   const detecting = activeOperations['risk-detection'];
@@ -285,7 +303,7 @@ const RisksPage = () => {
           
           let baseComment = txt;
           if (newStatus === 'solved' || newStatus === 'rejected') {
-              const action = newStatus === 'solved' ? 'Approved' : 'Rejected';
+              const action = newStatus === 'solved' ? 'Closed' : 'Rejected';
               const d = new Date();
               const ts = d.getFullYear() + '-' + 
                          String(d.getMonth() + 1).padStart(2, '0') + '-' + 
@@ -418,24 +436,16 @@ const RisksPage = () => {
                         <div key={risk.id} className={`rounded-xl shadow-sm border p-4 flex flex-col h-full ${isLocked ? 'bg-green-100 text-green-800 border-green-200' : getSeverityColor(risk.severity)} bg-opacity-30`}>
                             <div className="flex justify-between items-start mb-3">
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-light-background shadow-sm ${isLocked ? 'text-green-700' : ''}`}>
-                                    {isLocked ? 'SOLVED' : risk.severity}
+                                    {isLocked ? 'CLOSED' : risk.severity}
                                 </span>
-                                {updatingStatusId === risk.id ? (
-                                    <div className="flex items-center text-xs font-semibold text-secondary-text bg-light-background border border-light-border px-3 py-1 rounded shadow-sm">
-                                        <Loader2 className="animate-spin mr-2" size={14} /> Updating...
-                                    </div>
-                                ) : (
-                                    <CustomSelect 
-                                        value={risk.status} 
-                                        disabled={isLocked || isWaiting}
-                                        onChange={(e) => handleStatusChange(risk.id, e.target.value)}
-                                        className={`text-xs font-semibold rounded bg-light-background border border-light-border px-2 py-1 focus:outline-none ${(isLocked || isWaiting) ? 'opacity-50' : ''}`}
-                                    >
-                                        <option value="open">Open</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="deferred">Request for Approval</option>
-                                    </CustomSelect>
-                                )}
+                                <div className="flex items-center gap-3">
+                                    {!isLocked && (
+                                        <div className="text-xs font-bold text-secondary-text uppercase tracking-wide bg-light-background border border-light-border px-2 py-1 rounded shadow-sm">
+                                            {risk.status === 'resolved' || risk.status === 'solved' ? 'Closed' : risk.status.replace('_', ' ')}
+                                        </div>
+                                    )}
+                                    <span className="text-xs font-medium opacity-75">{formatDateOnly(risk.created_at)}</span>
+                                </div>
                             </div>
                             <div className="mb-4 flex-grow">
                                 <p className="text-sm font-medium leading-relaxed">
@@ -455,7 +465,7 @@ const RisksPage = () => {
                                     onClick={() => toggleComments(risk.id)}
                                 >
                                     <h4 className={`text-xs font-bold uppercase ${risk.comments?.length > 0 && risk.comments[risk.comments.length - 1].comment_text.includes('Rejected:') ? 'text-red-500' : 'text-secondary-text'}`}>
-                                        Approve/Reject Comments
+                                        Comments
                                     </h4>
                                     {expandedComments[risk.id] ? <ChevronUp size={16} className="text-secondary-text" /> : <ChevronDown size={16} className="text-secondary-text" />}
                                 </div>
@@ -559,13 +569,32 @@ const RisksPage = () => {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex space-x-4 border-b border-light-border mb-6">
+        <button
+          className={`py-2 px-4 font-medium text-sm focus:outline-none ${activeTab === 'open' ? 'text-primary-orange border-b-2 border-primary-orange' : 'text-secondary-text hover:text-primary-text'}`}
+          onClick={() => setActiveTab('open')}
+        >
+          Open Risks
+        </button>
+        <button
+          className={`py-2 px-4 font-medium text-sm focus:outline-none ${activeTab === 'resolved' ? 'text-primary-orange border-b-2 border-primary-orange' : 'text-secondary-text hover:text-primary-text'}`}
+          onClick={() => setActiveTab('resolved')}
+        >
+          Resolved Risks
+        </button>
+      </div>
+
       {(loadingRisks || detecting) ? (
           <div className="p-12 flex justify-center items-center bg-light-background rounded-xl shadow-sm border border-gray-100">
               <Loader />
           </div>
       ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sortRisks(risks).map((risk) => {
+            {sortRisks(risks.filter(risk => {
+                const isSolvedStatus = ['solved', 'resolved', 'approved'].includes((risk.status || '').toLowerCase());
+                return activeTab === 'open' ? !isSolvedStatus : isSolvedStatus;
+            })).map((risk) => {
               const isSolved = risk.status === 'solved' || risk.status === 'resolved';
               const isDeferred = risk.status === 'deferred';
               const isSelfAssigned = risk.assigned_stakeholders && risk.assigned_stakeholders.length > 0 && risk.assigned_stakeholders.includes(user?.name);
@@ -578,7 +607,7 @@ const RisksPage = () => {
                   risk.comments.forEach(c => {
                       if (c.comment_text.startsWith('[AUDIT]')) {
                           const parts = c.comment_text.split('\n');
-                          auditLog = parts[0].replace('[AUDIT] ', '').replace('Approved / Resolved', 'Approved');
+                          auditLog = parts[0].replace('[AUDIT] ', '').replace('Approved / Resolved', 'Closed').replace('Approved', 'Closed');
                           if (parts.length > 1) {
                               nonAuditComments.push({...c, comment_text: parts.slice(1).join('\n')});
                           }
@@ -592,9 +621,9 @@ const RisksPage = () => {
               <div key={risk.id} className={`rounded-xl shadow-sm border p-4 flex flex-col h-full ${isSolved ? 'bg-green-100 text-green-800 border-green-200' : getSeverityColor(risk.severity)} bg-opacity-50`}>
                 <div className="flex justify-between items-start mb-3">
                   <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-light-background shadow-sm ${isSolved ? 'text-green-700' : ''}`}>
-                    {isSolved ? 'SOLVED' : risk.severity}
+                    {isSolved ? 'CLOSED' : risk.severity}
                   </span>
-                  <span className="text-xs font-medium opacity-75">{new Date(risk.created_at).toLocaleDateString()}</span>
+                  <span className="text-xs font-medium opacity-75">{formatDateOnly(risk.created_at)}</span>
                 </div>
                 
                 <div className="mb-3 flex-grow">
@@ -603,9 +632,9 @@ const RisksPage = () => {
                     </p>
                 </div>
                 
-                {auditLog && (
+                {auditLog && auditLog.includes('Closed') && isSolved && (
                     <div className="mb-3 inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-input-background text-gray-700 border border-light-border shadow-sm self-start">
-                        {auditLog.includes('Approved') ? <Check size={12} className="mr-1.5 text-green-600 flex-shrink-0" /> : <X size={12} className="mr-1.5 text-red-600 flex-shrink-0" />}
+                        <Check size={12} className="mr-1.5 text-green-600 flex-shrink-0" />
                         <span>{auditLog}</span>
                     </div>
                 )}
@@ -625,34 +654,16 @@ const RisksPage = () => {
                     ) : <div></div>}
                     
                     <div className="flex flex-col justify-end">
-                        {(!isSelfAssigned && isDeferred) ? (
-                            <>
-                                <span className="text-[10px] font-semibold text-secondary-text uppercase block mb-1">Status: Pending for Approval</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => openDecisionModal(risk.id, 'approve')} className="flex-1 bg-green-600 text-white text-[11px] font-bold py-1.5 rounded shadow-sm hover:bg-green-700 transition-colors">Approve</button>
-                                    <button onClick={() => openDecisionModal(risk.id, 'reject')} className="flex-1 bg-red-600 text-white text-[11px] font-bold py-1.5 rounded shadow-sm hover:bg-red-700 transition-colors">Reject</button>
-                                </div>
-                            </>
-                        ) : isSelfAssigned ? (
-                            <>
-                                <span className="text-[10px] font-semibold text-secondary-text uppercase block mb-1">Status:</span>
-                                <CustomSelect 
-                                    value={risk.status === 'resolved' ? 'solved' : risk.status}
-                                    disabled={isSolved}
-                                    onChange={(e) => handleManagerStatusChange(risk.id, e.target.value)}
-                                    className={`text-xs font-semibold rounded bg-light-background border border-light-border px-2 py-1.5 focus:outline-none w-full shadow-sm ${isSolved ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                    <option value="open">Open</option>
-                                    <option value="in_progress">In Progress</option>
-                                    <option value="deferred">Deferred</option>
-                                    <option value="solved">Solved</option>
-                                </CustomSelect>
-                            </>
-                        ) : (
-                            <div className="text-[11px] font-bold text-secondary-text uppercase tracking-wide">
-                                Status: <span className="text-secondary-text capitalize ml-1">{risk.status === 'resolved' || risk.status === 'solved' ? 'Approved' : risk.status.replace('_', ' ')}</span>
-                            </div>
-                        )}
+                        <span className="text-[10px] font-semibold text-secondary-text uppercase block mb-1">Status:</span>
+                        <CustomSelect 
+                            value={risk.status === 'resolved' || risk.status === 'solved' ? 'solved' : 'open'}
+                            disabled={isSolved}
+                            onChange={(e) => handleManagerStatusChange(risk.id, e.target.value)}
+                            className={`text-xs font-semibold rounded bg-light-background border border-light-border px-2 py-1.5 focus:outline-none w-full shadow-sm ${isSolved ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        >
+                            <option value="open">Open</option>
+                            <option value="solved">Close</option>
+                        </CustomSelect>
                     </div>
                 </div>
                 
@@ -664,7 +675,7 @@ const RisksPage = () => {
                             onClick={() => toggleComments(risk.id)}
                         >
                             <h4 className="text-[10px] font-bold uppercase text-secondary-text">
-                                Approve/Reject Comments
+                                Comments
                             </h4>
                             {expandedComments[risk.id] ? <ChevronUp size={14} className="text-secondary-text" /> : <ChevronDown size={14} className="text-secondary-text" />}
                         </div>
@@ -690,7 +701,7 @@ const RisksPage = () => {
                     </div>
                 )}
                 
-                {isManager && isSelfAssigned && !isSolved && (
+                {isManager && !isSolved && (
                     <div className="mb-3 flex shadow-sm">
                         <input 
                             type="text" 
