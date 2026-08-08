@@ -13,3 +13,7 @@ export const getProjects = async () => {
 export const getProjectById = async (id) => {
   return axios.get(`${API_BASE_URL}/projects/${id}`);
 };
+
+export const updateProject = async (id, projectData) => {
+  return axios.put(`${API_BASE_URL}/projects/${id}`, projectData);
+};

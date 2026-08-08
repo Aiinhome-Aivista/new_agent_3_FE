@@ -1,7 +1,7 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
-import { getProjects, createProject, getProjectById } from '../api/projects';
+import { getProjects, createProject, getProjectById, updateProject } from '../api/projects';
 import Loader from '../components/Loader';
 import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -92,7 +92,7 @@ const ProjectCard = ({ project, onClick }) => (
   </div>
 );
 
-const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
+const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditMode }) => {
   const [projectName, setProjectName] = useState(initialData?.name || '');
   const [tracks, setTracks] = useState(initialData?.tracks || []);
 
@@ -226,7 +226,8 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
           <div className="flex space-x-2">
             <input
               type="text"
-              className="w-full lg:w-1/2 px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-primary-orange focus:border-primary-orange text-sm"
+              disabled={isEditMode}
+              className={`w-full lg:w-1/2 px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-primary-orange focus:border-primary-orange text-sm ${isEditMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
             />
@@ -380,7 +381,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData }) => {
           onClick={() => onSave({ name: projectName, tracks })}
           className="px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
         >
-          Add
+          {isEditMode ? 'Update Project' : 'Add'}
         </button>
       </div>
     </div>
@@ -810,8 +811,16 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   );
 };
 
-const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate, onViewPlan, stakeholders, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, handleAssignManager, handlePlanUpdate, allPlans }) => {
+const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate, onViewPlan, stakeholders, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, handleAssignManager, handlePlanUpdate, allPlans, onEditProject }) => {
   if (!projectData) return null;
+
+  const hasGeneratedPlan = (track, module) => {
+    if (!projectData.plans || projectData.plans.length === 0) return false;
+    const contextName = module 
+      ? `${projectData.name} - ${track.name} - ${module.name}`
+      : `${projectData.name} - ${track.name}`;
+    return projectData.plans.some(p => p.application_name === contextName);
+  };
 
   const renderConfigOptions = (options, inputs) => {
     if (!options || Object.keys(options).length === 0) return null;
@@ -847,6 +856,22 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
     );
   };
 
+  const getContextName = (track, module) => {
+    return module 
+      ? `${projectData.name} - ${track.name} - ${module.name}`
+      : `${projectData.name} - ${track.name}`;
+  };
+
+  const allContextNames = new Set();
+  projectData.config?.tracks?.forEach(track => {
+    allContextNames.add(getContextName(track, null));
+    track.modules?.forEach(mod => {
+      allContextNames.add(getContextName(track, mod));
+    });
+  });
+
+  const unmatchedPlans = (projectData.plans || []).filter(p => !allContextNames.has(p.application_name));
+
   return (
     <div className="space-y-6 mt-6">
       <button 
@@ -857,22 +882,35 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
       </button>
 
       <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="px-6 py-5 border-b border-light-border bg-gray-50 flex items-center">
-          <List className="mr-3 text-primary-orange" size={24} />
-          <h3 className="text-xl font-bold text-primary-text">
-            Project Details: {projectData.name}
-          </h3>
+        <div className="px-6 py-5 border-b border-light-border bg-gray-50 flex items-center justify-between">
+          <div className="flex items-center">
+            <List className="mr-3 text-primary-orange" size={24} />
+            <h3 className="text-xl font-bold text-primary-text">
+              Project Details: {projectData.name}
+            </h3>
+          </div>
+          {canGenerate && (
+            <button
+              onClick={() => onEditProject(projectData)}
+              className="flex items-center px-3 py-1.5 bg-button-orange text-white text-sm font-semibold rounded shadow-sm hover:bg-hover-orange"
+            >
+              <Plus size={16} className="mr-1" /> Add Track
+            </button>
+          )}
         </div>
         <div className="p-6">
           <div className="space-y-8">
-            {projectData.config?.tracks?.map((track) => (
+            {projectData.config?.tracks?.map((track) => {
+              const trackContextName = getContextName(track, null);
+              const trackPlans = (projectData.plans || []).filter(p => p.application_name === trackContextName);
+              return (
               <div key={track.id} className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-light-border">
                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
                   <h4 className="text-lg font-bold text-gray-800 flex items-center">
                     <span className="bg-primary-orange/10 text-primary-orange px-2 py-0.5 rounded text-sm mr-2 border border-primary-orange/20">Track</span>
                     {track.name}
                   </h4>
-                  {canGenerate && (
+                  {canGenerate && !hasGeneratedPlan(track, null) && (
                     <button
                       onClick={() => {
                         onClose();
@@ -891,17 +929,38 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                     {renderConfigOptions(track.options, track.inputs)}
                   </div>
                 )}
+
+                {trackPlans.length > 0 && (
+                  <div className="mb-4 pt-4 border-t border-gray-100">
+                    <h5 className="text-sm font-semibold text-primary-orange mb-3">Generated Plans for Track:</h5>
+                    <div className="space-y-4">
+                      {trackPlans.map(p => {
+                         const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
+                         return (
+                           <PlanCard 
+                             key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
+                             handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
+                             onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
+                           />
+                         );
+                      })}
+                    </div>
+                  </div>
+                )}
                 
                 {track.modules?.length > 0 && (
                   <div className="ml-4 space-y-4 border-l-2 border-orange-200 pl-4">
-                    {track.modules.map(mod => (
+                    {track.modules.map(mod => {
+                      const moduleContextName = getContextName(track, mod);
+                      const modulePlans = (projectData.plans || []).filter(p => p.application_name === moduleContextName);
+                      return (
                       <div key={mod.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100 shadow-sm">
                         <div className="flex justify-between items-center mb-2">
                           <h5 className="font-semibold text-gray-800 flex items-center">
                             <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-xs mr-2 border border-orange-200">Module</span>
                             {mod.name}
                           </h5>
-                          {canGenerate && (
+                          {canGenerate && !hasGeneratedPlan(track, mod) && (
                             <button
                               onClick={() => {
                                 onClose();
@@ -921,43 +980,55 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                         ) : (
                           <p className="text-xs text-gray-400 italic">No configuration selected.</p>
                         )}
+                        
+                        {modulePlans.length > 0 && (
+                           <div className="mt-4 border-t border-gray-200 pt-3">
+                             <h6 className="text-xs font-semibold text-gray-600 mb-2">Generated Plans for Module:</h6>
+                             <div className="space-y-3">
+                               {modulePlans.map(p => {
+                                  const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
+                                  return (
+                                    <PlanCard 
+                                      key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
+                                      handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
+                                      onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
+                                    />
+                                  );
+                               })}
+                             </div>
+                           </div>
+                        )}
                       </div>
-                    ))}
+                    )})}
                   </div>
                 )}
               </div>
-            ))}
+            )})}
             
-            <div className="mt-8 border-t border-gray-200 pt-6">
-              <h4 className="text-xl font-bold text-gray-800 mb-6">Generated Plans</h4>
-              {projectData.plans && projectData.plans.length > 0 ? (
-                <div className="space-y-4">
-                  {projectData.plans.map(p => {
-                     // Find full plan if available, else pass partial plan
-                     const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
-                     return (
-                       <PlanCard 
-                         key={p.id}
-                         plan={fullPlan || p}
-                         canApprove={canApprove}
-                         handleApproveClick={handleApproveClick}
-                         handleCloseClick={handleCloseClick}
-                         parseMarkdown={parseMarkdown}
-                         stakeholders={stakeholders}
-                         onAssignManager={handleAssignManager}
-                         onPlanUpdate={handlePlanUpdate}
-                         hideProjectDetailsBtn={true}
-                       />
-                     );
-                  })}
-                </div>
-              ) : (
+            {(projectData.plans || []).length === 0 ? (
+              <div className="mt-8 border-t border-gray-200 pt-6">
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
                   <p className="text-gray-500 italic mb-2">No plans generated yet for this project.</p>
                   <p className="text-sm text-gray-400">Click 'Add Plan +' on any track or module to get started.</p>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : unmatchedPlans.length > 0 ? (
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h4 className="text-xl font-bold text-gray-800 mb-6">Other Generated Plans</h4>
+                <div className="space-y-4">
+                  {unmatchedPlans.map(p => {
+                     const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
+                     return (
+                       <PlanCard 
+                         key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
+                         handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
+                         onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
+                       />
+                     );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -980,6 +1051,7 @@ const PlanPage = () => {
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
   const [isAddingProject, setIsAddingProject] = useState(false);
+  const [isEditingProject, setIsEditingProject] = useState(false);
   const [showGenerateForms, setShowGenerateForms] = useState(false);
   
   const [projectToView, setProjectToView] = useState(null);
@@ -1003,6 +1075,21 @@ const PlanPage = () => {
     }
   };
 
+  const handleUpdateProject = async (projectData) => {
+    try {
+      const res = await updateProject(projectToView.id, projectData);
+      if (res.data && res.data.success) {
+        showToast("Project Configuration Updated Successfully!", "success");
+        setIsEditingProject(false);
+        fetchProjects();
+        const updatedProject = await getProjectById(projectToView.id);
+        setProjectToView(updatedProject.data.data);
+      }
+    } catch (err) {
+      alert("Error updating project configuration");
+    }
+  };
+
   const handleSaveProjectAfterPlan = async () => {
     try {
       const res = await createProject(projectConfig);
@@ -1023,8 +1110,23 @@ const PlanPage = () => {
     }
   };
 
-  const handleGeneratePlan = ({ projectData, projectName, track, module }) => {
-    setProjectConfig(projectData);
+  const handleGeneratePlan = async ({ projectData, projectName, track, module }) => {
+    let finalProjectData = projectData;
+    let finalProjectId = projectData.id;
+
+    if (isEditingProject && projectToView) {
+      try {
+        await updateProject(projectToView.id, projectData);
+        finalProjectData = { ...projectData, id: projectToView.id };
+        finalProjectId = projectToView.id;
+        getProjectById(projectToView.id).then(r => setProjectToView(r.data.data));
+      } catch (err) {
+        alert("Failed to save project updates before generating plan.");
+        return;
+      }
+    }
+
+    setProjectConfig(finalProjectData);
     
     const contextName = module 
       ? `${projectName} - ${track.name} - ${module.name}`
@@ -1033,11 +1135,12 @@ const PlanPage = () => {
     setDocFormData(prev => ({ 
       ...prev, 
       application_name: contextName,
-      project_config: projectData,
-      project_id: projectData.id
+      project_config: finalProjectData,
+      project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
 
     setIsAddingProject(false);
+    setIsEditingProject(false);
     setShowGenerateForms(true);
   };
   
@@ -1328,6 +1431,14 @@ const PlanPage = () => {
             onPlanUpdate={handlePlanUpdate} 
           />
         </div>
+      ) : isEditingProject && projectToView ? (
+        <AddProjectForm 
+          onCancel={() => setIsEditingProject(false)} 
+          onSave={handleUpdateProject} 
+          onGeneratePlan={handleGeneratePlan} 
+          initialData={projectToView.config} 
+          isEditMode={true} 
+        />
       ) : projectToView ? (
         <ProjectDetailsView 
           projectData={projectToView} 
@@ -1343,6 +1454,7 @@ const PlanPage = () => {
           handleAssignManager={handleAssignManager}
           handlePlanUpdate={handlePlanUpdate}
           allPlans={plans}
+          onEditProject={() => setIsEditingProject(true)}
         />
       ) : isAddingProject ? (
         <AddProjectForm onCancel={() => setIsAddingProject(false)} onSave={handleSaveNewProject} onGeneratePlan={handleGeneratePlan} initialData={projectConfig} />
