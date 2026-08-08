@@ -54,6 +54,7 @@ export const getPlans = (params) => {
   const qs = params ? new URLSearchParams(params).toString() : '';
   return api.get(qs ? `/plans/?${qs}` : '/plans/');
 };
+export const getProjects = () => api.get('/projects/');
 export const getPlan = (id) => api.get(`/plans/${id}`);
 export const approvePlan = (id) => api.put(`/plans/${id}/approve`);
 export const closePlan = (id) => api.put(`/plans/${id}/close`);

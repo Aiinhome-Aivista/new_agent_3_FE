@@ -81,12 +81,16 @@ const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, han
   );
 };
 
-const ProjectCard = ({ project, onClick }) => (
+const ProjectCard = ({ project, onClick, isLoading }) => (
   <div 
-    onClick={onClick}
-    className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-primary-orange transition-all cursor-pointer flex flex-col justify-center items-center h-40 p-6 relative group"
+    onClick={isLoading ? null : onClick}
+    className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-primary-orange transition-all flex flex-col justify-center items-center h-40 p-6 relative group ${isLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'}`}
   >
-    <FolderOpen size={32} className="text-gray-400 group-hover:text-primary-orange mb-3 transition-colors" />
+    {isLoading ? (
+      <RefreshCw size={32} className="text-primary-orange animate-spin mb-3" />
+    ) : (
+      <FolderOpen size={32} className="text-gray-400 group-hover:text-primary-orange mb-3 transition-colors" />
+    )}
     <h3 className="text-lg font-bold text-gray-800 text-center">{project.name}</h3>
     <p className="text-xs text-gray-500 mt-2">{project.plan_count || 0} Plans</p>
   </div>
@@ -537,7 +541,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleCloseClick(plan.id);
+                handleCloseClick(plan);
               }}
               className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-light-background hover:bg-red-50"
             >
@@ -577,7 +581,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                handleApproveClick(plan.id);
+                handleApproveClick(plan);
               }}
               className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700"
             >
@@ -1043,8 +1047,10 @@ const PlanPage = () => {
   const [projects, setProjects] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [planToApprove, setPlanToApprove] = useState(null);
+  const [approvingPlan, setApprovingPlan] = useState(false);
   const [planToClose, setPlanToClose] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingProjectId, setLoadingProjectId] = useState(null);
   const { activeOperations, startOperation, endOperation, docExtractionState, setDocExtractionState } = useOperations();
   const generating = activeOperations['create-plan'];
   const [runningWorkflow, setRunningWorkflow] = useState(false);
@@ -1340,23 +1346,37 @@ const PlanPage = () => {
     }
   };
 
+  const refreshProjectToView = async () => {
+    if (projectToView) {
+      try {
+        const res = await getProjectById(projectToView.id);
+        setProjectToView(res.data.data);
+      } catch(err) { console.error(err); }
+    }
+  };
+
   const confirmApprove = async () => {
     if (!planToApprove) return;
+    setApprovingPlan(true);
     try {
-      await approvePlan(planToApprove);
+      await approvePlan(planToApprove.id);
       setPlanToApprove(null);
-      fetchPlans();
+      await fetchPlans();
+      await refreshProjectToView();
     } catch (err) {
       alert('Error approving plan');
+    } finally {
+      setApprovingPlan(false);
     }
   };
 
   const confirmClose = async () => {
     if (!planToClose) return;
     try {
-      await closePlan(planToClose);
+      await closePlan(planToClose.id);
       setPlanToClose(null);
-      fetchPlans();
+      await fetchPlans();
+      await refreshProjectToView();
     } catch (err) {
       alert('Error closing plan');
     }
@@ -1366,6 +1386,7 @@ const PlanPage = () => {
     await editPlan(planId, { generated_content: content });
     setPlans(prevPlans => prevPlans.map(p => p.id === planId ? { ...p, generated_content: content } : p));
     await fetchPlans();
+    await refreshProjectToView();
   };
 
   if (loading) return <Loader />;
@@ -1448,8 +1469,8 @@ const PlanPage = () => {
           onViewPlan={handleViewPlan}
           stakeholders={stakeholders}
           canApprove={canApprove}
-          handleApproveClick={() => setPlanToApprove(planToView)}
-          handleCloseClick={() => setPlanToClose(planToView)}
+          handleApproveClick={(planObj) => setPlanToApprove(planObj)}
+          handleCloseClick={(planObj) => setPlanToClose(planObj)}
           parseMarkdown={parseMarkdown}
           handleAssignManager={handleAssignManager}
           handlePlanUpdate={handlePlanUpdate}
@@ -1656,19 +1677,23 @@ const PlanPage = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {currentProjects.map((project) => (
-              <ProjectCard 
-                key={project.id} 
-                project={project}
-                onClick={async () => {
-                  try {
-                    const res = await getProjectById(project.id);
-                    setProjectToView(res.data.data);
-                  } catch (err) {
-                    console.error("Error fetching project details");
-                  }
-                }}
-              />
-            ))}
+                <ProjectCard 
+                  key={project.id} 
+                  project={project}
+                  isLoading={loadingProjectId === project.id}
+                  onClick={async () => {
+                    setLoadingProjectId(project.id);
+                    try {
+                      const res = await getProjectById(project.id);
+                      setProjectToView(res.data.data);
+                    } catch (err) {
+                      console.error("Error fetching project details");
+                    } finally {
+                      setLoadingProjectId(null);
+                    }
+                  }}
+                />
+              ))}
           </div>
           {projects.length === 0 && <p className="text-secondary-text text-center py-8">No projects created yet.</p>}
           
@@ -1736,6 +1761,9 @@ const PlanPage = () => {
         </div>
       )}
 
+      </>
+      )}
+
       {planToApprove && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-light-background rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
@@ -1750,9 +1778,17 @@ const PlanPage = () => {
               </button>
               <button
                 onClick={confirmApprove}
-                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                disabled={approvingPlan}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 flex items-center justify-center min-w-[120px]"
               >
-                Yes, Approve
+                {approvingPlan ? (
+                  <>
+                    <RefreshCw className="animate-spin mr-2" size={16} />
+                    Approving...
+                  </>
+                ) : (
+                  'Yes, Approve'
+                )}
               </button>
             </div>
           </div>
@@ -1806,8 +1842,6 @@ const PlanPage = () => {
             </div>
           </div>
         </div>
-      )}
-      </>
       )}
     </div>
   );
