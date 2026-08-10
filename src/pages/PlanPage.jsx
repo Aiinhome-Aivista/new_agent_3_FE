@@ -622,19 +622,19 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     }
     const planName = `${plan?.application_name || 'Generated Plan'} (${plan?.plan_type || 'KT'})`;
 
-    wsData.push([`Project Name: ${projectName}`, "", ""]);
-    wsData.push([`Track Name: ${trackName}`, "", ""]);
-    wsData.push([`Plan Name: ${planName}`, "", ""]);
-    wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", ""]);
-    wsData.push(["", "", ""]); 
+    wsData.push([`Project Name: ${projectName}`, "", "", "", ""]);
+    wsData.push([`Track Name: ${trackName}`, "", "", "", ""]);
+    wsData.push([`Plan Name: ${planName}`, "", "", "", ""]);
+    wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", "", "", ""]);
+    wsData.push(["", "", "", "", ""]); 
     
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } });
-    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 2 } });
-    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
-    merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 2 } });
-    merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 2 } });
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
+    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
+    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 4 } });
+    merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 4 } });
+    merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 4 } });
     
-    wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)"]);
+    wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)", "Knowledge Giver", "Knowledge Receiver"]);
     
     const cleanedTopics = topics.map(t => {
       let day = t.day_label || 'General';
@@ -650,7 +650,9 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
       wsData.push([
         t.clean_day,
         t.topic_name,
-        t.estimated_duration_hours || 'N/A'
+        t.estimated_duration_hours || 'N/A',
+        "",
+        ""
       ]);
 
       if (idx > 0) {
@@ -673,13 +675,13 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!merges'] = merges;
-    ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }];
+    ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }, { wch: 25 }, { wch: 25 }];
+    ws['!sheetViews'] = [{ showGridLines: false }];
     
     const thinBorder = { style: "thin", color: { rgb: "CCCCCC" } };
-    const thickBorder = { style: "medium", color: { rgb: "000000" } };
 
     for (let r = 0; r < wsData.length; r++) {
-      for (let c = 0; c < 3; c++) {
+      for (let c = 0; c < 5; c++) {
         const cellRef = XLSX.utils.encode_cell({ r, c });
         if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
         
@@ -707,12 +709,6 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
         } else {
           cellStyle.alignment.horizontal = c === 1 ? "left" : "center";
         }
-
-        if (!cellStyle.border) cellStyle.border = {};
-        if (r === 0) cellStyle.border.top = thickBorder;
-        if (r === wsData.length - 1) cellStyle.border.bottom = thickBorder;
-        if (c === 0) cellStyle.border.left = thickBorder;
-        if (c === 2) cellStyle.border.right = thickBorder;
 
         ws[cellRef].s = cellStyle;
       }
@@ -1110,7 +1106,7 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
               <h6 className="font-bold text-gray-800 text-sm mb-2">{root.label}</h6>
               
               {activeGroups.length > 0 ? (
-                <div className="space-y-3 pl-3 border-l-2 border-primary-orange/30 ml-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-3 border-l-2 border-primary-orange/30 ml-1">
                   {activeGroups.map((group, idx) => (
                     <div key={idx}>
                       <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">{group.title}</span>
