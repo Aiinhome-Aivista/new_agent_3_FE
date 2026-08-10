@@ -1723,16 +1723,7 @@ const PlanPage = () => {
     fetchStakeholders();
   }, []);
 
-  useEffect(() => {
-    const handlePopState = () => {
-      if (projectToView) {
-        setProjectToView(null);
-        sessionStorage.removeItem('savedProjectToViewId');
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [projectToView]);
+
 
   const handleAssignManager = async (planId, managerId) => {
     try {
@@ -2246,7 +2237,7 @@ const PlanPage = () => {
           onCancel={() => setIsEditingProject(false)} 
           onSave={handleUpdateProject} 
           onGeneratePlan={handleGeneratePlan} 
-          initialData={projectToView.config} 
+          initialData={{ name: projectToView.name, tracks: projectToView.config?.tracks || [] }} 
           isEditMode={true} 
           editTarget={editTarget}
         />
