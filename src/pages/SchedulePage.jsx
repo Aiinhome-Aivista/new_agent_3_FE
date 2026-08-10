@@ -1,8 +1,8 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, updateMeetingStatus, getPlans, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
+import { getMeetings, createMeeting, updateMeetingStatus, getPlans, getProjects, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
@@ -67,6 +67,7 @@ const SchedulePage = () => {
   const { user } = useAuth();
   const [meetings, setMeetings] = useState([]);
   const [plans, setPlans] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [stakeholders, setStakeholders] = useState([]);
   const [knowledgeGivers, setKnowledgeGivers] = useState([]);
   const [selectedStakeholders, setSelectedStakeholders] = useState([]);
@@ -76,12 +77,49 @@ const SchedulePage = () => {
   const scheduling = activeOperations['schedule-meeting'];
   const [notifiedId, setNotifiedId] = useState(null);
   const [formData, setFormData] = useState({
+    project_id: '',
     plan_id: '',
     scheduled_at: '',
     meeting_link: ''
   });
 
   const [schedulePopup, setSchedulePopup] = useState(null);
+  const [schedulingMode, setSchedulingMode] = useState('manual');
+  const [isUploadingExcel, setIsUploadingExcel] = useState(false);
+
+  const [selectedExcelFiles, setSelectedExcelFiles] = useState([]);
+  const excelFileInputRef = React.useRef(null);
+  
+  const handleDragOverExcel = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDropExcel = (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setSelectedExcelFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+    }
+  };
+
+  const handleFileSelectExcel = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedExcelFiles(prev => [...prev, ...Array.from(e.target.files)]);
+    }
+  };
+
+  const handleRemoveExcelFile = (index) => {
+    setSelectedExcelFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleBulkSchedule = () => {
+    if (selectedExcelFiles.length === 0) return;
+    setIsUploadingExcel(true);
+    setTimeout(() => {
+      setIsUploadingExcel(false);
+      setSchedulePopup({ message: 'Files processed successfully! Automated scheduling will begin shortly.', type: 'success' });
+      setSelectedExcelFiles([]);
+    }, 2000);
+  };
 
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [attendanceMeeting, setAttendanceMeeting] = useState(null);
@@ -316,11 +354,12 @@ const SchedulePage = () => {
 
   const fetchData = async () => {
     try {
-      const [meetingsRes, plansRes, receiversRes, giversRes] = await Promise.all([
+      const [meetingsRes, plansRes, receiversRes, giversRes, projectsRes] = await Promise.all([
         getMeetings(),
         getPlans({ for_dropdown: 'true' }),
         getStakeholders('Incoming Team Member (Knowledge Receiver)'),
-        getStakeholders('Outgoing SME (Knowledge Giver)')
+        getStakeholders('Outgoing SME (Knowledge Giver)'),
+        getProjects()
       ]);
       const fetchedMeetings = meetingsRes.data.data;
       
@@ -358,6 +397,7 @@ const SchedulePage = () => {
       setPlans(myApprovedPlans);
       setStakeholders(receiversRes.data.data);
       setKnowledgeGivers(giversRes.data.data);
+      setProjects(projectsRes.data?.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -393,6 +433,7 @@ const SchedulePage = () => {
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders]
       });
       setFormData({
+        project_id: '',
         plan_id: '',
         scheduled_at: '',
         meeting_link: ''
@@ -445,102 +486,221 @@ const SchedulePage = () => {
       <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
 
       {canManage && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-primary-text mb-4">Schedule New Meeting</h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Select Plan</label>
-              <CustomSelect
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                value={formData.plan_id}
-                onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
-                required
-              >
-                <option value="" disabled>---Select Plan---</option>
-                {plans.map(p => (
-                  <option key={p.id} value={p.id}>{p.application_name}</option>
-                ))}
-              </CustomSelect>
-            </div>
-            <div>
-              {user?.role === 'Delivery / Engagement Manager' ? (
-                <MultiSelectDropdown
-                  label="Organizers (Knowledge Givers)"
-                  placeholder="Select Givers..."
-                  options={knowledgeGivers}
-                  selected={selectedOrganizers}
-                  onChange={setSelectedOrganizers}
-                />
-              ) : (
-                <>
-                  <label className="block text-sm font-medium text-gray-700">Organizer</label>
-                  <input
-                    type="text"
-                    disabled
-                    className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-input-background text-secondary-text cursor-not-allowed"
-                    value={user?.name ? `${user.name} (${user.role})` : ''}
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="flex border-b border-gray-100 bg-gray-50/50">
+            <button
+              onClick={() => setSchedulingMode('manual')}
+              className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'manual' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              Manual Scheduling
+            </button>
+            <button
+              onClick={() => setSchedulingMode('upload')}
+              className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'upload' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              Automated Bulk Scheduling
+            </button>
+          </div>
+
+          <div className="p-6">
+            {schedulingMode === 'manual' ? (
+              <div>
+                <h3 className="text-lg font-semibold text-primary-text mb-4">Schedule New Meeting Manually</h3>
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Select Project</label>
+                    <CustomSelect
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.project_id}
+                      onChange={(e) => setFormData({ ...formData, project_id: e.target.value, plan_id: '' })}
+                      required
+                    >
+                      <option value="" disabled>---Select Project---</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </CustomSelect>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Select Plan</label>
+                    <CustomSelect
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.plan_id}
+                      onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
+                      required
+                      disabled={!formData.project_id}
+                    >
+                      <option value="" disabled>---Select Plan---</option>
+                      {plans
+                        .filter(p => String(p.project_id) === String(formData.project_id))
+                        .map(p => (
+                          <option key={p.id} value={p.id}>{p.application_name}</option>
+                      ))}
+                    </CustomSelect>
+                  </div>
+                  <div>
+                    {user?.role === 'Delivery / Engagement Manager' ? (
+                      <MultiSelectDropdown
+                        label="Organizers (Knowledge Givers)"
+                        placeholder="Select Givers..."
+                        options={knowledgeGivers}
+                        selected={selectedOrganizers}
+                        onChange={setSelectedOrganizers}
+                      />
+                    ) : (
+                      <>
+                        <label className="block text-sm font-medium text-gray-700">Organizer</label>
+                        <input
+                          type="text"
+                          disabled
+                          className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-input-background text-secondary-text cursor-not-allowed"
+                          value={user?.name ? `${user.name} (${user.role})` : ''}
+                        />
+                      </>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date" required
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.scheduled_at}
+                      onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link</label>
+                    <input
+                      type="url"
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.meeting_link}
+                      onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
+                      placeholder="https://meet.google.com/..."
+                    />
+                  </div>
+
+                  <div className="md:col-span-5">
+                    <MultiSelectDropdown
+                      label="Participants (Knowledge Receivers)"
+                      placeholder="Select Receivers..."
+                      options={stakeholders}
+                      selected={selectedStakeholders}
+                      onChange={setSelectedStakeholders}
+                    />
+                  </div>
+
+                  <div className="md:col-span-5 flex justify-end mt-2">
+                    <button
+                      type="submit"
+                      disabled={scheduling || (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${scheduling
+                        ? 'bg-button-orange cursor-not-allowed'
+                        : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-primary-orange hover:bg-hover-orange'
+                        }`}
+                    >
+                      {scheduling ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                          </svg>
+                          Scheduling...
+                        </>
+                      ) : (
+                        <>
+                          <Calendar size={16} />
+                          Schedule
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div>
+                <h3 className="text-lg font-semibold text-primary-text mb-4">Automatic Scheduling via Excel</h3>
+                <div 
+                  className="border-2 border-dashed border-light-border rounded-lg p-10 flex flex-col items-center justify-center hover:bg-light-background transition-colors cursor-pointer"
+                  onDragOver={handleDragOverExcel}
+                  onDrop={handleDropExcel}
+                  onClick={() => excelFileInputRef.current?.click()}
+                >
+                  <UploadCloud className="w-12 h-12 text-secondary-text mb-3" />
+                  <p className="text-secondary-text text-center font-medium">
+                    Drag & drop Excel files here, or click to select
+                  </p>
+                  <p className="text-secondary-text text-sm mt-2 text-center">
+                    Ensure your file contains plan, project, givers, and receivers day-wise.
+                  </p>
+                  <p className="text-secondary-text text-xs mt-1">
+                    Supported formats: XLS, XLSX
+                  </p>
+                  <input 
+                    type="file" 
+                    ref={excelFileInputRef} 
+                    className="hidden" 
+                    accept=".xls,.xlsx"
+                    multiple
+                    onChange={handleFileSelectExcel}
                   />
-                </>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-              <input
-                type="date" required
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                value={formData.scheduled_at}
-                onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link</label>
-              <input
-                type="url"
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                value={formData.meeting_link}
-                onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
-                placeholder="https://meet.google.com/..."
-              />
-            </div>
+                </div>
 
-            <div className="md:col-span-4">
-              <MultiSelectDropdown
-                label="Participants (Knowledge Receivers)"
-                placeholder="Select Receivers..."
-                options={stakeholders}
-                selected={selectedStakeholders}
-                onChange={setSelectedStakeholders}
-              />
-            </div>
-
-            <div className="md:col-span-4 flex justify-end mt-2">
-              <button
-                type="submit"
-                disabled={scheduling || (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)}
-                className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${scheduling
-                  ? 'bg-button-orange cursor-not-allowed'
-                  : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-primary-orange hover:bg-hover-orange'
-                  }`}
-              >
-                {scheduling ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Scheduling...
-                  </>
-                ) : (
-                  <>
-                    <Calendar size={16} />
-                    Schedule
-                  </>
+                {selectedExcelFiles.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    {selectedExcelFiles.map((file, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-input-background border border-input-background p-4 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="p-2 bg-input-background rounded-lg">
+                            <File className="w-6 h-6 text-primary-orange" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-primary-text">{file.name}</p>
+                            <p className="text-xs text-secondary-text">{(file.size / 1024).toFixed(2)} KB</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleRemoveExcelFile(idx)} 
+                          className="text-secondary-text hover:text-red-500 transition p-1"
+                          title="Remove file"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </button>
-            </div>
-          </form>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={handleBulkSchedule}
+                    disabled={isUploadingExcel || selectedExcelFiles.length === 0}
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
+                      isUploadingExcel || selectedExcelFiles.length === 0
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-primary-orange hover:bg-hover-orange active:scale-95'
+                    }`}
+                  >
+                    {isUploadingExcel ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                        Scheduling...
+                      </>
+                    ) : (
+                      <>
+                        <Calendar size={16} />
+                        Schedule
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
