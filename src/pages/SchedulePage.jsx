@@ -6,7 +6,7 @@ import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, F
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
-const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder }) => {
+const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef(null);
 
@@ -33,7 +33,10 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder }
         <svg className="w-4 h-4 text-secondary-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
       </div>
       {isOpen && (
-        <div className="absolute z-10 mt-1 w-full bg-light-background border border-light-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+        <div 
+          className="absolute z-10 mt-1 w-full bg-light-background border border-light-border rounded-md shadow-lg overflow-y-auto"
+          style={{ maxHeight: `${(visibleCount * 32) + ((visibleCount - 1) * 4) + 16}px` }}
+        >
           {options.length === 0 ? (
             <div className="p-3 text-sm text-secondary-text">No options available.</div>
           ) : (
@@ -486,8 +489,8 @@ const SchedulePage = () => {
       <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
 
       {canManage && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="flex border-b border-gray-100 bg-gray-50/50">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100">
+          <div className="flex border-b border-gray-100 bg-gray-50/50 rounded-t-xl overflow-hidden">
             <button
               onClick={() => setSchedulingMode('manual')}
               className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'manual' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
@@ -546,6 +549,7 @@ const SchedulePage = () => {
                         options={knowledgeGivers}
                         selected={selectedOrganizers}
                         onChange={setSelectedOrganizers}
+                        visibleCount={3}
                       />
                     ) : (
                       <>
@@ -586,6 +590,7 @@ const SchedulePage = () => {
                       options={stakeholders}
                       selected={selectedStakeholders}
                       onChange={setSelectedStakeholders}
+                      visibleCount={4}
                     />
                   </div>
 
