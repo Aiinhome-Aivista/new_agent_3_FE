@@ -133,11 +133,6 @@ const Stakeholders = () => {
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    if (!bulkProjectId) {
-      showToast('Please select a project first before uploading stakeholders.', 'error');
-      e.target.value = '';
-      return;
-    }
     
     setUploadingExcel(true);
     const data = new FormData();
@@ -230,37 +225,7 @@ const Stakeholders = () => {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Project (Optional)</label>
-                  <CustomSelect
-                    className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
-                    value={formData.project_id}
-                    onChange={(e) => {
-                      setFormData({ ...formData, project_id: e.target.value, track_name: '' });
-                    }}
-                  >
-                    <option value="">---Select Project---</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </CustomSelect>
-                </div>
-                
-                {selectedProjectTracks.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Track (Optional)</label>
-                    <CustomSelect
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
-                      value={formData.track_name}
-                      onChange={(e) => setFormData({ ...formData, track_name: e.target.value })}
-                    >
-                      <option value="">---Select Track---</option>
-                      {selectedProjectTracks.map((t, idx) => (
-                        <option key={idx} value={t.name}>{t.name}</option>
-                      ))}
-                    </CustomSelect>
-                  </div>
-                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Role</label>
                   <CustomSelect
@@ -287,41 +252,10 @@ const Stakeholders = () => {
             </>
           ) : (
             <>
-              <h3 className="text-lg font-semibold text-primary-text mb-4">Bulk Add Stakeholders (Optional)</h3>
+              <h3 className="text-lg font-semibold text-primary-text mb-4">Bulk Add Stakeholders</h3>
               <p className="text-sm text-secondary-text mb-4">Upload an Excel file to automatically add stakeholders.</p>
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Select Project for Upload</label>
-                  <CustomSelect
-                    className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
-                    value={bulkProjectId}
-                    onChange={(e) => {
-                      setBulkProjectId(e.target.value);
-                      setBulkTrackName('');
-                    }}
-                  >
-                    <option value="">---Select Project---</option>
-                    {projects.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </CustomSelect>
-                </div>
-                
-                {bulkProjectTracks.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Select Track (Optional)</label>
-                    <CustomSelect
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
-                      value={bulkTrackName}
-                      onChange={(e) => setBulkTrackName(e.target.value)}
-                    >
-                      <option value="">---Select Track---</option>
-                      {bulkProjectTracks.map((t, idx) => (
-                        <option key={idx} value={t.name}>{t.name}</option>
-                      ))}
-                    </CustomSelect>
-                  </div>
-                )}
+
                 
                 <input
                   type="file"
@@ -333,12 +267,12 @@ const Stakeholders = () => {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current.click()}
-                  disabled={uploadingExcel || !bulkProjectId}
-                  className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 ${uploadingExcel || !bulkProjectId
+                  disabled={uploadingExcel}
+                  className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 ${uploadingExcel
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-primary-orange hover:bg-hover-orange'
                   }`}
-                  title={!bulkProjectId ? "Select a project first" : "Upload Excel"}
+                  title={"Upload Excel"}
                 >
                   {uploadingExcel ? (
                     <>
