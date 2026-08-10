@@ -1,5 +1,6 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx-js-style';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
 import { getProjects, createProject, getProjectById, updateProject } from '../api/projects';
 import Loader from '../components/Loader';
@@ -454,7 +455,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
     </div>
   );
 };
-const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate, onViewProject, hideProjectDetailsBtn }) => {
+const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, stakeholders, onAssignManager, onPlanUpdate, onViewProject, hideProjectDetailsBtn, projectNameFallback }) => {
   const { showToast } = useToast();
   const [topicToDelete, setTopicToDelete] = useState(null);
   const [expanded, setExpanded] = useState(false);
@@ -599,7 +600,131 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
       setLoadingTopics(false);
     }
   };
-  
+  const handleExportExcel = () => {
+    if (!topics || topics.length === 0) {
+      showToast("No topics to export.", "error");
+      return;
+    }
+    
+    const wsData = [];
+    const merges = [];
+    
+    // 1st Heading (Professional Office Format)
+    const projectName = plan?.project_config?.name || projectNameFallback || 'N/A';
+    let trackName = 'N/A';
+    if (plan?.project_config?._meta?.trackId) {
+      const trk = plan.project_config.tracks?.find(t => t.id === plan.project_config._meta.trackId);
+      if (trk) trackName = trk.name;
+    } else if (plan?.project_config?.tracks?.[0]) {
+      trackName = plan.project_config.tracks[0].name;
+    } else {
+      trackName = plan?.application_name || 'N/A';
+    }
+    const planName = `${plan?.application_name || 'Generated Plan'} (${plan?.plan_type || 'KT'})`;
+
+    wsData.push([`Project Name: ${projectName}`, "", ""]);
+    wsData.push([`Track Name: ${trackName}`, "", ""]);
+    wsData.push([`Plan Name: ${planName}`, "", ""]);
+    wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", ""]);
+    wsData.push(["", "", ""]); 
+    
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } });
+    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 2 } });
+    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 2 } });
+    merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 2 } });
+    merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 2 } });
+    
+    wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)"]);
+    
+    const cleanedTopics = topics.map(t => {
+      let day = t.day_label || 'General';
+      day = day.replace(/:\s*\[Time:.*?\]/gi, '').replace(/\[Time:.*?\]/gi, '').trim();
+      return { ...t, clean_day: day };
+    });
+
+    let currentRowIndex = 6;
+    let startDayRow = 6;
+    let currentDay = cleanedTopics[0]?.clean_day;
+
+    cleanedTopics.forEach((t, idx) => {
+      wsData.push([
+        t.clean_day,
+        t.topic_name,
+        t.estimated_duration_hours || 'N/A'
+      ]);
+
+      if (idx > 0) {
+        if (t.clean_day !== currentDay) {
+          if (currentRowIndex - 1 > startDayRow) {
+            merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex - 1, c: 0 } });
+          }
+          startDayRow = currentRowIndex;
+          currentDay = t.clean_day;
+        }
+      }
+      
+      if (idx === cleanedTopics.length - 1) {
+        if (currentRowIndex > startDayRow) {
+          merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex, c: 0 } });
+        }
+      }
+      currentRowIndex++;
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!merges'] = merges;
+    ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }];
+    
+    const thinBorder = { style: "thin", color: { rgb: "CCCCCC" } };
+    const thickBorder = { style: "medium", color: { rgb: "000000" } };
+
+    for (let r = 0; r < wsData.length; r++) {
+      for (let c = 0; c < 3; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+        
+        let cellStyle = {
+          font: { name: "Calibri", sz: 11 },
+          fill: { fgColor: { rgb: "FFFFFF" } },
+          alignment: { vertical: "center", wrapText: true },
+          border: {
+            top: r >= 5 ? thinBorder : null,
+            bottom: r >= 5 ? thinBorder : null,
+            left: r >= 5 ? thinBorder : null,
+            right: r >= 5 ? thinBorder : null
+          }
+        };
+
+        if (r < 5) {
+          cellStyle.alignment.horizontal = "center";
+          cellStyle.font.bold = true;
+          cellStyle.font.sz = 14;
+        } else if (r === 5) {
+          cellStyle.fill = { fgColor: { rgb: "D04A02" } }; // PwC orange
+          cellStyle.font.color = { rgb: "FFFFFF" };
+          cellStyle.font.bold = true;
+          cellStyle.alignment.horizontal = "center";
+        } else {
+          cellStyle.alignment.horizontal = c === 1 ? "left" : "center";
+        }
+
+        if (!cellStyle.border) cellStyle.border = {};
+        if (r === 0) cellStyle.border.top = thickBorder;
+        if (r === wsData.length - 1) cellStyle.border.bottom = thickBorder;
+        if (c === 0) cellStyle.border.left = thickBorder;
+        if (c === 2) cellStyle.border.right = thickBorder;
+
+        ws[cellRef].s = cellStyle;
+      }
+    }
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plan Topics");
+    
+    const filename = `Plan_Topics_${planName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+  };
+
   return (
     <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div 
@@ -753,16 +878,26 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-2">
                 <h4 className="text-sm font-semibold text-primary-text">Sessions / Topics Breakdown</h4>
-                {(plan.status === 'draft' || canApprove) && (
+                <div className="flex space-x-2">
                   <button
-                    onClick={handleResync}
-                    disabled={loadingTopics}
-                    className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-primary-orange border border-primary-orange rounded hover:bg-orange-50 disabled:opacity-50"
+                    onClick={handleExportExcel}
+                    disabled={topics.length === 0}
+                    className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-green-600 border border-green-600 rounded hover:bg-green-50 disabled:opacity-50"
                   >
-                    <RefreshCw size={14} className={`mr-1 ${loadingTopics ? 'animate-spin' : ''}`} /> 
-                    {loadingTopics ? 'Syncing...' : 'Resync Topics'}
+                    <FileUp size={14} className="mr-1" />
+                    Export Excel
                   </button>
-                )}
+                  {(plan.status === 'draft' || canApprove) && (
+                    <button
+                      onClick={handleResync}
+                      disabled={loadingTopics}
+                      className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-primary-orange border border-primary-orange rounded hover:bg-orange-50 disabled:opacity-50"
+                    >
+                      <RefreshCw size={14} className={`mr-1 ${loadingTopics ? 'animate-spin' : ''}`} /> 
+                      {loadingTopics ? 'Syncing...' : 'Resync Topics'}
+                    </button>
+                  )}
+                </div>
               </div>
               {loadingTopics ? (
                 <div className="flex flex-col items-center justify-center p-8 bg-gray-50 border border-gray-100 rounded-lg">
@@ -1130,11 +1265,12 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                       {trackPlans.map(p => {
                          const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
                          return (
-                           <PlanCard 
-                             key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
-                             handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
-                             onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
-                           />
+                             <PlanCard 
+                               key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
+                               handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
+                               onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
+                               projectNameFallback={projectData?.name}
+                             />
                          );
                       })}
                     </div>
@@ -1589,6 +1725,17 @@ const PlanPage = () => {
     fetchPlans();
     fetchStakeholders();
   }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (projectToView) {
+        setProjectToView(null);
+        sessionStorage.removeItem('savedProjectToViewId');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [projectToView]);
 
   const handleAssignManager = async (planId, managerId) => {
     try {
@@ -2109,7 +2256,13 @@ const PlanPage = () => {
       ) : projectToView ? (
         <ProjectDetailsView 
           projectData={projectToView} 
-          onClose={() => { setProjectToView(null); sessionStorage.removeItem('savedProjectToViewId'); }} 
+          onClose={() => { 
+            setProjectToView(null); 
+            sessionStorage.removeItem('savedProjectToViewId'); 
+            if (window.history.state?.view === 'project') {
+              window.history.back();
+            }
+          }} 
           onGeneratePlan={handleGeneratePlan}
           canGenerate={canGenerate}
           onViewPlan={handleViewPlan}
@@ -2143,6 +2296,7 @@ const PlanPage = () => {
                     try {
                       const res = await getProjectById(project.id);
                       setProjectToView(res.data.data);
+                      window.history.pushState({ view: 'project' }, '', '#project');
                     } catch (err) {
                       console.error("Error fetching project details");
                     } finally {
