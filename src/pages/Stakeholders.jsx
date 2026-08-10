@@ -1,12 +1,13 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getStakeholders, createStakeholder, deleteStakeholder } from '../api/api';
+import { getStakeholders, createStakeholder, deleteStakeholder, getProjects } from '../api/api';
 import Loader from '../components/Loader';
 import { useToast } from '../context/ToastContext';
 import { ChevronLeft, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
 
 const Stakeholders = () => {
   const [stakeholders, setStakeholders] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -14,7 +15,8 @@ const Stakeholders = () => {
   const [stakeholderToDelete, setStakeholderToDelete] = useState(null);
   const { showToast } = useToast();
 
-  const [formData, setFormData] = useState({ name: '', email: '', role: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', role: '', project_id: '', track_name: '' });
+  const [selectedProjectTracks, setSelectedProjectTracks] = useState([]);
 
   const fetchStakeholders = async () => {
     try {
@@ -27,16 +29,39 @@ const Stakeholders = () => {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const res = await getProjects();
+      setProjects(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch projects', err);
+    }
+  };
+
   useEffect(() => {
     fetchStakeholders();
+    fetchProjects();
   }, []);
+
+  useEffect(() => {
+    if (formData.project_id) {
+      const proj = projects.find(p => p.id === parseInt(formData.project_id));
+      if (proj && proj.config && proj.config.tracks) {
+        setSelectedProjectTracks(proj.config.tracks);
+      } else {
+        setSelectedProjectTracks([]);
+      }
+    } else {
+      setSelectedProjectTracks([]);
+    }
+  }, [formData.project_id, projects]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
       await createStakeholder(formData);
-      setFormData({ name: '', email: '', role: '' });
+      setFormData({ name: '', email: '', role: '', project_id: '', track_name: '' });
       showToast('Stakeholder added successfully!', 'success');
       fetchStakeholders();
     } catch (err) {
@@ -102,6 +127,38 @@ const Stakeholders = () => {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700">Project (Optional)</label>
+              <CustomSelect
+                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
+                value={formData.project_id}
+                onChange={(e) => {
+                  setFormData({ ...formData, project_id: e.target.value, track_name: '' });
+                }}
+              >
+                <option value="">---Select Project---</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </CustomSelect>
+            </div>
+            
+            {selectedProjectTracks.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Track (Optional)</label>
+                <CustomSelect
+                  className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
+                  value={formData.track_name}
+                  onChange={(e) => setFormData({ ...formData, track_name: e.target.value })}
+                >
+                  <option value="">---Select Track---</option>
+                  {selectedProjectTracks.map((t, idx) => (
+                    <option key={idx} value={t.name}>{t.name}</option>
+                  ))}
+                </CustomSelect>
+              </div>
+            )}
+
+            <div>
               <label className="block text-sm font-medium text-gray-700">Role</label>
               <CustomSelect
                 className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
@@ -134,6 +191,8 @@ const Stakeholders = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Project</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Track</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-secondary-text uppercase tracking-wider">Action</th>
               </tr>
             </thead>
@@ -143,6 +202,8 @@ const Stakeholders = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-text">{person.name}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{person.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text capitalize">{person.role.replace('_', ' ')}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{person.project_name || '-'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{person.track_name || '-'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button
                       onClick={() => handleDelete(person.id)}
@@ -156,7 +217,7 @@ const Stakeholders = () => {
               ))}
               {stakeholders.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="px-6 py-4 text-center text-sm text-secondary-text">No stakeholders found.</td>
+                  <td colSpan="6" className="px-6 py-4 text-center text-sm text-secondary-text">No stakeholders found.</td>
                 </tr>
               )}
             </tbody>
