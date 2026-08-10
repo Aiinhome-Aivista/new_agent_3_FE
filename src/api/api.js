@@ -73,6 +73,9 @@ export const deletePlanTopic = (topicId) => api.delete(`/plans/topics/${topicId}
 
 // Schedule
 export const createMeeting = (data) => api.post('/schedule/meetings', data);
+export const bulkScheduleMeetings = (formData) => api.post('/schedule/bulk-upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 export const getMeetings = (planId) => {
   const url = planId ? `/schedule/meetings?plan_id=${planId}` : '/schedule/meetings';
   return api.get(url);

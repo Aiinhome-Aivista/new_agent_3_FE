@@ -1,6 +1,6 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, updateMeetingStatus, getPlans, getProjects, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
+import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -114,14 +114,29 @@ const SchedulePage = () => {
     setSelectedExcelFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleBulkSchedule = () => {
+  const handleBulkSchedule = async () => {
     if (selectedExcelFiles.length === 0) return;
     setIsUploadingExcel(true);
-    setTimeout(() => {
+    
+    try {
+      const fd = new FormData();
+      selectedExcelFiles.forEach(file => {
+        fd.append('files', file);
+      });
+      
+      const res = await bulkScheduleMeetings(fd);
+      if (res.data && res.data.success) {
+        setSchedulePopup({ message: res.data.message || 'Files processed successfully! Automated scheduling complete.', type: 'success' });
+        setSelectedExcelFiles([]);
+        fetchData();
+      } else {
+        setSchedulePopup({ message: res.data?.message || 'Error scheduling meetings in bulk', type: 'error' });
+      }
+    } catch (err) {
+      setSchedulePopup({ message: err.response?.data?.message || 'Server error scheduling bulk meetings', type: 'error' });
+    } finally {
       setIsUploadingExcel(false);
-      setSchedulePopup({ message: 'Files processed successfully! Automated scheduling will begin shortly.', type: 'success' });
-      setSelectedExcelFiles([]);
-    }, 2000);
+    }
   };
 
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
