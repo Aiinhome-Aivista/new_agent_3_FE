@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
 import { getProjects, createProject, getProjectById, updateProject } from '../api/projects';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
@@ -397,7 +397,9 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   const [expanded, setExpanded] = useState(false);
   const [selectedManager, setSelectedManager] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [editedContent, setEditedContent] = useState(plan.generated_content || '');
+  const [fullPlanContent, setFullPlanContent] = useState(plan?.generated_content || '');
+  const [loadingContent, setLoadingContent] = useState(false);
+  const [editedContent, setEditedContent] = useState(plan?.generated_content || '');
   const [saving, setSaving] = useState(false);
 
   const [topics, setTopics] = useState([]);
@@ -406,6 +408,34 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   const [newDayLabel, setNewDayLabel] = useState('');
   const [newTopicName, setNewTopicName] = useState('');
   const [newDuration, setNewDuration] = useState('');
+
+  useEffect(() => {
+    if (plan?.generated_content) {
+      setFullPlanContent(plan.generated_content);
+      setEditedContent(plan.generated_content);
+    }
+  }, [plan?.generated_content]);
+
+  useEffect(() => {
+    if (expanded && !fullPlanContent && plan?.id) {
+      const fetchFullPlan = async () => {
+        setLoadingContent(true);
+        try {
+          const { getPlan } = await import('../api/api');
+          const res = await getPlan(plan.id);
+          if (res.data?.success && res.data?.data?.generated_content) {
+            setFullPlanContent(res.data.data.generated_content);
+            setEditedContent(res.data.data.generated_content);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoadingContent(false);
+        }
+      };
+      fetchFullPlan();
+    }
+  }, [expanded, fullPlanContent, plan?.id]);
 
   const fetchTopics = async () => {
     setLoadingTopics(true);
@@ -430,7 +460,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   const handleEditClick = (e) => {
     e.stopPropagation();
     setIsEditing(true);
-    setEditedContent(plan.generated_content);
+    setEditedContent(fullPlanContent || plan?.generated_content || '');
   };
 
   const handleCancelClick = (e) => {
@@ -534,10 +564,10 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               <List size={16} className="mr-1" /> Project Details
             </button>
           )}
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan.status === 'closed' ? 'bg-red-100 text-red-800 border border-red-200' : plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-            {plan.status.toUpperCase()}
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${plan?.status === 'closed' ? 'bg-red-100 text-red-800 border border-red-200' : plan?.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+            {(plan?.status || 'draft').toUpperCase()}
           </span>
-          {(plan.status === 'draft' || plan.status === 'approved') && canApprove && (
+          {(plan?.status === 'draft' || plan?.status === 'approved') && canApprove && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -548,7 +578,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               <X size={16} className="mr-1" /> Close Plan
             </button>
           )}
-          {plan.status === 'draft' && (
+          {plan?.status === 'draft' && (
             <>
               {isEditing ? (
                 <>
@@ -577,7 +607,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               )}
             </>
           )}
-          {plan.status === 'draft' && canApprove && (
+          {plan?.status === 'draft' && canApprove && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -624,9 +654,20 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
             )}
           </div>
 
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 flex items-center space-x-2">
+            <Clock size={16} className="text-blue-600 flex-shrink-0" />
+            <span>
+              <strong>Phase Timeline Rule:</strong> Knowledge Acquisition (KA) Phase ➔ <strong>Final Assessment Window</strong> (Manager configured days) ➔ <strong>Shadow Resourcing (SR) Phase</strong> (Starts after assessment window count completes).
+            </span>
+          </div>
+
           {!showTopicsView ? (
             <div>
-              {isEditing ? (
+              {loadingContent ? (
+                <div className="flex justify-center items-center py-6 text-gray-500 text-sm">
+                  <RefreshCw className="animate-spin mr-2" size={16} /> Loading plan content...
+                </div>
+              ) : isEditing ? (
                 <div>
                   <p className="text-xs text-secondary-text mb-2">
                     💡 Tip: Editing and saving this plan document will automatically re-extract and update the topics in the database (<code className="bg-input-background px-1 rounded">plan_topics</code> table).
@@ -641,7 +682,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               ) : (
                 <div 
                   className="prose prose-sm max-w-none text-secondary-text whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={parseMarkdown(plan.generated_content)}
+                  dangerouslySetInnerHTML={parseMarkdown(fullPlanContent || plan?.generated_content || '')}
                 />
               )}
             </div>
@@ -917,7 +958,6 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                   {canGenerate && !hasGeneratedPlan(track, null) && (
                     <button
                       onClick={() => {
-                        onClose();
                         onGeneratePlan({ projectData, projectName: projectData.name, track, module: null });
                       }}
                       className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
@@ -939,7 +979,7 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                     <h5 className="text-sm font-semibold text-primary-orange mb-3">Generated Plans for Track:</h5>
                     <div className="space-y-4">
                       {trackPlans.map(p => {
-                         const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
+                         const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
                          return (
                            <PlanCard 
                              key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
@@ -967,7 +1007,6 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                           {canGenerate && !hasGeneratedPlan(track, mod) && (
                             <button
                               onClick={() => {
-                                onClose();
                                 onGeneratePlan({ projectData, projectName: projectData.name, track, module: mod });
                               }}
                               className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
@@ -990,7 +1029,7 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                              <h6 className="text-xs font-semibold text-gray-600 mb-2">Generated Plans for Module:</h6>
                              <div className="space-y-3">
                                {modulePlans.map(p => {
-                                  const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
+                                  const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
                                   return (
                                     <PlanCard 
                                       key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
@@ -1021,7 +1060,7 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                 <h4 className="text-xl font-bold text-gray-800 mb-6">Other Generated Plans</h4>
                 <div className="space-y-4">
                   {unmatchedPlans.map(p => {
-                     const fullPlan = allPlans ? allPlans.find(x => x.id === p.id) : null;
+                     const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
                      return (
                        <PlanCard 
                          key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
@@ -1185,9 +1224,10 @@ const PlanPage = () => {
   const fetchProjects = async () => {
     try {
       const res = await getProjects();
-      setProjects(res.data.data || []);
+      setProjects(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (err) {
       console.error(err);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -1196,7 +1236,7 @@ const PlanPage = () => {
   const fetchPlans = async () => {
     try {
       const res = await getPlans();
-      const fetchedPlans = res.data.data || [];
+      const fetchedPlans = Array.isArray(res.data?.data) ? res.data.data : [];
       const statusOrder = { 'draft': 1, 'approved': 2, 'closed': 3 };
       const sortedPlans = [...fetchedPlans].sort((a, b) => 
         (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99)
@@ -1204,6 +1244,7 @@ const PlanPage = () => {
       setPlans(sortedPlans);
     } catch (err) {
       console.error(err);
+      setPlans([]);
     }
   };
 
@@ -1223,10 +1264,16 @@ const PlanPage = () => {
     fetchStakeholders();
   }, []);
 
-  const handleAssignManager = async (planId, stakeholderId) => {
+  const handleAssignManager = async (planId, managerId) => {
     try {
-      await assignPlanManager(planId, stakeholderId);
+      const { updatePlanManager } = await import('../api/api');
+      await updatePlanManager(planId, managerId);
+      showToast('Manager assigned successfully', 'success');
       fetchPlans();
+      if (projectToView) {
+        const res = await getProjectById(projectToView.id);
+        setProjectToView(res.data.data);
+      }
     } catch (err) {
       alert('Error assigning manager');
     }
@@ -1313,11 +1360,20 @@ const PlanPage = () => {
     }
     startOperation('create-plan-doc');
     try {
+      const targetProjId = docFormData.project_id || (projectToView ? projectToView.id : null);
       const res = await generatePlan(docFormData);
       setDocFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
       setSelectedFiles([]);
       setIsDocExtracted(false);
+      setShowGenerateForms(false);
       fetchPlans();
+      if (targetProjId) {
+        const pRes = await getProjectById(targetProjId);
+        if (pRes.data?.data) {
+          setProjectToView(pRes.data.data);
+        }
+      }
+      fetchProjects();
       if (projectConfig && !projectConfig.id && res.data?.data?.id) {
         setPendingPlanId(res.data.data.id);
         setShowSaveProjectModal(true);
@@ -1397,19 +1453,28 @@ const PlanPage = () => {
   const parseMarkdown = (text) => {
     if (!text) return { __html: '' };
     let html = text.replace(/```markdown\n?/g, '').replace(/```\n?/g, '');
-    html = html.replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-primary-text mt-4">$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-primary-text mt-6 mb-2">$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-primary-orange mt-2 mb-4 border-b pb-2">$1</h1>');
-    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="text-primary-text font-semibold">$1</strong>');
-    html = html.replace(/^\s*\-\s+(.*$)/gim, '<div class="ml-4 flex"><span class="mr-2">•</span><span>$1</span></div>');
+
+    // Format main section headers cleanly as bold headings without background colors
+    const mainSectionRegex = /^(Objectives|Target Audience|Sessions \/ Topics Breakdown|Knowledge Acquisition \(KA\) Phase|Final Assessment Evaluation Window|Shadow Resourcing \(SR\) Phase|Lead Resourcing \(LR\) Phase|Expected Outcomes)[\s:]*/gim;
+    html = html.replace(mainSectionRegex, (match, title) => {
+      return `<h3 class="text-base font-bold text-gray-900 mt-6 mb-2 border-b border-gray-200 pb-1">${title}</h3>`;
+    });
+
+    html = html.replace(/^#### (.*$)/gim, '<h4 class="text-sm font-bold text-gray-800 mt-3 mb-1">$1</h4>');
+    html = html.replace(/^### (.*$)/gim, '<h3 class="text-base font-bold text-gray-900 mt-4 mb-2">$1</h3>');
+    html = html.replace(/^## (.*$)/gim, '<h2 class="text-lg font-bold text-gray-900 mt-5 mb-2">$1</h2>');
+    html = html.replace(/^# (.*$)/gim, '<h1 class="text-xl font-bold text-gray-900 mt-2 mb-3 border-b pb-1">$1</h1>');
+    html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="text-gray-900 font-semibold">$1</strong>');
+    html = html.replace(/^\s*[\-\*•]\s+(.*$)/gim, '<div class="ml-4 flex items-start my-1"><span class="mr-2 text-gray-500">•</span><span>$1</span></div>');
     return { __html: html };
   };
 
+  const safeProjects = Array.isArray(projects) ? projects : [];
   const itemsPerPage = 9;
   const indexOfLastProject = currentPage * itemsPerPage;
   const indexOfFirstProject = indexOfLastProject - itemsPerPage;
-  const currentProjects = projects.slice(indexOfFirstProject, indexOfLastProject);
-  const totalPages = Math.ceil(projects.length / itemsPerPage);
+  const currentProjects = safeProjects.slice(indexOfFirstProject, indexOfLastProject);
+  const totalPages = Math.ceil(safeProjects.length / itemsPerPage);
 
   return (
     <div className="space-y-6">
@@ -1425,7 +1490,7 @@ const PlanPage = () => {
         )}
         {!isAddingProject && canGenerate && showGenerateForms && (
           <button 
-            onClick={() => { setShowGenerateForms(false); setIsAddingProject(true); }}
+            onClick={() => { setShowGenerateForms(false); }}
             className="flex items-center px-4 py-2 bg-gray-500 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-600"
           >
             Back
@@ -1451,6 +1516,174 @@ const PlanPage = () => {
             onAssignManager={handleAssignManager} 
             onPlanUpdate={handlePlanUpdate} 
           />
+        </div>
+      ) : canGenerate && showGenerateForms ? (
+        <div className="space-y-4">
+          <button
+            onClick={() => setShowGenerateForms(false)}
+            className="flex items-center text-sm font-medium text-secondary-text hover:text-primary-orange transition-colors mb-2"
+          >
+            <ChevronLeft size={16} className="mr-1" /> Back to {projectToView ? 'Project Details' : isAddingProject ? 'Add Project' : 'Projects'}
+          </button>
+          <div className="grid grid-cols-1 gap-6 items-stretch">
+            {/* Card 2: Generate Plan with Document */}
+            <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full w-full max-w-4xl mx-auto">
+              <div className="flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-primary-text flex items-center">
+                      <FileUp className="mr-2 text-primary-orange" size={20} />
+                      Generate Plan with Document
+                    </h3>
+                    <span className="text-xs bg-input-background text-primary-orange px-2.5 py-1 rounded-full font-medium border border-input-background">
+                      PDF / DOCX File
+                    </span>
+                  </div>
+
+                  {/* Document Upload Option */}
+                  <div className="mb-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Document Upload (.pdf, .docx)</label>
+                      {selectedFiles.length > 0 && (
+                        <span className="text-xs text-primary-orange font-semibold bg-input-background px-2 py-0.5 rounded border border-input-background">
+                          {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} selected
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Upload Box & Extract Button Side-by-Side */}
+                    <div className="flex items-center space-x-2">
+                      <div className="relative flex-1 border-2 border-dashed border-orange-border rounded-lg p-2 hover:border-button-orange transition-colors bg-input-background/40">
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx"
+                          multiple
+                          onChange={handleDocFileChange}
+                          disabled={analyzingDoc}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                        />
+                        <div className="flex items-center justify-between text-xs text-secondary-text">
+                          <span className="flex items-center font-medium text-hover-orange truncate pr-1">
+                            <Upload className="mr-1.5 text-primary-orange flex-shrink-0" size={15} />
+                            {selectedFiles.length === 0
+                              ? 'Click or drop PDF / Word file(s)...'
+                              : 'Click / drop to add more...'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleExtractFromDocs}
+                        disabled={selectedFiles.length === 0 || analyzingDoc}
+                        className="w-[115px] h-[38px] px-3 py-2 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
+                      >
+                        {analyzingDoc ? (
+                          <>
+                            <RefreshCw className="mr-1 animate-spin" size={14} /> Extracting...
+                          </>
+                        ) : (
+                          <>
+                            <FileUp className="mr-1.5" size={14} /> Extract
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Selected files list */}
+                    {selectedFiles.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-light-background rounded-md border border-gray-100">
+                        {selectedFiles.map((file, idx) => (
+                          <div
+                            key={`${file.name}-${idx}`}
+                            className="inline-flex items-center bg-light-background border border-orange-border text-hover-orange text-xs px-2 py-1 rounded-md shadow-xs group"
+                          >
+                            <FileText size={12} className="mr-1 text-primary-orange flex-shrink-0" />
+                            <span className="max-w-[150px] truncate font-medium">{file.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(idx)}
+                              disabled={analyzingDoc}
+                              className="ml-1.5 text-secondary-text hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                              title="Remove file"
+                            >
+                              <X size={12} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <form onSubmit={handleGenerateWithDoc} className="flex-1 flex flex-col justify-between space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Plan Name</label>
+                      <input
+                        type="text" required
+                        disabled={!isDocExtracted || analyzingDoc}
+                        placeholder={isDocExtracted ? "Extracted Plan Name" : "Upload document(s) to unlock"}
+                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
+                        value={docFormData.application_name}
+                        onChange={(e) => setDocFormData({...docFormData, application_name: e.target.value})}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Plan Type</label>
+                      <CustomSelect
+                        disabled={!isDocExtracted || analyzingDoc}
+                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
+                        value={docFormData.plan_type}
+                        onChange={(e) => setDocFormData({...docFormData, plan_type: e.target.value})}
+                      >
+                        <option value="KT">KT</option>
+                        <option value="Reverse-KT">Reverse-KT</option>
+                      </CustomSelect>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700">Scope Description</label>
+                      <textarea
+                        required
+                        rows={2}
+                        disabled={!isDocExtracted || analyzingDoc}
+                        placeholder={isDocExtracted ? "Main topic names extracted from document(s)" : "Upload document(s) to unlock & auto-fill"}
+                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
+                        value={docFormData.scope_description}
+                        onChange={(e) => setDocFormData({...docFormData, scope_description: e.target.value})}
+                      />
+                    </div>
+
+                    {docFormData.plan_type === 'Reverse-KT' && (
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
+                        <input
+                          type="text" required
+                          disabled={!isDocExtracted || analyzingDoc}
+                          placeholder="e.g. Test incident resolution or backend deployment"
+                          className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
+                          value={docFormData.reverse_kt_focus}
+                          onChange={(e) => setDocFormData({...docFormData, reverse_kt_focus: e.target.value})}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end pt-4 mt-auto">
+                    <button
+                      type="submit"
+                      disabled={!isDocExtracted || generatingDocPlan || analyzingDoc}
+                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {generatingDocPlan ? 'Generating...' : 'Generate Plan'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         </div>
       ) : isEditingProject && projectToView ? (
         <AddProjectForm 
@@ -1480,200 +1713,6 @@ const PlanPage = () => {
       ) : isAddingProject ? (
         <AddProjectForm onCancel={() => setIsAddingProject(false)} onSave={handleSaveNewProject} onGeneratePlan={handleGeneratePlan} initialData={projectConfig} />
       ) : (
-        <>
-          {canGenerate && showGenerateForms && (
-            <div className="grid grid-cols-1 gap-6 items-stretch">
-          {/* Card 2: Generate Plan with Document */}
-          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full w-full max-w-4xl mx-auto">
-            <div className="flex-1 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-primary-text flex items-center">
-                    <FileUp className="mr-2 text-primary-orange" size={20} />
-                    Generate Plan with Document
-                  </h3>
-                  <span className="text-xs bg-input-background text-primary-orange px-2.5 py-1 rounded-full font-medium border border-input-background">
-                    PDF / DOCX File
-                  </span>
-                </div>
-
-                {/* Document Upload Option */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-sm font-medium text-gray-700">Document Upload (.pdf, .docx)</label>
-                    {selectedFiles.length > 0 && (
-                      <span className="text-xs text-primary-orange font-semibold bg-input-background px-2 py-0.5 rounded border border-input-background">
-                        {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} selected
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Upload Box & Extract Button Side-by-Side */}
-                  <div className="flex items-center space-x-2">
-                    <div className="relative flex-1 border-2 border-dashed border-orange-border rounded-lg p-2 hover:border-button-orange transition-colors bg-input-background/40">
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx"
-                        multiple
-                        onChange={handleDocFileChange}
-                        disabled={analyzingDoc}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                      />
-                      <div className="flex items-center justify-between text-xs text-secondary-text">
-                        <span className="flex items-center font-medium text-hover-orange truncate pr-1">
-                          <Upload className="mr-1.5 text-primary-orange flex-shrink-0" size={15} />
-                          {selectedFiles.length === 0
-                            ? 'Click or drop PDF / Word file(s)...'
-                            : 'Click / drop to add more...'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleExtractFromDocs}
-                      disabled={selectedFiles.length === 0 || analyzingDoc}
-                      className="w-[115px] h-[38px] px-3 py-2 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
-                    >
-                      {analyzingDoc ? (
-                        <>
-                          <RefreshCw className="mr-1 animate-spin" size={14} /> Extracting...
-                        </>
-                      ) : (
-                        <>
-                          <FileUp className="mr-1.5" size={14} /> Extract
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Selected files list */}
-                  {selectedFiles.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-light-background rounded-md border border-gray-100">
-                      {selectedFiles.map((file, idx) => (
-                        <div
-                          key={`${file.name}-${idx}`}
-                          className="inline-flex items-center bg-light-background border border-orange-border text-hover-orange text-xs px-2 py-1 rounded-md shadow-xs group"
-                        >
-                          <FileText size={12} className="mr-1 text-primary-orange flex-shrink-0" />
-                          <span className="max-w-[150px] truncate font-medium">{file.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFile(idx)}
-                            disabled={analyzingDoc}
-                            className="ml-1.5 text-secondary-text hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
-                            title="Remove file"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <form onSubmit={handleGenerateWithDoc} className="flex-1 flex flex-col justify-between space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Plan Name</label>
-                    <input
-                      type="text" required
-                      disabled={!isDocExtracted || analyzingDoc}
-                      placeholder={isDocExtracted ? "Extracted Plan Name" : "Upload document(s) to unlock"}
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                      value={docFormData.application_name}
-                      onChange={(e) => setDocFormData({...docFormData, application_name: e.target.value})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Plan Type</label>
-                    <CustomSelect
-                      disabled={!isDocExtracted || analyzingDoc}
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                      value={docFormData.plan_type}
-                      onChange={(e) => setDocFormData({...docFormData, plan_type: e.target.value})}
-                    >
-                      <option value="KT">KT</option>
-                      <option value="Reverse-KT">Reverse-KT</option>
-                    </CustomSelect>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700">Scope Description</label>
-                    <textarea
-                      required
-                      rows={2}
-                      disabled={!isDocExtracted || analyzingDoc}
-                      placeholder={isDocExtracted ? "Main topic names extracted from document(s)" : "Upload document(s) to unlock & auto-fill"}
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                      value={docFormData.scope_description}
-                      onChange={(e) => setDocFormData({...docFormData, scope_description: e.target.value})}
-                    />
-                  </div>
-
-                  {docFormData.plan_type === 'Reverse-KT' && (
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
-                      <input
-                        type="text" required
-                        disabled={!isDocExtracted || analyzingDoc}
-                        placeholder="e.g. Test incident resolution or backend deployment"
-                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                        value={docFormData.reverse_kt_focus}
-                        onChange={(e) => setDocFormData({...docFormData, reverse_kt_focus: e.target.value})}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex justify-end pt-4 mt-auto">
-                  <button
-                    type="submit"
-                    disabled={!isDocExtracted || generatingDocPlan || analyzingDoc}
-                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {generatingDocPlan ? 'Generating...' : 'Generate Plan'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {workflowResult && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 relative">
-          <button 
-            onClick={() => setWorkflowResult(null)} 
-            className="absolute top-4 right-4 text-secondary-text hover:text-secondary-text"
-          >
-            <X size={20} />
-          </button>
-          <h3 className="text-lg font-bold text-purple-700 mb-6 flex items-center">
-            <Play className="mr-2" /> Multi-Agent Workflow Orchestration Complete
-          </h3>
-          <div className="relative border-l-2 border-purple-200 ml-3 space-y-6">
-            {workflowResult.logs?.map((log, idx) => (
-              <div key={idx} className="relative flex items-start">
-                <span className="absolute -left-3.5 bg-light-background p-1 rounded-full text-purple-600">
-                  <CheckCircle size={20} className="fill-current text-white" />
-                </span>
-                <div className="ml-6 bg-purple-50 px-4 py-3 rounded-lg shadow-sm w-full border border-purple-100">
-                  <span className="text-sm font-medium text-purple-900 flex items-center">
-                    Step {idx + 1}
-                    <ArrowRight size={14} className="mx-2 text-purple-400" />
-                    {log}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!isAddingProject && !showGenerateForms && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {currentProjects.map((project) => (
@@ -1710,14 +1749,14 @@ const PlanPage = () => {
                 <button
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
-                  className="relative ml-3 inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
+                  className="relative inline-flex items-center rounded-md border border-light-border bg-light-background px-4 py-2 text-sm font-medium text-gray-700 hover:bg-light-background disabled:opacity-50"
                 >
                   Next
                 </button>
               </div>
               <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-secondary-text">
                     Showing <span className="font-medium">{indexOfFirstProject + 1}</span> to <span className="font-medium">{Math.min(indexOfLastProject, projects.length)}</span> of{' '}
                     <span className="font-medium">{projects.length}</span> projects
                   </p>
@@ -1759,9 +1798,6 @@ const PlanPage = () => {
             </div>
           )}
         </div>
-      )}
-
-      </>
       )}
 
       {planToApprove && (
