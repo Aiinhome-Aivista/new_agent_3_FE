@@ -1,9 +1,9 @@
 import CustomSelect from '../components/CustomSelect';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
 import { getProjects, createProject, getProjectById, updateProject } from '../api/projects';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
@@ -12,33 +12,69 @@ const checkboxConfig = [
   { 
     id: 'ka', 
     label: 'Knowledge Acquisition',
-    subItems: [
-      { 
-        id: 'rkt', 
-        label: 'Reverse KT',
-        subItems: [
-          { id: 'upload_sud', label: 'By uploading SUD' }
+    groups: [
+      {
+        title: 'Entry Criteria',
+        items: [
+          { id: 'kt_doc', label: 'Project KT Document Ready' },
+          { id: 'stakeholder_map', label: 'Stakeholder Mapping Ready' }
         ]
       },
-      { id: 'sud_mandatory', label: 'SUD Mandatory' },
-      { id: 'assessment', label: 'Assessment' }
+      {
+        title: 'Exit Criteria',
+        items: [
+          { 
+            id: 'rkt', 
+            label: 'Reverse KT',
+            subItems: [
+              { id: 'upload_sud', label: 'By uploading SUD' }
+            ]
+          },
+          { id: 'sud_mandatory', label: 'SUD Mandatory' },
+          { id: 'assessment', label: 'Assessment' }
+        ]
+      }
     ]
   },
   { 
     id: 'shadow_resourcing', 
     label: 'Shadow Resourcing', 
-    subItems: [
-      { id: 'ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' },
-      { id: 'weeks_shadow', label: 'Required weeks for shadow resourcing', hasInput: true, inputLabel: 'e.g. 4' },
+    groups: [
+      {
+        title: 'Entry Criteria',
+        items: [
+          { id: 'assessment_80', label: 'Assessment (80% Above)' },
+          { id: 'sud_doc_upload', label: 'SUD Document Uploaded or Not' }
+        ]
+      },
+      {
+        title: 'Exit Criteria',
+        items: [
+          { id: 'ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' },
+          { id: 'weeks_shadow', label: 'Required weeks for shadow resourcing', hasInput: true, inputLabel: 'e.g. 2 weeks' }
+        ]
+      }
     ]
   },
-  { id: 'lead_resourcing', label: 'Lead Resourcing' },
+  { 
+    id: 'lead_resourcing', 
+    label: 'Lead Resourcing',
+    groups: [
+      {
+        title: 'Entry Criteria',
+        items: [
+          { id: 'lr_ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' },
+          { id: 'lr_weeks_shadow', label: 'Required weeks for shadow resourcing', hasInput: true, inputLabel: 'e.g. 2 weeks' }
+        ]
+      }
+    ]
+  }
 ];
 
 const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, handleInputChange, level = 0 }) => {
   const nodeId = moduleId ? `${trackId}-${moduleId}` : trackId;
   return (
-    <div className={`flex flex-col space-y-2 ${level > 0 ? 'mt-2 border-l-2 border-gray-200 ml-2 py-1 pl-5' : ''}`}>
+    <div className={`flex flex-col space-y-2 ${level > 0 ? 'mt-2 border-l-2 border-gray-200 ml-2 py-1 pl-5' : 'p-4 bg-white border border-gray-200 rounded-lg shadow-sm transition-all duration-200'}`}>
       <div className="flex items-center space-x-3">
         <input
           type="checkbox"
@@ -61,8 +97,32 @@ const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, han
         )}
       </div>
       
+      {item.groups && node.options[item.id] && (
+        <div className="space-y-4 mt-3 pt-2 border-t border-gray-100">
+          {item.groups.map((group, idx) => (
+            <div key={idx} className="bg-gray-50/50 p-3 rounded-md border border-gray-100">
+              <h5 className="text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wider">{group.title}</h5>
+              <div className="space-y-3">
+                {group.items.map((sub) => (
+                  <CheckboxNode 
+                    key={sub.id} 
+                    item={sub} 
+                    node={node} 
+                    trackId={trackId}
+                    moduleId={moduleId}
+                    handleCheckboxChange={handleCheckboxChange} 
+                    handleInputChange={handleInputChange} 
+                    level={level + 1} 
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {item.subItems && node.options[item.id] && (
-        <div className="space-y-3">
+        <div className="space-y-3 mt-2">
           {item.subItems.map((sub) => (
             <CheckboxNode 
               key={sub.id} 
@@ -96,18 +156,20 @@ const ProjectCard = ({ project, onClick, isLoading }) => (
   </div>
 );
 
-const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditMode }) => {
+const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditMode, editTarget }) => {
   const [projectName, setProjectName] = useState(initialData?.name || '');
   const [tracks, setTracks] = useState(initialData?.tracks || []);
+  const [localEditTarget, setLocalEditTarget] = useState(editTarget || null);
 
   const handleAddTrack = () => {
+    setLocalEditTarget(null);
     setTracks([...tracks, { 
       id: Date.now(), 
       name: `Track ${tracks.length + 1}`, 
       modules: [],
-      options: {},
+      options: { ka: true },
       inputs: {},
-      showConfig: false
+      showConfig: true
     }]);
   };
 
@@ -116,6 +178,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
   };
 
   const handleAddModule = (trackId) => {
+    setLocalEditTarget(prev => prev ? { trackId: prev.trackId, moduleId: null } : null);
     setTracks(tracks.map(t => {
       if (t.id === trackId) {
         return { 
@@ -123,9 +186,9 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
           modules: [...t.modules, { 
             id: Date.now(), 
             name: '', 
-            options: {}, 
+            options: { ka: true }, 
             inputs: {}, 
-            showConfig: false 
+            showConfig: true 
           }] 
         };
       }
@@ -246,13 +309,13 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
         </div>
 
         <div className="space-y-6">
-          {tracks.map((track) => (
+          {tracks.filter(t => localEditTarget?.trackId ? t.id === localEditTarget.trackId : true).map((track) => (
             <div key={track.id} className="p-4 border border-light-border rounded-lg shadow-sm space-y-4 relative">
               <button 
                 type="button" 
-                onClick={() => handleRemoveTrack(track.id)}
+                onClick={() => localEditTarget ? onCancel() : handleRemoveTrack(track.id)}
                 className="absolute top-2 right-2 text-secondary-text hover:text-red-500 p-1"
-                title="Remove Track"
+                title={localEditTarget ? "Close Edit" : "Remove Track"}
               >
                 <X size={16} />
               </button>
@@ -296,7 +359,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
               
               {track.modules.length > 0 && (
                 <div className="pl-4 space-y-2 border-l-2 border-gray-200 ml-2 mt-3">
-                  {track.modules.map((mod) => (
+                  {track.modules.filter(m => localEditTarget?.moduleId ? m.id === localEditTarget.moduleId : true).map((mod) => (
                     <div key={mod.id} className="flex flex-col space-y-2">
                       <div className="flex items-center space-x-2">
                         <input
@@ -336,7 +399,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                       {mod.showConfig && (
                         <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200">
                           <h4 className="text-sm font-semibold mb-3 text-primary-text">Module Requirements</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                             {checkboxConfig.map((item) => (
                               <CheckboxNode 
                                 key={item.id} 
@@ -359,7 +422,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
               {track.modules.length === 0 && track.showConfig && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
                   <h4 className="text-sm font-semibold mb-3 text-primary-text">Track Requirements</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
                     {checkboxConfig.map((item) => (
                       <CheckboxNode 
                         key={item.id} 
@@ -856,48 +919,97 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   );
 };
 
-const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate, onViewPlan, stakeholders, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, handleAssignManager, handlePlanUpdate, allPlans, onEditProject }) => {
+const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate, onViewPlan, stakeholders, canApprove, handleApproveClick, handleCloseClick, parseMarkdown, handleAssignManager, handlePlanUpdate, allPlans, onEditProject, onDeleteTrack, onDeleteModule }) => {
   if (!projectData) return null;
 
   const hasGeneratedPlan = (track, module) => {
     if (!projectData.plans || projectData.plans.length === 0) return false;
-    const contextName = module 
-      ? `${projectData.name} - ${track.name} - ${module.name}`
-      : `${projectData.name} - ${track.name}`;
-    return projectData.plans.some(p => p.application_name === contextName);
+    return projectData.plans.some(p => {
+       if (p.project_config && p.project_config._meta) {
+          if (module) return p.project_config._meta.moduleId === module.id;
+          return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
+       }
+       if (module) return p.application_name.includes(module.name);
+       return p.application_name.includes(track.name);
+    });
   };
 
   const renderConfigOptions = (options, inputs) => {
     if (!options || Object.keys(options).length === 0) return null;
     
-    // helper to find label from checkboxConfig
-    const getLabel = (id) => {
-      let found = null;
+    const selectedRootItems = checkboxConfig.filter(root => {
+      let isSelected = false;
       const search = (nodes) => {
         for (const n of nodes) {
-          if (n.id === id) found = n;
+          if (options[n.id]) isSelected = true;
+          if (n.items) search(n.items);
           if (n.subItems) search(n.subItems);
         }
       };
-      search(checkboxConfig);
-      return found;
-    };
+      if (options[root.id]) isSelected = true;
+      if (root.groups) root.groups.forEach(g => search(g.items));
+      return isSelected;
+    });
+
+    if (selectedRootItems.length === 0) return null;
 
     return (
-      <ul className="list-disc ml-5 text-sm space-y-1 text-secondary-text">
-        {Object.keys(options).filter(k => options[k]).map(key => {
-          const opt = getLabel(key);
-          if (!opt) return null;
+      <div className="space-y-3 mt-2">
+        {selectedRootItems.map(root => {
+          const activeGroups = (root.groups || []).map(group => {
+            const activeItems = group.items.filter(item => {
+              if (options[item.id]) return true;
+              let subActive = false;
+              if (item.subItems) {
+                item.subItems.forEach(sub => { if (options[sub.id]) subActive = true; });
+              }
+              return subActive;
+            });
+            return { ...group, items: activeItems };
+          }).filter(g => g.items.length > 0);
+
+          if (!options[root.id] && activeGroups.length === 0) return null;
+
           return (
-            <li key={key}>
-              <span className="font-medium text-gray-800">{opt.label}</span>
-              {opt.hasInput && inputs && inputs[key] && (
-                <span className="ml-2 text-primary-orange">({inputs[key]})</span>
+            <div key={root.id} className="bg-white p-3 rounded border border-gray-200 shadow-sm">
+              <h6 className="font-bold text-gray-800 text-sm mb-2">{root.label}</h6>
+              
+              {activeGroups.length > 0 ? (
+                <div className="space-y-3 pl-3 border-l-2 border-primary-orange/30 ml-1">
+                  {activeGroups.map((group, idx) => (
+                    <div key={idx}>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">{group.title}</span>
+                      <ul className="list-disc ml-4 text-xs space-y-1 text-secondary-text">
+                        {group.items.map(item => {
+                           return (
+                             <React.Fragment key={item.id}>
+                               {options[item.id] && (
+                                 <li>
+                                   <span className="font-medium text-gray-700">{item.label}</span>
+                                   {item.hasInput && inputs && inputs[item.id] && (
+                                     <span className="ml-1 text-primary-orange">({inputs[item.id]})</span>
+                                   )}
+                                 </li>
+                               )}
+                               {item.subItems && item.subItems.filter(sub => options[sub.id]).map(sub => (
+                                 <li key={sub.id} className="text-gray-500 ml-4 list-circle">
+                                   {sub.label}
+                                 </li>
+                               ))}
+                             </React.Fragment>
+                           );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs text-gray-400 italic pl-2">Track selected without criteria.</span>
               )}
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
     );
   };
 
@@ -907,15 +1019,28 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
       : `${projectData.name} - ${track.name}`;
   };
 
-  const allContextNames = new Set();
+  const matchedPlanIds = new Set();
   projectData.config?.tracks?.forEach(track => {
-    allContextNames.add(getContextName(track, null));
+    const trackPlans = (projectData.plans || []).filter(p => {
+       if (p.project_config && p.project_config._meta) {
+          return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
+       }
+       return p.application_name.includes(track.name);
+    });
+    trackPlans.forEach(p => matchedPlanIds.add(p.id));
+
     track.modules?.forEach(mod => {
-      allContextNames.add(getContextName(track, mod));
+      const modulePlans = (projectData.plans || []).filter(p => {
+         if (p.project_config && p.project_config._meta) {
+            return p.project_config._meta.moduleId === mod.id;
+         }
+         return p.application_name.includes(mod.name);
+      });
+      modulePlans.forEach(p => matchedPlanIds.add(p.id));
     });
   });
 
-  const unmatchedPlans = (projectData.plans || []).filter(p => !allContextNames.has(p.application_name));
+  const unmatchedPlans = (projectData.plans || []).filter(p => !matchedPlanIds.has(p.id));
 
   return (
     <div className="space-y-6 mt-6">
@@ -946,8 +1071,12 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
         <div className="p-6">
           <div className="space-y-8">
             {projectData.config?.tracks?.map((track) => {
-              const trackContextName = getContextName(track, null);
-              const trackPlans = (projectData.plans || []).filter(p => p.application_name === trackContextName);
+              const trackPlans = (projectData.plans || []).filter(p => {
+                 if (p.project_config && p.project_config._meta) {
+                    return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
+                 }
+                 return p.application_name.includes(track.name);
+              });
               return (
               <div key={track.id} className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-light-border">
                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
@@ -955,16 +1084,36 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                     <span className="bg-primary-orange/10 text-primary-orange px-2 py-0.5 rounded text-sm mr-2 border border-primary-orange/20">Track</span>
                     {track.name}
                   </h4>
-                  {canGenerate && !hasGeneratedPlan(track, null) && (
-                    <button
-                      onClick={() => {
-                        onGeneratePlan({ projectData, projectName: projectData.name, track, module: null });
-                      }}
-                      className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
-                    >
-                      Add Plan +
-                    </button>
-                  )}
+                  <div className="flex items-center space-x-2">
+                    {canGenerate && (
+                      <>
+                        <button
+                          onClick={() => onEditProject(track.id)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
+                          title="Edit Track"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => onDeleteTrack && onDeleteTrack(track.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors mr-2"
+                          title="Delete Track"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    )}
+                    {canGenerate && !hasGeneratedPlan(track, null) && (
+                      <button
+                        onClick={() => {
+                          onGeneratePlan({ projectData, projectName: projectData.name, track, module: null });
+                        }}
+                        className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange shadow-sm"
+                      >
+                        Add Plan +
+                      </button>
+                    )}
+                  </div>
                 </div>
                 
                 {track.options && Object.keys(track.options).length > 0 && (
@@ -995,8 +1144,12 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                 {track.modules?.length > 0 && (
                   <div className="ml-4 space-y-4 border-l-2 border-orange-200 pl-4">
                     {track.modules.map(mod => {
-                      const moduleContextName = getContextName(track, mod);
-                      const modulePlans = (projectData.plans || []).filter(p => p.application_name === moduleContextName);
+                      const modulePlans = (projectData.plans || []).filter(p => {
+                         if (p.project_config && p.project_config._meta) {
+                            return p.project_config._meta.moduleId === mod.id;
+                         }
+                         return p.application_name.includes(mod.name);
+                      });
                       return (
                       <div key={mod.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100 shadow-sm">
                         <div className="flex justify-between items-center mb-2">
@@ -1004,16 +1157,36 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                             <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-xs mr-2 border border-orange-200">Module</span>
                             {mod.name}
                           </h5>
-                          {canGenerate && !hasGeneratedPlan(track, mod) && (
-                            <button
-                              onClick={() => {
-                                onGeneratePlan({ projectData, projectName: projectData.name, track, module: mod });
-                              }}
-                              className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
-                            >
-                              Add Plan +
-                            </button>
-                          )}
+                          <div className="flex items-center space-x-2">
+                            {canGenerate && (
+                              <>
+                                <button
+                                  onClick={() => onEditProject(track.id, mod.id)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
+                                  title="Edit Module"
+                                >
+                                  <Edit size={14} />
+                                </button>
+                                <button
+                                  onClick={() => onDeleteModule && onDeleteModule(track.id, mod.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors mr-2"
+                                  title="Delete Module"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </>
+                            )}
+                            {canGenerate && !hasGeneratedPlan(track, mod) && (
+                              <button
+                                onClick={() => {
+                                  onGeneratePlan({ projectData, projectName: projectData.name, track, module: mod });
+                                }}
+                                className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange shadow-sm"
+                              >
+                                Add Plan +
+                              </button>
+                            )}
+                          </div>
                         </div>
                         {mod.options && Object.keys(mod.options).length > 0 ? (
                           <div className="mt-2">
@@ -1088,6 +1261,53 @@ const PlanPage = () => {
   const [planToApprove, setPlanToApprove] = useState(null);
   const [approvingPlan, setApprovingPlan] = useState(false);
   const [planToClose, setPlanToClose] = useState(null);
+
+  const [deleteModalConfig, setDeleteModalConfig] = useState(null);
+
+  const executeDelete = async () => {
+    if (!deleteModalConfig || !projectToView) return;
+    const { type, trackId, moduleId } = deleteModalConfig;
+    
+    if (type === 'track') {
+      const updatedConfig = { ...projectToView.config };
+      updatedConfig.tracks = updatedConfig.tracks.filter(t => t.id !== trackId);
+      const updatedProject = { ...projectToView, config: updatedConfig };
+      try {
+        await updateProject(projectToView.id, updatedConfig);
+        setProjectToView(updatedProject);
+        fetchProjects();
+        if(typeof showToast === 'function') showToast('Track deleted successfully', 'success');
+      } catch (err) {
+        if(typeof showToast === 'function') showToast("Error deleting track: " + err.message, 'error');
+        else alert("Error deleting track: " + err.message);
+      }
+    } else if (type === 'module') {
+      const updatedConfig = { ...projectToView.config };
+      const track = updatedConfig.tracks.find(t => t.id === trackId);
+      if (track) {
+        track.modules = track.modules.filter(m => m.id !== moduleId);
+        const updatedProject = { ...projectToView, config: updatedConfig };
+        try {
+          await updateProject(projectToView.id, updatedConfig);
+          setProjectToView(updatedProject);
+          fetchProjects();
+          if(typeof showToast === 'function') showToast('Module deleted successfully', 'success');
+        } catch (err) {
+          if(typeof showToast === 'function') showToast("Error deleting module: " + err.message, 'error');
+          else alert("Error deleting module: " + err.message);
+        }
+      }
+    }
+    setDeleteModalConfig(null);
+  };
+
+  const handleDeleteTrack = (trackId) => {
+    setDeleteModalConfig({ type: 'track', trackId, moduleId: null, message: 'Are you sure you want to delete this track and all its modules?' });
+  };
+
+  const handleDeleteModule = (trackId, moduleId) => {
+    setDeleteModalConfig({ type: 'module', trackId, moduleId, message: 'Are you sure you want to delete this module?' });
+  };
   const [loading, setLoading] = useState(true);
   const [loadingProjectId, setLoadingProjectId] = useState(null);
   const { activeOperations, startOperation, endOperation, docExtractionState, setDocExtractionState } = useOperations();
@@ -1095,8 +1315,9 @@ const PlanPage = () => {
   const [runningWorkflow, setRunningWorkflow] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
-  const [isAddingProject, setIsAddingProject] = useState(false);
+  const [isAddingProject, setIsAddingProject] = useState(() => sessionStorage.getItem('isAddingProject') === 'true');
   const [isEditingProject, setIsEditingProject] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
   const [showGenerateForms, setShowGenerateForms] = useState(false);
   
   const [projectToView, setProjectToView] = useState(null);
@@ -1106,6 +1327,51 @@ const PlanPage = () => {
   const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
   const [pendingPlanId, setPendingPlanId] = useState(null);
   const { showToast } = useToast();
+
+  const viewLevel = (projectToView ? 1 : 0) + (isAddingProject ? 1 : 0) + (isEditingProject ? 1 : 0) + (showGenerateForms ? 1 : 0) + (planToView ? 1 : 0);
+  const [historyLevel, setHistoryLevel] = useState(0);
+
+  useEffect(() => {
+    if (viewLevel > historyLevel) {
+      window.history.pushState({ level: viewLevel }, '', '');
+      setHistoryLevel(viewLevel);
+    } else if (viewLevel < historyLevel) {
+      const delta = historyLevel - viewLevel;
+      window.history.go(-delta);
+      setHistoryLevel(viewLevel);
+    }
+  }, [viewLevel, historyLevel]);
+
+  useEffect(() => {
+    if (projectToView) {
+      sessionStorage.setItem('savedProjectToViewId', projectToView.id);
+    }
+  }, [projectToView]);
+
+  useEffect(() => {
+    if (isAddingProject) {
+      sessionStorage.setItem('isAddingProject', 'true');
+    } else {
+      sessionStorage.removeItem('isAddingProject');
+    }
+  }, [isAddingProject]);
+
+  useEffect(() => {
+    const handlePop = (e) => {
+      const targetLevel = e.state?.level || 0;
+      if (targetLevel < historyLevel) {
+        if (showGenerateForms) setShowGenerateForms(false);
+        else if (planToView) setPlanToView(null);
+        else if (isEditingProject) setIsEditingProject(false);
+        else if (isAddingProject) { setIsAddingProject(false); sessionStorage.removeItem('isAddingProject'); }
+        else if (projectToView) { setProjectToView(null); sessionStorage.removeItem('savedProjectToViewId'); }
+        
+        setHistoryLevel(targetLevel);
+      }
+    };
+    window.addEventListener('popstate', handlePop);
+    return () => window.removeEventListener('popstate', handlePop);
+  }, [historyLevel, showGenerateForms, planToView, isEditingProject, isAddingProject, projectToView]);
 
   const handleSaveNewProject = async (projectData) => {
     try {
@@ -1155,6 +1421,35 @@ const PlanPage = () => {
     }
   };
 
+  const filterCheckedOptions = (data) => {
+    if (!data) return data;
+    const newData = JSON.parse(JSON.stringify(data));
+    newData.tracks = newData.tracks.map(t => {
+      const filteredOptions = {};
+      const filteredInputs = {};
+      Object.keys(t.options || {}).forEach(k => {
+        if (t.options[k]) {
+          filteredOptions[k] = true;
+          if (t.inputs && t.inputs[k]) filteredInputs[k] = t.inputs[k];
+        }
+      });
+      
+      const newModules = t.modules.map(m => {
+        const mOpts = {};
+        const mInps = {};
+        Object.keys(m.options || {}).forEach(k => {
+          if (m.options[k]) {
+            mOpts[k] = true;
+            if (m.inputs && m.inputs[k]) mInps[k] = m.inputs[k];
+          }
+        });
+        return { ...m, options: mOpts, inputs: mInps };
+      });
+      return { ...t, options: filteredOptions, inputs: filteredInputs, modules: newModules };
+    });
+    return newData;
+  };
+
   const handleGeneratePlan = async ({ projectData, projectName, track, module }) => {
     let finalProjectData = projectData;
     let finalProjectId = projectData.id;
@@ -1171,16 +1466,30 @@ const PlanPage = () => {
       }
     }
 
-    setProjectConfig(finalProjectData);
+    const configToFilter = finalProjectData.config || finalProjectData;
+    setProjectConfig(configToFilter);
     
     const contextName = module 
       ? `${projectName} - ${track.name} - ${module.name}`
       : `${projectName} - ${track.name}`;
 
+    const filteredProjectData = filterCheckedOptions(configToFilter);
+    filteredProjectData._meta = {
+      trackId: track.id,
+      moduleId: module ? module.id : null
+    };
+
     setDocFormData(prev => ({ 
       ...prev, 
       application_name: contextName,
-      project_config: finalProjectData,
+      project_config: filteredProjectData,
+      project_id: finalProjectId || (projectToView ? projectToView.id : null)
+    }));
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      application_name: contextName,
+      project_config: filteredProjectData,
       project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
 
@@ -1224,7 +1533,24 @@ const PlanPage = () => {
   const fetchProjects = async () => {
     try {
       const res = await getProjects();
-      setProjects(Array.isArray(res.data?.data) ? res.data.data : []);
+      const loadedProjects = Array.isArray(res.data?.data) ? res.data.data : [];
+      setProjects(loadedProjects);
+      
+      const savedId = sessionStorage.getItem('savedProjectToViewId');
+      if (savedId) {
+        try {
+          const fullProject = await getProjectById(savedId);
+          if (fullProject.data && fullProject.data.success) {
+            setProjectToView(fullProject.data.data);
+          } else {
+            const found = loadedProjects.find(p => String(p.id) === savedId);
+            if (found) setProjectToView(found);
+          }
+        } catch (e) {
+          const found = loadedProjects.find(p => String(p.id) === savedId);
+          if (found) setProjectToView(found);
+        }
+      }
     } catch (err) {
       console.error(err);
       setProjects([]);
@@ -1454,16 +1780,33 @@ const PlanPage = () => {
     if (!text) return { __html: '' };
     let html = text.replace(/```markdown\n?/g, '').replace(/```\n?/g, '');
 
-    // Format main section headers cleanly as bold headings without background colors
-    const mainSectionRegex = /^(Objectives|Target Audience|Sessions \/ Topics Breakdown|Knowledge Acquisition \(KA\) Phase|Final Assessment Evaluation Window|Shadow Resourcing \(SR\) Phase|Lead Resourcing \(LR\) Phase|Expected Outcomes)[\s:]*/gim;
-    html = html.replace(mainSectionRegex, (match, title) => {
+    // Format Phase headings as chip cards
+    const phaseRegex = /^(Knowledge Acquisition \(KA\) Phase|Final Assessment Evaluation Window|Shadow Resourcing \(SR\) Phase|Lead Resourcing \(LR\) Phase)[ \t:]*/gim;
+    html = html.replace(phaseRegex, (match, title) => {
+      return `<div class="mt-8 mb-4"><span class="inline-block px-4 py-1.5 bg-orange-100 text-orange-800 border border-orange-200 rounded-full text-sm font-bold shadow-sm">${title}</span></div>`;
+    });
+
+    // Format regular main section headers
+    const regularSectionRegex = /^(Objectives|Target Audience|Sessions \/ Topics Breakdown|Expected Outcomes)[ \t:]*/gim;
+    html = html.replace(regularSectionRegex, (match, title) => {
       return `<h3 class="text-base font-bold text-gray-900 mt-6 mb-2 border-b border-gray-200 pb-1">${title}</h3>`;
     });
 
-    html = html.replace(/^#### (.*$)/gim, '<h4 class="text-sm font-bold text-gray-800 mt-3 mb-1">$1</h4>');
-    html = html.replace(/^### (.*$)/gim, '<h3 class="text-base font-bold text-gray-900 mt-4 mb-2">$1</h3>');
-    html = html.replace(/^## (.*$)/gim, '<h2 class="text-lg font-bold text-gray-900 mt-5 mb-2">$1</h2>');
-    html = html.replace(/^# (.*$)/gim, '<h1 class="text-xl font-bold text-gray-900 mt-2 mb-3 border-b pb-1">$1</h1>');
+    // Enforce bold headings for all Day/Week lines, stripping out markdown characters
+    html = html.replace(/^[ \t]*(?:#{1,6}[ \t]+|\*\*)?(Day\s+\d+[^\n]*|Week\s+\d+[^\n]*)/gim, (match, content) => {
+      let clean = content.replace(/\*\*/g, '').trim();
+      return `<h4 class="text-sm font-bold text-gray-900 mt-5 mb-2">${clean}</h4>`;
+    });
+
+    // Format remaining generic headers
+    html = html.replace(/^[ \t]*(#{1,6})[ \t]+(.*$)/gim, (match, hashes, text) => {
+      const level = hashes.length;
+      if (level >= 4) return `<h4 class="text-sm font-bold text-gray-800 mt-3 mb-1">${text}</h4>`;
+      if (level === 3) return `<h3 class="text-base font-bold text-gray-900 mt-4 mb-2">${text}</h3>`;
+      if (level === 2) return `<h2 class="text-lg font-bold text-gray-900 mt-5 mb-2">${text}</h2>`;
+      if (level === 1) return `<h1 class="text-xl font-bold text-gray-900 mt-2 mb-3 border-b pb-1">${text}</h1>`;
+    });
+
     html = html.replace(/\*\*(.*?)\*\*/gim, '<strong class="text-gray-900 font-semibold">$1</strong>');
     html = html.replace(/^\s*[\-\*•]\s+(.*$)/gim, '<div class="ml-4 flex items-start my-1"><span class="mr-2 text-gray-500">•</span><span>$1</span></div>');
     return { __html: html };
@@ -1480,20 +1823,12 @@ const PlanPage = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-primary-text">Projects {/* Force reload */}</h2>
-        {!isAddingProject && canGenerate && !showGenerateForms && (
+        {!isAddingProject && canGenerate && !showGenerateForms && !projectToView && !planToView && (
           <button 
             onClick={() => { setIsAddingProject(true); setProjectConfig(null); }}
             className="flex items-center px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
           >
             <Plus size={16} className="mr-2" /> Add Project
-          </button>
-        )}
-        {!isAddingProject && canGenerate && showGenerateForms && (
-          <button 
-            onClick={() => { setShowGenerateForms(false); }}
-            className="flex items-center px-4 py-2 bg-gray-500 text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-600"
-          >
-            Back
           </button>
         )}
       </div>
@@ -1525,7 +1860,84 @@ const PlanPage = () => {
           >
             <ChevronLeft size={16} className="mr-1" /> Back to {projectToView ? 'Project Details' : isAddingProject ? 'Add Project' : 'Projects'}
           </button>
-          <div className="grid grid-cols-1 gap-6 items-stretch">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+            {/* Card 1: Generate Plan with AI */}
+            <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full w-full max-w-4xl mx-auto">
+              <div className="flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-primary-text flex items-center">
+                      <Play className="mr-2 text-primary-orange" size={20} />
+                      Generate Plan with AI
+                    </h3>
+                  </div>
+                  <form onSubmit={handleGenerate} className="flex-1 flex flex-col justify-between space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Plan Name</label>
+                          <input
+                            type="text" required
+                            placeholder="e.g. Payment Gateway Service"
+                            className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
+                            value={formData.application_name}
+                            onChange={(e) => setFormData({...formData, application_name: e.target.value})}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Plan Type</label>
+                          <CustomSelect
+                            className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
+                            value={formData.plan_type}
+                            onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
+                          >
+                            <option value="KT">KT</option>
+                            <option value="Reverse-KT">Reverse-KT</option>
+                          </CustomSelect>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">Scope Description</label>
+                        <textarea
+                          required
+                          rows={5}
+                          placeholder="Enter main topics or scope details"
+                          className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
+                          value={formData.scope_description}
+                          onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
+                        />
+                      </div>
+                      
+                      {formData.plan_type === 'Reverse-KT' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
+                          <input
+                            type="text" required
+                            placeholder="e.g. Test incident resolution or backend deployment"
+                            className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
+                            value={formData.reverse_kt_focus}
+                            onChange={(e) => setFormData({...formData, reverse_kt_focus: e.target.value})}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-end pt-4 mt-auto">
+                      <button
+                        type="submit"
+                        disabled={activeOperations['create-plan']}
+                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50"
+                      >
+                        {activeOperations['create-plan'] ? 'Generating...' : 'Generate Plan'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
             {/* Card 2: Generate Plan with Document */}
             <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full w-full max-w-4xl mx-auto">
               <div className="flex-1 flex flex-col justify-between">
@@ -1692,11 +2104,12 @@ const PlanPage = () => {
           onGeneratePlan={handleGeneratePlan} 
           initialData={projectToView.config} 
           isEditMode={true} 
+          editTarget={editTarget}
         />
       ) : projectToView ? (
         <ProjectDetailsView 
           projectData={projectToView} 
-          onClose={() => setProjectToView(null)} 
+          onClose={() => { setProjectToView(null); sessionStorage.removeItem('savedProjectToViewId'); }} 
           onGeneratePlan={handleGeneratePlan}
           canGenerate={canGenerate}
           onViewPlan={handleViewPlan}
@@ -1708,7 +2121,12 @@ const PlanPage = () => {
           handleAssignManager={handleAssignManager}
           handlePlanUpdate={handlePlanUpdate}
           allPlans={plans}
-          onEditProject={() => setIsEditingProject(true)}
+          onEditProject={(trackId = null, moduleId = null) => {
+            setEditTarget({ trackId, moduleId });
+            setIsEditingProject(true);
+          }}
+          onDeleteTrack={handleDeleteTrack}
+          onDeleteModule={handleDeleteModule}
         />
       ) : isAddingProject ? (
         <AddProjectForm onCancel={() => setIsAddingProject(false)} onSave={handleSaveNewProject} onGeneratePlan={handleGeneratePlan} initialData={projectConfig} />
@@ -1875,6 +2293,31 @@ const PlanPage = () => {
               >
                 Save Project
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteModalConfig && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all animate-scaleIn">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Deletion</h3>
+              <p className="text-gray-600 mb-6">{deleteModalConfig.message}</p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setDeleteModalConfig(null)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeDelete}
+                  className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         </div>
