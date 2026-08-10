@@ -44,6 +44,9 @@ export const getStakeholder = (id) => api.get(`/stakeholders/${id}`);
 export const createStakeholder = (data) => api.post('/stakeholders/', data);
 export const updateStakeholder = (id, data) => api.put(`/stakeholders/${id}`, data);
 export const deleteStakeholder = (id) => api.delete(`/stakeholders/${id}`);
+export const uploadStakeholdersExcel = (formData) => api.post('/stakeholders/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 
 // Plans
 export const generatePlan = (data) => api.post('/plans/generate', data);
