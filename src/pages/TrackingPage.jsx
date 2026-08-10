@@ -4,9 +4,11 @@ import { getPlans, getPlanSummary, getPlanTopics, updateCompletion, getPlanTopic
 import Loader from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
 import ManagerWiseCompletionView from '../components/ManagerWiseCompletionView';
+import { useToast } from '../context/ToastContext';
 
 const TrackingPage = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [summary, setSummary] = useState(null);
@@ -88,7 +90,7 @@ const TrackingPage = () => {
         setSuccessMsg('');
       }, 3000);
     } catch (err) {
-      alert('Error updating completion');
+      showToast('Error updating completion', 'error');
     } finally {
       setIsSaving(false);
     }

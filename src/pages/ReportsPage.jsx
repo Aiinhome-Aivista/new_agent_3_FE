@@ -5,9 +5,11 @@ import Loader from '../components/Loader';
 import { FileText, Download, ChevronLeft, ChevronRight, Eye, X, Loader2, CheckCircle, Clock, Send } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
+import { useToast } from '../context/ToastContext';
 
 const ReportsPage = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [plans, setPlans] = useState([]);
   const [allPlans, setAllPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
@@ -97,11 +99,11 @@ const ReportsPage = () => {
       if (res.data && res.data.success) {
         fetchReports();
       } else {
-        alert(res.data.message || 'Failed to send approval request');
+        showToast(res.data.message || 'Failed to send approval request', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error sending approval request');
+      showToast('Error sending approval request', 'error');
     }
   };
 
@@ -111,11 +113,11 @@ const ReportsPage = () => {
       if (res.data && res.data.success) {
         fetchReports();
       } else {
-        alert(res.data.message || 'Failed to approve report');
+        showToast(res.data.message || 'Failed to approve report', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error approving report');
+      showToast('Error approving report', 'error');
     }
   };
 
@@ -158,11 +160,11 @@ const ReportsPage = () => {
       if (res.data && res.data.success) {
         setViewingReport(res.data.data);
       } else {
-        alert(res.data.message || 'Failed to fetch report content');
+        showToast(res.data.message || 'Failed to fetch report content', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Error fetching report content');
+      showToast('Error fetching report content', 'error');
     } finally {
       setViewLoading(false);
     }
@@ -179,7 +181,7 @@ const ReportsPage = () => {
       }
       fetchReports();
     } catch (err) {
-      alert('Error generating report');
+      showToast('Error generating report', 'error');
     } finally {
       endOperation('generate-report');
     }

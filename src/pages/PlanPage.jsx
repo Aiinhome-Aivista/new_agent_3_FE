@@ -158,6 +158,7 @@ const ProjectCard = ({ project, onClick, isLoading }) => (
 );
 
 const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditMode, editTarget }) => {
+  const { showToast } = useToast();
   const [projectName, setProjectName] = useState(initialData?.name || '');
   const [tracks, setTracks] = useState(initialData?.tracks || []);
   const [localEditTarget, setLocalEditTarget] = useState(editTarget || null);
@@ -347,7 +348,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                     <button
                       type="button"
                       onClick={() => {
-                        if (!projectName) { alert("Please enter a Project Name first."); return; }
+                        if (!projectName) { showToast("Please enter a Project Name first.", 'error'); return; }
                         onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: null });
                       }}
                       className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
@@ -380,7 +381,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                         <button
                           type="button"
                           onClick={() => {
-                            if (!projectName) { alert("Please enter a Project Name first."); return; }
+                            if (!projectName) { showToast("Please enter a Project Name first.", 'error'); return; }
                             onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: mod });
                           }}
                           className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange ml-2"
@@ -1411,7 +1412,7 @@ const PlanPage = () => {
         if(typeof showToast === 'function') showToast('Track deleted successfully', 'success');
       } catch (err) {
         if(typeof showToast === 'function') showToast("Error deleting track: " + err.message, 'error');
-        else alert("Error deleting track: " + err.message);
+        else showToast("Error deleting track: " + err.message, 'error');
       }
     } else if (type === 'module') {
       const updatedConfig = { ...projectToView.config };
@@ -1426,7 +1427,7 @@ const PlanPage = () => {
           if(typeof showToast === 'function') showToast('Module deleted successfully', 'success');
         } catch (err) {
           if(typeof showToast === 'function') showToast("Error deleting module: " + err.message, 'error');
-          else alert("Error deleting module: " + err.message);
+          else showToast("Error deleting module: " + err.message, 'error');
         }
       }
     }
@@ -1514,7 +1515,7 @@ const PlanPage = () => {
         fetchProjects();
       }
     } catch (err) {
-      alert("Error saving project configuration");
+      showToast("Error saving project configuration", 'error');
     }
   };
 
@@ -1529,7 +1530,7 @@ const PlanPage = () => {
         setProjectToView(updatedProject.data.data);
       }
     } catch (err) {
-      alert("Error updating project configuration");
+      showToast("Error updating project configuration", 'error');
     }
   };
 
@@ -1549,7 +1550,7 @@ const PlanPage = () => {
         fetchPlans();
       }
     } catch (err) {
-      alert("Error saving project: " + err.message);
+      showToast("Error saving project: " + err.message, 'error');
     }
   };
 
@@ -1593,7 +1594,7 @@ const PlanPage = () => {
         finalProjectId = projectToView.id;
         getProjectById(projectToView.id).then(r => setProjectToView(r.data.data));
       } catch (err) {
-        alert("Failed to save project updates before generating plan.");
+        showToast("Failed to save project updates before generating plan.", 'error');
         return;
       }
     }
@@ -1744,7 +1745,7 @@ const PlanPage = () => {
         setProjectToView(res.data.data);
       }
     } catch (err) {
-      alert('Error assigning manager');
+      showToast('Error assigning manager', 'error');
     }
   };
 
@@ -1760,7 +1761,7 @@ const PlanPage = () => {
         setShowSaveProjectModal(true);
       }
     } catch (err) {
-      alert('Error generating plan');
+      showToast('Error generating plan', 'error');
     } finally {
       endOperation('create-plan');
     }
@@ -1768,7 +1769,7 @@ const PlanPage = () => {
 
   const analyzeFiles = async (filesToAnalyze) => {
     if (!filesToAnalyze || filesToAnalyze.length === 0) {
-      alert('Please select at least one document file to extract info.');
+      showToast('Please select at least one document file to extract info.', 'error');
       return;
     }
     setAnalyzingDoc(true);
@@ -1787,7 +1788,7 @@ const PlanPage = () => {
         setIsDocExtracted(true);
       }
     } catch (err) {
-      alert('Error analyzing document(s): ' + (err.response?.data?.message || err.message));
+      showToast('Error analyzing document(s): ' + (err.response?.data?.message || err.message), 'error');
     } finally {
       setAnalyzingDoc(false);
     }
@@ -1824,7 +1825,7 @@ const PlanPage = () => {
   const handleGenerateWithDoc = async (e) => {
     e.preventDefault();
     if (!docFormData.application_name || !docFormData.scope_description) {
-      alert('Please fill out Plan Name and Scope Description or upload document(s) to auto-extract them.');
+      showToast('Please fill out Plan Name and Scope Description or upload document(s) to auto-extract them.', 'error');
       return;
     }
     startOperation('create-plan-doc');
@@ -1848,7 +1849,7 @@ const PlanPage = () => {
         setShowSaveProjectModal(true);
       }
     } catch (err) {
-      alert('Error generating plan from document: ' + (err.response?.data?.message || err.message));
+      showToast('Error generating plan from document: ' + (err.response?.data?.message || err.message), 'error');
     } finally {
       endOperation('create-plan-doc');
     }
@@ -1856,7 +1857,7 @@ const PlanPage = () => {
 
   const handleRunWorkflow = async () => {
     if (!formData.application_name || !formData.scope_description) {
-      alert('Please fill out App Name and Scope Description first');
+      showToast('Please fill out App Name and Scope Description first', 'error');
       return;
     }
     setRunningWorkflow(true);
@@ -1865,7 +1866,7 @@ const PlanPage = () => {
       setWorkflowResult(res.data);
       fetchPlans();
     } catch (err) {
-      alert('Error running workflow: ' + err.message);
+      showToast('Error running workflow: ' + err.message, 'error');
     } finally {
       setRunningWorkflow(false);
     }
@@ -1889,7 +1890,7 @@ const PlanPage = () => {
       await fetchPlans();
       await refreshProjectToView();
     } catch (err) {
-      alert('Error approving plan');
+      showToast('Error approving plan', 'error');
     } finally {
       setApprovingPlan(false);
     }
@@ -1903,7 +1904,7 @@ const PlanPage = () => {
       await fetchPlans();
       await refreshProjectToView();
     } catch (err) {
-      alert('Error closing plan');
+      showToast('Error closing plan', 'error');
     }
   };
 

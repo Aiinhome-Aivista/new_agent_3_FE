@@ -423,7 +423,7 @@ const AssessmentPage = () => {
     const stakeholderId = user?.stakeholder_id || stakeholders.find(s => s.email?.toLowerCase() === user?.email?.toLowerCase())?.id;
 
     if (!stakeholderId) {
-      alert("Error: Stakeholder record for the logged-in user not found.");
+      showToast("Error: Stakeholder record for the logged-in user not found.", "Error", "error");
       return;
     }
 
@@ -512,7 +512,7 @@ const AssessmentPage = () => {
       }
     } catch (err) {
       console.error(err);
-      alert('Error evaluating answer. Please try again.');
+      showToast('Error evaluating answer. Please try again.', "Error", "error");
     } finally {
       setEvaluationLoading(false);
     }
