@@ -75,6 +75,17 @@ const SchedulePage = () => {
   const [knowledgeGivers, setKnowledgeGivers] = useState([]);
   const [selectedStakeholders, setSelectedStakeholders] = useState([]);
   const [selectedOrganizers, setSelectedOrganizers] = useState([]);
+  
+  // Specific Requirement Email Recipients
+  const [selectedSudRecipients, setSelectedSudRecipients] = useState([]);
+  const [selectedShadowRecipients, setSelectedShadowRecipients] = useState([]);
+  const [selectedLeadRecipients, setSelectedLeadRecipients] = useState([]);
+
+  // Computed requirement flags
+  const [isSudMandatory, setIsSudMandatory] = useState(false);
+  const [isShadowResourcing, setIsShadowResourcing] = useState(false);
+  const [isLeadResourcing, setIsLeadResourcing] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const { activeOperations, startOperation, endOperation } = useOperations();
   const scheduling = activeOperations['schedule-meeting'];
@@ -436,6 +447,36 @@ const SchedulePage = () => {
     }
   }, [schedulePopup]);
 
+  // Compute specific requirements when plan_id changes
+  useEffect(() => {
+    setIsSudMandatory(false);
+    setIsShadowResourcing(false);
+    setIsLeadResourcing(false);
+    setSelectedSudRecipients([]);
+    setSelectedShadowRecipients([]);
+    setSelectedLeadRecipients([]);
+
+    if (!formData.plan_id) return;
+    
+    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
+    if (!selectedPlan) return;
+    
+    const project = projects.find(p => p.id === selectedPlan.project_id);
+    if (!project || !project.config) return;
+    
+    try {
+      const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
+      const track = (config.tracks || []).find(t => t.name === selectedPlan.application_name);
+      if (track && track.options) {
+        setIsSudMandatory(!!track.options.sud_mandatory);
+        setIsShadowResourcing(!!track.options.shadow_resourcing);
+        setIsLeadResourcing(!!track.options.lead_resourcing);
+      }
+    } catch (e) {
+      console.error("Error parsing project config", e);
+    }
+  }, [formData.plan_id, plans, projects]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedStakeholders.length === 0 && selectedOrganizers.length === 0) {
@@ -448,7 +489,10 @@ const SchedulePage = () => {
         plan_id: formData.plan_id,
         scheduled_at: formData.scheduled_at,
         meeting_link: formData.meeting_link,
-        stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders]
+        stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders],
+        sud_recipients: selectedSudRecipients,
+        shadow_recipients: selectedShadowRecipients,
+        lead_recipients: selectedLeadRecipients
       });
       setFormData({
         project_id: '',
@@ -458,6 +502,9 @@ const SchedulePage = () => {
       });
       setSelectedStakeholders([]);
       setSelectedOrganizers([]);
+      setSelectedSudRecipients([]);
+      setSelectedShadowRecipients([]);
+      setSelectedLeadRecipients([]);
       fetchData();
       setSchedulePopup({ message: 'Meeting scheduled successfully! Notifications triggered.', type: 'success' });
     } catch (err) {
@@ -608,6 +655,49 @@ const SchedulePage = () => {
                       visibleCount={4}
                     />
                   </div>
+
+                  {(isSudMandatory || isShadowResourcing || isLeadResourcing) && (
+                    <div className="md:col-span-5 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                      {isSudMandatory && (
+                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 h-full">
+                          <MultiSelectDropdown
+                            label="SUD Document"
+                            placeholder="Select Participants..."
+                            options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
+                            selected={selectedSudRecipients}
+                            onChange={setSelectedSudRecipients}
+                            visibleCount={3}
+                          />
+                        </div>
+                      )}
+
+                      {isShadowResourcing && (
+                        <div className="bg-purple-50/50 p-4 rounded-lg border border-purple-100 h-full">
+                          <MultiSelectDropdown
+                            label="Shadow Resourcing"
+                            placeholder="Select Organizers, Participants..."
+                            options={[...knowledgeGivers.filter(g => selectedOrganizers.includes(g.id)), ...stakeholders.filter(s => selectedStakeholders.includes(s.id))]}
+                            selected={selectedShadowRecipients}
+                            onChange={setSelectedShadowRecipients}
+                            visibleCount={3}
+                          />
+                        </div>
+                      )}
+
+                      {isLeadResourcing && (
+                        <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 h-full">
+                          <MultiSelectDropdown
+                            label="Lead Resourcing"
+                            placeholder="Select Participants..."
+                            options={stakeholders.filter(s => selectedShadowRecipients.includes(s.id))}
+                            selected={selectedLeadRecipients}
+                            onChange={setSelectedLeadRecipients}
+                            visibleCount={3}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="md:col-span-5 flex justify-end mt-2">
                     <button
