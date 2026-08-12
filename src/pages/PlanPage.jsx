@@ -1744,10 +1744,11 @@ const PlanPage = () => {
     e.preventDefault();
     startOperation('create-plan');
     try {
+      const targetProjId = formData.project_id || (projectToView ? projectToView.id : null);
       const res = await generatePlan(formData);
       setFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
       fetchPlans();
-      if (projectConfig && !projectConfig.id && res.data?.data?.id) {
+      if (!targetProjId && projectConfig && res.data?.data?.id) {
         setPendingPlanId(res.data.data.id);
         setShowSaveProjectModal(true);
       }
@@ -1835,7 +1836,7 @@ const PlanPage = () => {
         }
       }
       fetchProjects();
-      if (projectConfig && !projectConfig.id && res.data?.data?.id) {
+      if (!targetProjId && projectConfig && res.data?.data?.id) {
         setPendingPlanId(res.data.data.id);
         setShowSaveProjectModal(true);
       }
@@ -2284,7 +2285,6 @@ const PlanPage = () => {
                     try {
                       const res = await getProjectById(project.id);
                       setProjectToView(res.data.data);
-                      window.history.pushState({ view: 'project' }, '', '#project');
                     } catch (err) {
                       console.error("Error fetching project details");
                     } finally {
