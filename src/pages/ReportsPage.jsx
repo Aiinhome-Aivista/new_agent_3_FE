@@ -2,7 +2,7 @@ import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getPlans, generateWeeklyReport, generateFinalReport, getReports, getPlanSummary, viewReport, updateReportStatus } from '../api/api';
 import Loader from '../components/Loader';
-import { FileText, Download, ChevronLeft, ChevronRight, Eye, X, Loader2, CheckCircle, Clock, Send } from 'lucide-react';
+import { FileText, Download, ChevronLeft, ChevronRight, Eye, X, Loader2, CheckCircle, Clock, Send, Presentation } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
@@ -20,6 +20,7 @@ const ReportsPage = () => {
   const generatingType = activeOperations['generate-report'] || null;
   const [isAllTopicsCovered, setIsAllTopicsCovered] = useState(false);
   const [viewingReport, setViewingReport] = useState(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [viewLoading, setViewLoading] = useState(false);
   const [planCompletionStatus, setPlanCompletionStatus] = useState({});
 
@@ -155,6 +156,7 @@ const ReportsPage = () => {
 
   const handleViewReport = async (reportId) => {
     setViewLoading(true);
+    setCurrentSlideIndex(0);
     try {
       const res = await viewReport(reportId);
       if (res.data && res.data.success) {
@@ -275,8 +277,8 @@ const ReportsPage = () => {
                   {getPlanName(r.plan_id)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text flex items-center">
-                  <FileText size={16} className="mr-2 text-secondary-text" />
-                  {r.file_path}
+                  <Presentation size={16} className="mr-2 text-primary-orange" />
+                  {r.file_path?.endsWith('.docx') ? r.file_path.replace('.docx', '.pptx') : r.file_path}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{new Date(r.generated_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -406,54 +408,157 @@ const ReportsPage = () => {
         )}
       </div>
 
-      {/* Modal Popup for viewing document */}
+      {/* Modal Popup for viewing PPT Presentation */}
       {viewingReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-light-background w-full max-w-3xl rounded-2xl shadow-xl flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4">
+          <div className="bg-light-background w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
             {/* Modal Header */}
             <div className="flex justify-between items-center px-6 py-4 border-b border-gray-150">
-              <h3 className="text-lg font-bold text-primary-text flex items-center gap-2">
-                <FileText className="text-primary-orange w-5 h-5" />
-                {viewingReport.filename}
-              </h3>
-              <button
-                onClick={() => setViewingReport(null)}
-                className="text-secondary-text hover:text-secondary-text transition-colors p-1.5 rounded-lg hover:bg-input-background"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Modal Content - Read Only / A4 Page Preview */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 bg-input-background select-none">
-              <div className="bg-light-background shadow-lg border border-light-border p-6 sm:p-12 w-full max-w-2xl mx-auto min-h-[75vh] rounded-sm text-primary-text font-sans text-left">
-                {Array.isArray(viewingReport.content) ? (
-                  viewingReport.content.map((item, index) => {
-                    if (item.type === 'h1') {
-                      return <h1 key={index} className="text-xl font-bold text-primary-text border-b border-light-border pb-2 mb-6 mt-8 first:mt-0">{item.text}</h1>;
-                    } else if (item.type === 'h2') {
-                      return <h2 key={index} className="text-base font-bold text-hover-orange mt-6 mb-3 border-l-4 border-primary-orange pl-3">{item.text}</h2>;
-                    } else if (item.type === 'h3') {
-                      return <h3 key={index} className="text-sm font-semibold text-primary-text mt-4 mb-2">{item.text}</h3>;
-                    } else if (item.type === 'list-item') {
-                      return (
-                        <div key={index} className="flex items-start gap-2 ml-4 mb-2">
-                          <span className="text-primary-orange mt-1.5 text-[8px]">•</span>
-                          <p className="text-xs text-gray-700 leading-relaxed">{item.text}</p>
-                        </div>
-                      );
-                    } else {
-                      return <p key={index} className="text-xs text-gray-700 leading-relaxed mb-4">{item.text}</p>;
-                    }
-                  })
-                ) : (
-                  <p className="text-xs text-gray-700 whitespace-pre-wrap">{viewingReport.content}</p>
-                )}
+              <div className="flex items-center gap-2">
+                <Presentation className="text-primary-orange w-6 h-6" />
+                <div>
+                  <h3 className="text-base font-bold text-primary-text">{viewingReport.filename}</h3>
+                  <p className="text-xs text-secondary-text">PowerPoint Presentation View</p>
+                </div>
               </div>
+              
+              {/* Slide navigation controls */}
+              {viewingReport.slides && viewingReport.slides.length > 0 && (
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
+                    Slide {currentSlideIndex + 1} of {viewingReport.slides.length}
+                  </span>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => setCurrentSlideIndex(prev => Math.max(prev - 1, 0))}
+                      disabled={currentSlideIndex === 0}
+                      className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-40"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentSlideIndex(prev => Math.min(prev + 1, viewingReport.slides.length - 1))}
+                      disabled={currentSlideIndex === viewingReport.slides.length - 1}
+                      className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-100 disabled:opacity-40"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setViewingReport(null)}
+                    className="text-secondary-text hover:text-gray-700 p-1.5 rounded-lg hover:bg-input-background ml-2"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
             </div>
-            
+
+            {/* Modal Content - 16:9 PowerPoint Slide Preview */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-900 flex flex-col items-center justify-center min-h-[60vh]">
+              {viewingReport.slides && viewingReport.slides[currentSlideIndex] ? (
+                <div className="w-full max-w-3xl aspect-[16/9] bg-white rounded-xl shadow-2xl p-8 flex flex-col justify-between border-t-8 border-primary-orange relative overflow-hidden text-slate-800 select-none">
+                  
+                  {/* Top Bar Accent & Header */}
+                  <div>
+                    <div className="flex justify-between items-start border-b border-gray-100 pb-3 mb-4">
+                      <div>
+                        <h2 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+                          {viewingReport.slides[currentSlideIndex].title || `Slide ${currentSlideIndex + 1}`}
+                        </h2>
+                        {viewingReport.slides[currentSlideIndex].subtitle && (
+                          <p className="text-xs font-medium text-orange-600 mt-0.5">
+                            {viewingReport.slides[currentSlideIndex].subtitle}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                        PwC Advisory
+                      </span>
+                    </div>
+
+                    {/* Slide Body Bullets / Cards */}
+                    <div className="space-y-2.5 max-h-[320px] overflow-y-auto custom-scrollbar pr-2">
+                      {currentSlideIndex === 0 ? (
+                        <div className="space-y-4 py-2">
+                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-xs">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="px-3 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded-full">
+                                Executive Program Report
+                              </span>
+                              <span className="text-xs font-semibold text-slate-500">PwC Advisory</span>
+                            </div>
+                            <p className="text-xs text-slate-600 leading-relaxed">
+                              This presentation contains executive status updates, knowledge transfer progress metrics, risk evaluations, and completion milestones for governance review.
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div className="bg-white border border-slate-200 p-3 rounded-lg">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Target Persona</span>
+                              <span className="font-semibold text-slate-800">Delivery / Engagement Manager</span>
+                            </div>
+                            <div className="bg-white border border-slate-200 p-3 rounded-lg">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Governance Standard</span>
+                              <span className="font-semibold text-slate-800">RAG Grounded & Audit Verified</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : Array.isArray(viewingReport.slides[currentSlideIndex].content) && viewingReport.slides[currentSlideIndex].content.length > 0 ? (
+                        viewingReport.slides[currentSlideIndex].content.map((item, idx) => {
+                          const cleanItem = String(item).replace(/^\s*#{1,6}\s*/, '').replace(/^\s*[-*•]\s*/, '').replace(/^\s*\d+\.\s*/, '').replace(/\*\*/g, '').trim();
+                          if (!cleanItem) return null;
+                          const isHeading = cleanItem.endsWith(':') || String(item).includes('####') || String(item).includes('###');
+                          return (
+                            <div key={idx} className={`flex items-start gap-3 p-2.5 rounded-lg border ${
+                              isHeading ? 'bg-orange-50/70 border-orange-200 font-bold text-orange-950' : 'bg-slate-50 border-slate-100 text-slate-700'
+                            } shadow-xs`}>
+                              <span className={`w-2 h-2 rounded-full ${isHeading ? 'bg-orange-600' : 'bg-primary-orange'} mt-1.5 shrink-0`} />
+                              <p className={`text-xs leading-relaxed ${isHeading ? 'font-semibold text-slate-900' : 'font-normal text-slate-700'}`}>{cleanItem}</p>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="flex items-center justify-center h-40 text-slate-400 text-xs italic">
+                          Executive Status & Summary
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Slide Footer */}
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 border-t border-gray-100 pt-3 mt-4">
+                    <span>Solution Advisory | Autonomous Bid Lifecycle Platform</span>
+                    <span className="font-semibold text-slate-500">Slide {currentSlideIndex + 1} of {viewingReport.slides.length}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">No slide content available.</p>
+              )}
+            </div>
+
+            {/* Slide Thumbnails Jump Bar */}
+            {viewingReport.slides && viewingReport.slides.length > 1 && (
+              <div className="px-6 py-3 border-t border-gray-150 bg-gray-50 flex items-center gap-2 overflow-x-auto custom-scrollbar">
+                <span className="text-xs font-semibold text-gray-500 shrink-0 mr-2">Jump to Slide:</span>
+                {viewingReport.slides.map((s, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setCurrentSlideIndex(idx)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded-md border transition-all shrink-0 ${
+                      currentSlideIndex === idx
+                        ? 'bg-primary-orange text-white border-primary-orange shadow-sm'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    }`}
+                  >
+                    {idx + 1}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-150 flex justify-end">
+            <div className="px-6 py-3 border-t border-gray-150 flex justify-end">
               <button
                 onClick={() => setViewingReport(null)}
                 className="px-4 py-2 bg-input-background text-primary-text font-semibold rounded-lg hover:bg-gray-300 transition-colors text-sm"
