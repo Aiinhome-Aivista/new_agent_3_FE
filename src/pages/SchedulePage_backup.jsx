@@ -1,6 +1,6 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
+import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -80,8 +80,6 @@ const SchedulePage = () => {
   const [selectedSudRecipients, setSelectedSudRecipients] = useState([]);
   const [selectedShadowRecipients, setSelectedShadowRecipients] = useState([]);
   const [selectedLeadRecipients, setSelectedLeadRecipients] = useState([]);
-  const [selectedFinalAssessmentRecipients, setSelectedFinalAssessmentRecipients] = useState([]);
-  const [activeGlobalTab, setActiveGlobalTab] = useState('KA');
 
   // Computed requirement flags
   const [isSudMandatory, setIsSudMandatory] = useState(false);
@@ -457,7 +455,6 @@ const SchedulePage = () => {
     setSelectedSudRecipients([]);
     setSelectedShadowRecipients([]);
     setSelectedLeadRecipients([]);
-    setSelectedFinalAssessmentRecipients([]);
 
     if (!formData.plan_id) return;
     
@@ -480,59 +477,6 @@ const SchedulePage = () => {
     }
   }, [formData.plan_id, plans, projects]);
 
-  const handleStakeholdersChange = (newStakeholders) => {
-    const added = newStakeholders.filter(id => !selectedStakeholders.includes(id));
-    const removed = selectedStakeholders.filter(id => !newStakeholders.includes(id));
-    
-    setSelectedStakeholders(newStakeholders);
-    
-    if (added.length > 0) {
-      setSelectedSudRecipients(prev => [...new Set([...prev, ...added])]);
-      setSelectedFinalAssessmentRecipients(prev => [...new Set([...prev, ...added])]);
-    }
-    
-    if (removed.length > 0) {
-      setSelectedSudRecipients(prev => prev.filter(id => !removed.includes(id)));
-      setSelectedFinalAssessmentRecipients(prev => prev.filter(id => !removed.includes(id)));
-      setSelectedShadowRecipients(prev => prev.filter(id => !removed.includes(id)));
-      setSelectedLeadRecipients(prev => prev.filter(id => !removed.includes(id)));
-    }
-  };
-
-  const handleNotifySubmit = async (e) => {
-    e.preventDefault();
-    const recipients = activeGlobalTab === 'SR' ? selectedShadowRecipients : selectedLeadRecipients;
-    if (recipients.length === 0) {
-      setSchedulePopup({ message: 'Please select at least one recipient to notify.', type: 'error' });
-      return;
-    }
-    
-    startOperation('notify-requirements');
-    try {
-      const payload = {
-        plan_id: formData.plan_id,
-        shadow_recipients: activeGlobalTab === 'SR' ? selectedShadowRecipients : [],
-        lead_recipients: activeGlobalTab === 'LR' ? selectedLeadRecipients : []
-      };
-
-      const res = await notifyRequirements(payload);
-      if (res.data.success) {
-        if (activeGlobalTab === 'SR') {
-          setSelectedShadowRecipients([]);
-        } else {
-          setSelectedLeadRecipients([]);
-        }
-        setSchedulePopup({ message: res.data.message || 'Notification sent successfully!', type: 'success' });
-      } else {
-        setSchedulePopup({ message: res.data.message || 'Error sending notification', type: 'error' });
-      }
-    } catch (err) {
-      setSchedulePopup({ message: err?.response?.data?.message || 'Server error sending notification', type: 'error' });
-    } finally {
-      endOperation('notify-requirements');
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedStakeholders.length === 0 && selectedOrganizers.length === 0) {
@@ -541,26 +485,24 @@ const SchedulePage = () => {
     }
     startOperation('schedule-meeting');
     try {
-      const payload = {
+      await createMeeting({
         plan_id: formData.plan_id,
         scheduled_at: formData.scheduled_at,
         meeting_link: formData.meeting_link,
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders],
-        sud_recipients: activeGlobalTab === 'KA' ? selectedSudRecipients : [],
-        final_assessment_recipients: activeGlobalTab === 'KA' ? selectedFinalAssessmentRecipients : [],
-        shadow_recipients: activeGlobalTab === 'SR' ? selectedShadowRecipients : [],
-        lead_recipients: activeGlobalTab === 'LR' ? selectedLeadRecipients : []
-      };
-      await createMeeting(payload);
+        sud_recipients: selectedSudRecipients,
+        shadow_recipients: selectedShadowRecipients,
+        lead_recipients: selectedLeadRecipients
+      });
       setFormData({
-        ...formData,
+        project_id: '',
+        plan_id: '',
         scheduled_at: '',
         meeting_link: ''
       });
       setSelectedStakeholders([]);
       setSelectedOrganizers([]);
       setSelectedSudRecipients([]);
-      setSelectedFinalAssessmentRecipients([]);
       setSelectedShadowRecipients([]);
       setSelectedLeadRecipients([]);
       fetchData();
@@ -609,97 +551,59 @@ const SchedulePage = () => {
       <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
 
       {canManage && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Select Project</label>
-              <CustomSelect
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                value={formData.project_id}
-                onChange={(e) => setFormData({ ...formData, project_id: e.target.value, plan_id: '' })}
-                required
-              >
-                <option value="" disabled>---Select Project---</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </CustomSelect>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Select Plan</label>
-              <CustomSelect
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                value={formData.plan_id}
-                onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
-                required
-                disabled={!formData.project_id}
-              >
-                <option value="" disabled>---Select Plan---</option>
-                {plans
-                  .filter(p => String(p.project_id) === String(formData.project_id))
-                  .map(p => (
-                    <option key={p.id} value={p.id}>{p.application_name}</option>
-                ))}
-              </CustomSelect>
-            </div>
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100">
+          <div className="flex border-b border-gray-100 bg-gray-50/50 rounded-t-xl overflow-hidden">
+            <button
+              onClick={() => setSchedulingMode('manual')}
+              className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'manual' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              Manual Scheduling
+            </button>
+            <button
+              onClick={() => setSchedulingMode('upload')}
+              className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'upload' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              Automated Bulk Scheduling
+            </button>
           </div>
-        </div>
-      )}
-
-      {canManage && formData.project_id && formData.plan_id && (
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveGlobalTab('KA')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'KA' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Knowledge Acquisition
-            </button>
-            <button
-              onClick={() => setActiveGlobalTab('SR')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'SR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Shadow Resourcing
-            </button>
-            <button
-              onClick={() => setActiveGlobalTab('LR')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'LR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Lead Resourcing
-            </button>
-          </nav>
-        </div>
-      )}
-
-      {canManage && formData.project_id && formData.plan_id && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 mb-6">
-          {activeGlobalTab === 'KA' && (
-            <div className="flex border-b border-gray-100 bg-gray-50/50 rounded-t-xl overflow-hidden">
-              <button
-                onClick={() => setSchedulingMode('manual')}
-                className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'manual' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-              >
-                Manual Scheduling
-              </button>
-              <button
-                onClick={() => setSchedulingMode('upload')}
-                className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'upload' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-              >
-                Automated Bulk Scheduling
-              </button>
-            </div>
-          )}
 
           <div className="p-6">
-            {(schedulingMode === 'manual' || activeGlobalTab !== 'KA') ? (
+            {schedulingMode === 'manual' ? (
               <div>
-                <h3 className="text-lg font-semibold text-primary-text mb-4">
-                  {activeGlobalTab === 'KA' ? 'Schedule New Meeting Manually' : `Schedule ${activeGlobalTab === 'SR' ? 'Shadow' : 'Lead'} Resourcing Session`}
-                </h3>
-                <form onSubmit={activeGlobalTab === 'KA' ? handleSubmit : handleNotifySubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {activeGlobalTab === 'KA' && (
-                    <>
-                      <div>
+                <h3 className="text-lg font-semibold text-primary-text mb-4">Schedule New Meeting Manually</h3>
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Select Project</label>
+                    <CustomSelect
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.project_id}
+                      onChange={(e) => setFormData({ ...formData, project_id: e.target.value, plan_id: '' })}
+                      required
+                    >
+                      <option value="" disabled>---Select Project---</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </CustomSelect>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Select Plan</label>
+                    <CustomSelect
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.plan_id}
+                      onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
+                      required
+                      disabled={!formData.project_id}
+                    >
+                      <option value="" disabled>---Select Plan---</option>
+                      {plans
+                        .filter(p => String(p.project_id) === String(formData.project_id))
+                        .map(p => (
+                          <option key={p.id} value={p.id}>{p.application_name}</option>
+                      ))}
+                    </CustomSelect>
+                  </div>
+                  <div>
                     {user?.role === 'Delivery / Engagement Manager' ? (
                       <MultiSelectDropdown
                         label="Organizers (Knowledge Givers)"
@@ -741,23 +645,20 @@ const SchedulePage = () => {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-5">
                     <MultiSelectDropdown
                       label="Participants (Knowledge Receivers)"
                       placeholder="Select Receivers..."
                       options={stakeholders}
                       selected={selectedStakeholders}
-                      onChange={handleStakeholdersChange}
+                      onChange={setSelectedStakeholders}
                       visibleCount={4}
                     />
                   </div>
 
-                    </>
-                  )}
-
-                  <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                    {activeGlobalTab === 'KA' && (
-                      <>
+                  {(isSudMandatory || isShadowResourcing || isLeadResourcing) && (
+                    <div className="md:col-span-5 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                      {isSudMandatory && (
                         <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 h-full">
                           <MultiSelectDropdown
                             label="SUD Document"
@@ -768,80 +669,59 @@ const SchedulePage = () => {
                             visibleCount={3}
                           />
                         </div>
-                        <div className="bg-green-50/50 p-4 rounded-lg border border-green-100 h-full">
+                      )}
+
+                      {isShadowResourcing && (
+                        <div className="bg-purple-50/50 p-4 rounded-lg border border-purple-100 h-full">
                           <MultiSelectDropdown
-                            label="Final Assessment"
-                            placeholder="Select Participants..."
-                            options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
-                            selected={selectedFinalAssessmentRecipients}
-                            onChange={setSelectedFinalAssessmentRecipients}
+                            label="Shadow Resourcing"
+                            placeholder="Select Organizers, Participants..."
+                            options={[...knowledgeGivers.filter(g => selectedOrganizers.includes(g.id)), ...stakeholders.filter(s => selectedStakeholders.includes(s.id))]}
+                            selected={selectedShadowRecipients}
+                            onChange={setSelectedShadowRecipients}
                             visibleCount={3}
                           />
                         </div>
-                      </>
-                    )}
+                      )}
 
-                    {activeGlobalTab === 'SR' && (
-                      <div className="bg-purple-50/50 p-4 rounded-lg border border-purple-100 h-full">
-                        <MultiSelectDropdown
-                          label="Shadow Resourcing"
-                          placeholder="Select Organizers, Participants..."
-                          options={[...knowledgeGivers, ...stakeholders]}
-                          selected={selectedShadowRecipients}
-                          onChange={setSelectedShadowRecipients}
-                          visibleCount={3}
-                        />
-                      </div>
-                    )}
+                      {isLeadResourcing && (
+                        <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 h-full">
+                          <MultiSelectDropdown
+                            label="Lead Resourcing"
+                            placeholder="Select Participants..."
+                            options={stakeholders.filter(s => selectedShadowRecipients.includes(s.id))}
+                            selected={selectedLeadRecipients}
+                            onChange={setSelectedLeadRecipients}
+                            visibleCount={3}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                    {activeGlobalTab === 'LR' && (
-                      <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 h-full">
-                        <MultiSelectDropdown
-                          label="Lead Resourcing"
-                          placeholder="Select Participants..."
-                          options={stakeholders}
-                          selected={selectedLeadRecipients}
-                          onChange={setSelectedLeadRecipients}
-                          visibleCount={3}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="md:col-span-4 flex justify-end mt-2">
+                  <div className="md:col-span-5 flex justify-end mt-2">
                     <button
                       type="submit"
-                      disabled={
-                        (activeGlobalTab === 'KA' && scheduling) ||
-                        (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']) ||
-                        (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                        (activeGlobalTab === 'SR' && selectedShadowRecipients.length === 0) ||
-                        (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
-                      }
-                      className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
-                        ((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']))
-                          ? 'bg-button-orange cursor-not-allowed'
-                          : (
-                              (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                              (activeGlobalTab === 'SR' && selectedShadowRecipients.length === 0) ||
-                              (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
-                            )
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-primary-orange hover:bg-hover-orange'
-                      }`}
+                      disabled={scheduling || (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${scheduling
+                        ? 'bg-button-orange cursor-not-allowed'
+                        : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-primary-orange hover:bg-hover-orange'
+                        }`}
                     >
-                      {((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements'])) ? (
+                      {scheduling ? (
                         <>
                           <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                           </svg>
-                          {activeGlobalTab === 'KA' ? 'Scheduling...' : 'Notifying...'}
+                          Scheduling...
                         </>
                       ) : (
                         <>
-                          {activeGlobalTab === 'KA' ? <Calendar size={16} /> : <span style={{ fontSize: '16px' }}>🔔</span>}
-                          {activeGlobalTab === 'KA' ? 'Schedule' : 'Notify'}
+                          <Calendar size={16} />
+                          Schedule
                         </>
                       )}
                     </button>
@@ -933,6 +813,7 @@ const SchedulePage = () => {
           </div>
         </div>
       )}
+
       <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
