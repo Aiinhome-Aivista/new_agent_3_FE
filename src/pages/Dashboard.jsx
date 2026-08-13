@@ -47,7 +47,19 @@ const Dashboard = () => {
         }
 
         const plansData = plansRes.data.data || [];
-        const projectsData = projectsRes.data.data || [];
+        let projectsData = projectsRes.data.data || [];
+
+        const isKnowledgeReceiverUser = user?.role === 'Incoming Team Member (Knowledge Receiver)' ||
+          user?.role?.toLowerCase().includes('receiver') ||
+          user?.role?.toLowerCase().includes('incoming');
+
+        if (isKnowledgeReceiverUser) {
+          const assignedProjectIds = new Set(
+            plansData.map(p => p.project_id ? String(p.project_id) : null).filter(Boolean)
+          );
+          projectsData = projectsData.filter(p => assignedProjectIds.has(String(p.id)));
+        }
+
         const plansMap = {};
         plansData.forEach(p => {
           plansMap[p.id] = p.application_name;
@@ -75,7 +87,7 @@ const Dashboard = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
 
   const computedStats = React.useMemo(() => {
     const { plans, stakeholders, meetings, risks, plansMap } = rawData;

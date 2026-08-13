@@ -17,6 +17,7 @@ import ReportsPage from './pages/ReportsPage';
 import ChatbotPage from './pages/ChatbotPage';
 import LoginPage from './pages/LoginPage';
 import KnowledgeBasePage from './pages/KnowledgeBasePage';
+import SudUploadPage from './pages/SudUploadPage';
 import HolidaysPage from './pages/HolidaysPage';
 import CalendarPage from './pages/CalendarPage';
 
@@ -44,6 +45,7 @@ function App() {
               <Route path="/assessment" element={<AssessmentPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+              <Route path="/sud-upload" element={<SudUploadPage />} />
               <Route path="/chatbot" element={<ChatbotPage />} />
               <Route path="/holidays" element={<HolidaysPage />} />
               <Route path="/calendar" element={<CalendarPage />} />
