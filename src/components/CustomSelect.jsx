@@ -12,7 +12,9 @@ const CustomSelect = ({ value, onChange, children, className = '', disabled, ...
     if (selectRef.current) {
       const opts = Array.from(selectRef.current.options).map(opt => ({
         value: opt.value,
-        label: opt.text
+        label: opt.text,
+        disabled: opt.disabled,
+        isHeader: opt.getAttribute('data-header') === 'true',
       }));
       setOptions(opts);
     }
@@ -29,10 +31,9 @@ const CustomSelect = ({ value, onChange, children, className = '', disabled, ...
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedLabel = options.find(o => String(o.value) === String(value))?.label || options[0]?.label || 'Select...';
+  const selectedOption = options.find(o => String(o.value) === String(value));
+  const selectedLabel = selectedOption ? selectedOption.label : (options[0]?.label || 'Select...');
 
-  // Because the original select had px-3 py-2, we remove padding from the wrapper inline style 
-  // and force overflow visible so the absolute dropdown isn't clipped by truncate or overflow-hidden classes.
   return (
     <div className={`relative ${className} select-none`} ref={containerRef} style={{ padding: 0, overflow: 'visible' }}>
       {/* Hidden native select to maintain form behavior and easily parse options */}
@@ -49,7 +50,7 @@ const CustomSelect = ({ value, onChange, children, className = '', disabled, ...
       
       {/* Custom Trigger */}
       <div 
-        className={`w-full h-full min-h-[38px] flex items-center justify-between cursor-pointer px-3 py-2 ${disabled ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-orange-border`}
+        className={`w-full h-full min-h-[38px] flex items-center justify-between cursor-pointer px-3 py-2 bg-white border border-light-border rounded-lg ${disabled ? 'opacity-50 cursor-not-allowed' : ''} focus:outline-none focus:ring-2 focus:ring-primary-orange/20`}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         tabIndex={disabled ? -1 : 0}
         onKeyDown={(e) => {
@@ -59,28 +60,50 @@ const CustomSelect = ({ value, onChange, children, className = '', disabled, ...
           }
         }}
       >
-         <span className="truncate pr-6 text-sm">{selectedLabel}</span>
+         <span className={`truncate pr-6 text-sm ${!value ? 'text-slate-400' : 'text-slate-700 font-medium'}`}>
+           {selectedLabel}
+         </span>
          <ChevronDown size={16} className="text-secondary-text absolute right-3 pointer-events-none" />
       </div>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-[100] w-full mt-1 bg-white border border-light-border rounded-md shadow-lg max-h-60 overflow-y-auto custom-scrollbar left-0">
-          {options.map((opt, i) => (
-             <div 
-               key={i}
-               className={`px-3 py-2 cursor-pointer text-sm transition-colors ${String(value) === String(opt.value) ? 'bg-input-background text-primary-orange font-semibold' : 'text-gray-700 hover:bg-primary-orange hover:text-white'}`}
-               onClick={() => {
-                 if (onChange) {
-                   // Mimic React synthetic event for native select onChange
-                   onChange({ target: { value: opt.value } });
-                 }
-                 setIsOpen(false);
-               }}
-             >
-               {opt.label}
-             </div>
-          ))}
+        <div className="absolute z-[100] w-full mt-1 bg-white border border-light-border rounded-lg shadow-xl max-h-64 overflow-y-auto custom-scrollbar left-0 py-1">
+          {options.map((opt, i) => {
+            if (opt.isHeader) {
+              return (
+                <div 
+                  key={i}
+                  className="px-3 py-1.5 text-[11px] font-extrabold text-slate-400 bg-slate-100/80 uppercase tracking-wider select-none border-y border-slate-200/60 my-1"
+                >
+                  {opt.label}
+                </div>
+              );
+            }
+
+            const isSelected = String(value) === String(opt.value);
+
+            return (
+              <div 
+                key={i}
+                className={`px-3 py-2.5 cursor-pointer text-sm transition-all ${
+                  isSelected 
+                    ? 'bg-orange-50 text-primary-orange font-bold border-l-4 border-primary-orange' 
+                    : !opt.value 
+                    ? 'text-slate-400 hover:bg-slate-50' 
+                    : 'text-slate-700 hover:bg-primary-orange hover:text-white'
+                }`}
+                onClick={() => {
+                  if (!opt.disabled && onChange) {
+                    onChange({ target: { value: opt.value } });
+                  }
+                  setIsOpen(false);
+                }}
+              >
+                <span className="truncate">{opt.label}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

@@ -85,6 +85,7 @@ const SchedulePage = () => {
 
   // Computed requirement flags
   const [isSudMandatory, setIsSudMandatory] = useState(false);
+  const [isFinalAssessmentMandatory, setIsFinalAssessmentMandatory] = useState(false);
   const [isShadowResourcing, setIsShadowResourcing] = useState(false);
   const [isLeadResourcing, setIsLeadResourcing] = useState(false);
 
@@ -321,10 +322,10 @@ const SchedulePage = () => {
     }
   };
 
-  const handleToggleAttendee = (stakeholderId) => {
+  const handleAttendanceChange = (stakeholderId, checked) => {
     setAttendees(prev => prev.map(a =>
       a.stakeholder_id === stakeholderId
-        ? { ...a, attended: a.attended ? 0 : 1 }
+        ? { ...a, attended: checked ? 1 : 0 }
         : a
     ));
   };
@@ -363,12 +364,14 @@ const SchedulePage = () => {
   const handleSaveAttendanceAndComplete = async () => {
     setSavingAttendance(true);
     try {
-      const records = attendees.map(a => ({
-        stakeholder_id: a.stakeholder_id,
-        status: a.status || 'present',
-        notes: a.notes || null
-      }));
-      await markAttendance(attendanceMeeting.id, records);
+      await Promise.all(attendees.map(a =>
+        markAttendance({
+          meeting_id: attendanceMeeting.id,
+          stakeholder_id: a.stakeholder_id,
+          attended: a.attended ? 1 : 0,
+          notes: a.notes || ''
+        })
+      ));
       await updateMeetingStatus(attendanceMeeting.id, 'completed');
       setIsAttendanceModalOpen(false);
       setAttendanceMeeting(null);
@@ -452,6 +455,7 @@ const SchedulePage = () => {
   // Compute specific requirements when plan_id changes
   useEffect(() => {
     setIsSudMandatory(false);
+    setIsFinalAssessmentMandatory(false);
     setIsShadowResourcing(false);
     setIsLeadResourcing(false);
     setSelectedSudRecipients([]);
@@ -469,9 +473,10 @@ const SchedulePage = () => {
     
     try {
       const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
-      const track = (config.tracks || []).find(t => t.name === selectedPlan.application_name);
+      const track = (config.tracks || []).find(t => t.name.trim() === selectedPlan.application_name.trim());
       if (track && track.options) {
         setIsSudMandatory(!!track.options.sud_mandatory);
+        setIsFinalAssessmentMandatory(!!track.options.assessment);
         setIsShadowResourcing(!!track.options.shadow_resourcing);
         setIsLeadResourcing(!!track.options.lead_resourcing);
       }
@@ -487,8 +492,12 @@ const SchedulePage = () => {
     setSelectedStakeholders(newStakeholders);
     
     if (added.length > 0) {
-      setSelectedSudRecipients(prev => [...new Set([...prev, ...added])]);
-      setSelectedFinalAssessmentRecipients(prev => [...new Set([...prev, ...added])]);
+      if (isSudMandatory) {
+        setSelectedSudRecipients(prev => [...new Set([...prev, ...added])]);
+      }
+      if (isFinalAssessmentMandatory) {
+        setSelectedFinalAssessmentRecipients(prev => [...new Set([...prev, ...added])]);
+      }
     }
     
     if (removed.length > 0) {
@@ -546,8 +555,8 @@ const SchedulePage = () => {
         scheduled_at: formData.scheduled_at,
         meeting_link: formData.meeting_link,
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders],
-        sud_recipients: activeGlobalTab === 'KA' ? selectedSudRecipients : [],
-        final_assessment_recipients: activeGlobalTab === 'KA' ? selectedFinalAssessmentRecipients : [],
+        sud_recipients: (activeGlobalTab === 'KA' && isSudMandatory) ? selectedSudRecipients : [],
+        final_assessment_recipients: (activeGlobalTab === 'KA' && isFinalAssessmentMandatory) ? selectedFinalAssessmentRecipients : [],
         shadow_recipients: activeGlobalTab === 'SR' ? selectedShadowRecipients : [],
         lead_recipients: activeGlobalTab === 'LR' ? selectedLeadRecipients : []
       };
@@ -758,26 +767,30 @@ const SchedulePage = () => {
                   <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                     {activeGlobalTab === 'KA' && (
                       <>
-                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 h-full">
-                          <MultiSelectDropdown
-                            label="SUD Document"
-                            placeholder="Select Participants..."
-                            options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
-                            selected={selectedSudRecipients}
-                            onChange={setSelectedSudRecipients}
-                            visibleCount={3}
-                          />
-                        </div>
-                        <div className="bg-green-50/50 p-4 rounded-lg border border-green-100 h-full">
-                          <MultiSelectDropdown
-                            label="Final Assessment"
-                            placeholder="Select Participants..."
-                            options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
-                            selected={selectedFinalAssessmentRecipients}
-                            onChange={setSelectedFinalAssessmentRecipients}
-                            visibleCount={3}
-                          />
-                        </div>
+                        {isSudMandatory && (
+                          <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 h-full">
+                            <MultiSelectDropdown
+                              label="SUD Document"
+                              placeholder="Select Participants..."
+                              options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
+                              selected={selectedSudRecipients}
+                              onChange={setSelectedSudRecipients}
+                              visibleCount={3}
+                            />
+                          </div>
+                        )}
+                        {isFinalAssessmentMandatory && (
+                          <div className="bg-green-50/50 p-4 rounded-lg border border-green-100 h-full">
+                            <MultiSelectDropdown
+                              label="Final Assessment"
+                              placeholder="Select Participants..."
+                              options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
+                              selected={selectedFinalAssessmentRecipients}
+                              onChange={setSelectedFinalAssessmentRecipients}
+                              visibleCount={3}
+                            />
+                          </div>
+                        )}
                       </>
                     )}
 

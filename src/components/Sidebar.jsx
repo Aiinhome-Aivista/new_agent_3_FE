@@ -13,7 +13,8 @@ import {
   MessageSquare,
   LogOut,
   Database,
-  CalendarDays
+  CalendarDays,
+  Upload
 } from 'lucide-react';
 
 const Sidebar = () => {
@@ -35,6 +36,7 @@ const Sidebar = () => {
     { name: 'Tracking', path: '/tracking', icon: <CheckSquare size={20} /> },
     { name: 'Risks', path: '/risks', icon: <AlertTriangle size={20} /> },
     { name: 'Knowledge Base', path: '/knowledge-base', icon: <Database size={20} /> },
+    { name: 'SUD Document Upload', path: '/sud-upload', icon: <Upload size={20} /> },
     { name: 'Assessment', path: '/assessment', icon: <FileQuestion size={20} /> },
     { name: 'Reports', path: '/reports', icon: <BarChart3 size={20} /> },
     { name: 'Holidays', path: '/holidays', icon: <CalendarDays size={20} /> },
@@ -46,7 +48,7 @@ const Sidebar = () => {
   const roleAccess = {
     'Delivery / Engagement Manager': ['Dashboard', 'Stakeholders','Knowledge Base', 'Projects', 'Schedule', 'KT Calendar', 'Tracking', 'Risks', 'Assessment', 'Reports', 'Holidays', 'Chatbot'],
     'Outgoing SME (Knowledge Giver)': ['Dashboard', 'Assessment', 'Knowledge Base', 'Chatbot', 'Risks', 'KT Calendar'],
-    'Incoming Team Member (Knowledge Receiver)': ['Dashboard', 'Schedule', 'Assessment', 'Chatbot', 'Risks', 'KT Calendar'],
+    'Incoming Team Member (Knowledge Receiver)': ['Dashboard', 'Schedule', 'SUD Document Upload', 'Assessment', 'Chatbot', 'Risks', 'KT Calendar'],
     'PwC Leadership': ['Dashboard', 'Stakeholders', 'Reports', 'Tracking', 'Risks', 'Assessment', 'KT Calendar', 'Chatbot'],
   };
 
