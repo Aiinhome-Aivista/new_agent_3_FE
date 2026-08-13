@@ -250,10 +250,11 @@ const CalendarPage = () => {
             <Loader />
           </div>
         ) : (
-          <div ref={timelineContainerRef} className="overflow-x-auto pb-20 pt-16 hide-scrollbar relative z-10 scroll-smooth">
-            <div className={`flex items-center relative px-12 ${sortedDates.length === 1 ? 'justify-center w-full min-w-full' : 'min-w-max'}`}>
-              {/* The main continuous horizontal line */}
-              <div className="absolute left-12 right-12 h-0.5 bg-gray-200 top-1/2 -translate-y-1/2"></div>
+          <div ref={timelineContainerRef} className="h-[220px] overflow-auto hide-scrollbar relative z-10 scroll-smooth rounded-xl">
+            <div className="pt-32 pb-32 min-w-max">
+              <div className={`flex items-center relative px-12 ${sortedDates.length === 1 ? 'justify-center w-full min-w-full' : 'min-w-max'}`}>
+                {/* The main continuous horizontal line */}
+                <div className="absolute left-12 right-12 h-0.5 bg-gray-200 top-1/2 -translate-y-1/2"></div>
               
               {sortedDates.map((dateStr, index) => {
                 const dateObj = new Date(dateStr);
@@ -315,15 +316,25 @@ const CalendarPage = () => {
                            {dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
                         </div>
                         
-                        <div className="space-y-1 w-full max-w-[180px]">
+                        <div className="space-y-2 w-full max-w-[180px] max-h-[90px] overflow-y-auto hide-scrollbar">
                           {dayItems.length === 0 && isToday ? (
                              <div className="text-[11px] text-gray-400 italic font-medium">No plans today</div>
                           ) : (
-                            dayItems.map((meeting) => (
-                               <div key={meeting.id} className={`text-[11px] truncate ${titleColorClass} ${meeting.status?.toLowerCase() === 'completed' ? 'opacity-60 line-through' : 'font-medium'}`} title={meeting.title}>
-                                 {meeting.title || 'KT Session'}
-                               </div>
-                            ))
+                            dayItems.map((meeting) => {
+                               const isCompleted = meeting.status?.toLowerCase() === 'completed';
+                               return (
+                                 <div key={meeting.id} className="flex flex-col mb-1.5" title={meeting.title}>
+                                   <div className={`text-[11px] truncate ${isCompleted ? 'text-green-600 font-bold' : `${titleColorClass} font-medium`}`}>
+                                     {meeting.title || 'KT Session'}
+                                   </div>
+                                   {isCompleted && (
+                                     <div className="text-[9px] text-green-500 font-semibold mt-0.5">
+                                       Completed on {dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+                                     </div>
+                                   )}
+                                 </div>
+                               );
+                            })
                           )}
                         </div>
 
@@ -352,6 +363,7 @@ const CalendarPage = () => {
                   </div>
                 );
               })}
+            </div>
             </div>
           </div>
         )}

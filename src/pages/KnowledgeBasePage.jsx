@@ -21,7 +21,7 @@ const KnowledgeBasePage = () => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 2;
+  const itemsPerPage = 5;
 
   // Transcript states
   const [videoUrl, setVideoUrl] = useState('');
