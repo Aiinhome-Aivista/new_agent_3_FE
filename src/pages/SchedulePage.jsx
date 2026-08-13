@@ -321,10 +321,10 @@ const SchedulePage = () => {
     }
   };
 
-  const handleToggleAttendee = (stakeholderId) => {
+  const handleAttendanceChange = (stakeholderId, checked) => {
     setAttendees(prev => prev.map(a =>
       a.stakeholder_id === stakeholderId
-        ? { ...a, attended: a.attended ? 0 : 1 }
+        ? { ...a, attended: checked ? 1 : 0 }
         : a
     ));
   };
@@ -363,12 +363,14 @@ const SchedulePage = () => {
   const handleSaveAttendanceAndComplete = async () => {
     setSavingAttendance(true);
     try {
-      const records = attendees.map(a => ({
-        stakeholder_id: a.stakeholder_id,
-        status: a.status || 'present',
-        notes: a.notes || null
-      }));
-      await markAttendance(attendanceMeeting.id, records);
+      await Promise.all(attendees.map(a =>
+        markAttendance({
+          meeting_id: attendanceMeeting.id,
+          stakeholder_id: a.stakeholder_id,
+          attended: a.attended ? 1 : 0,
+          notes: a.notes || ''
+        })
+      ));
       await updateMeetingStatus(attendanceMeeting.id, 'completed');
       setIsAttendanceModalOpen(false);
       setAttendanceMeeting(null);
