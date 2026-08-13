@@ -637,11 +637,26 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     
     wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)", "Knowledge Giver", "Knowledge Receiver"]);
     
-    const cleanedTopics = topics.map(t => {
-      let day = t.day_label || 'General';
-      day = day.replace(/:\s*\[Time:.*?\]/gi, '').replace(/\[Time:.*?\]/gi, '').trim();
-      return { ...t, clean_day: day };
-    });
+    const excludedKeywords = [
+      'assessment evaluation window',
+      'shadow experience',
+      'shadow phase',
+      'shadow resourcing',
+      'lead the project independently',
+      'lead phase',
+      'lead resourcing'
+    ];
+
+    const cleanedTopics = topics
+      .filter(t => {
+        const text = ((t.topic_name || '') + ' ' + (t.day_label || '')).toLowerCase();
+        return !excludedKeywords.some(kw => text.includes(kw));
+      })
+      .map(t => {
+        let day = t.day_label || 'General';
+        day = day.replace(/:\s*\[Time:.*?\]/gi, '').replace(/\[Time:.*?\]/gi, '').trim();
+        return { ...t, clean_day: day };
+      });
 
     let currentRowIndex = 6;
     let startDayRow = 6;
@@ -1917,13 +1932,13 @@ const PlanPage = () => {
     let html = text.replace(/```markdown\n?/g, '').replace(/```\n?/g, '');
 
     // Format Phase headings as chip cards
-    const phaseRegex = /^(Knowledge Acquisition \(KA\) Phase|Final Assessment Evaluation Window|Shadow Resourcing \(SR\) Phase|Lead Resourcing \(LR\) Phase)[ \t:]*/gim;
+    const phaseRegex = /^[ \t]*(?:#{1,6}[ \t]+|\*\*)?(Knowledge Acquisition \(KA\) Phase|Final Assessment Evaluation Window|Shadow Resourcing \(SR\) Phase|Lead Resourcing \(LR\) Phase)(?:\*\*)?[ \t:]*/gim;
     html = html.replace(phaseRegex, (match, title) => {
       return `<div class="mt-8 mb-4"><span class="inline-block px-4 py-1.5 bg-orange-100 text-orange-800 border border-orange-200 rounded-full text-sm font-bold shadow-sm">${title}</span></div>`;
     });
 
     // Format regular main section headers
-    const regularSectionRegex = /^(Objectives|Target Audience|Sessions \/ Topics Breakdown|Expected Outcomes)[ \t:]*/gim;
+    const regularSectionRegex = /^[ \t]*(?:#{1,6}[ \t]+|\*\*)?(Objectives|Target Audience|Sessions \/ Topics Breakdown|Expected Outcomes)(?:\*\*)?[ \t:]*/gim;
     html = html.replace(regularSectionRegex, (match, title) => {
       return `<h3 class="text-base font-bold text-gray-900 mt-6 mb-2 border-b border-gray-200 pb-1">${title}</h3>`;
     });
