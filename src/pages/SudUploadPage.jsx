@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getPlans, uploadKnowledgeDocument, getKnowledgeDocuments } from '../api/api';
+import { getPlans, uploadSudDocument, getSudDocuments } from '../api/api';
 import CustomSelect from '../components/CustomSelect';
 import Loader from '../components/Loader';
 import { Upload, FileText, CheckCircle2, AlertCircle, Clock, FileCheck, Layers } from 'lucide-react';
@@ -46,7 +46,7 @@ const SudUploadPage = () => {
 
   const fetchDocuments = async (planId) => {
     try {
-      const res = await getKnowledgeDocuments(planId);
+      const res = await getSudDocuments(planId);
       setDocuments(res.data?.data || []);
     } catch (err) {
       console.error('Error fetching documents:', err);
@@ -86,7 +86,12 @@ const SudUploadPage = () => {
       formData.append('plan_id', selectedPlanId);
       formData.append('kt_day', 'SUD Document');
 
-      const res = await uploadKnowledgeDocument(formData);
+      const selectedPlan = plans.find(p => String(p.id) === String(selectedPlanId));
+      if (selectedPlan && (selectedPlan.project_id || selectedPlan.project_config?.project_id)) {
+        formData.append('project_id', selectedPlan.project_id || selectedPlan.project_config?.project_id);
+      }
+
+      const res = await uploadSudDocument(formData);
       if (res.data?.success) {
         setSuccessMsg(`Successfully uploaded ${files.length} SUD document(s).`);
         setFiles([]);
@@ -337,7 +342,7 @@ const SudUploadPage = () => {
                           <td className="py-3 px-3 text-right">
                             <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-medium px-2 py-0.5 rounded-full border border-emerald-200">
                               <CheckCircle2 size={11} />
-                              Processed
+                              Uploaded
                             </span>
                           </td>
                         </tr>
