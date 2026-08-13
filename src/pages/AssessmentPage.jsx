@@ -139,7 +139,7 @@ const AssessmentPage = () => {
       const planTopicsOptions = optionsRes.data?.data || [];
 
       setRawPlanTopics(planTopicsOptions);
-      const completedList = trackingTopics.filter(t => t.completion_percent === 100).map(t => t.topic);
+      const completedList = trackingTopics.filter(t => parseInt(t.completion_percent, 10) === 100).map(t => t.topic);
       setCompletedTopics(completedList);
 
       const completedTopicNamesSet = new Set(completedList.map(t => t.trim().toLowerCase()));
@@ -169,8 +169,15 @@ const AssessmentPage = () => {
       setDayOptions(completedDays);
 
       // Check if all topics of the entire plan are 100% completed
-      const allTopicsCount = planTopicsOptions.length;
-      const allCompleted = allTopicsCount > 0 && planTopicsOptions.every(pt => {
+      const relevantTopics = planTopicsOptions.filter(pt => {
+        const fullLabel = ((pt.day_label || '') + ' ' + (pt.topic_name || '')).toLowerCase();
+        return !fullLabel.includes('final assessment') && 
+               !fullLabel.includes('shadow phase') && 
+               !fullLabel.includes('lead phase');
+      });
+
+      const allTopicsCount = relevantTopics.length;
+      const allCompleted = allTopicsCount > 0 && relevantTopics.every(pt => {
         const tn = (pt.topic_name || '').trim().toLowerCase();
         const dLabelLower = (pt.day_label || '').trim().toLowerCase();
         return completedTopicNamesSet.has(tn) || 
@@ -188,7 +195,7 @@ const AssessmentPage = () => {
 
       if (allCompleted || currentManagerSettings.is_final_unlocked) {
         const completedTimes = trackingTopics
-          .filter(t => t.completion_percent === 100 && t.last_updated)
+          .filter(t => parseInt(t.completion_percent, 10) === 100 && t.last_updated)
           .map(t => new Date(t.last_updated).getTime())
           .filter(t => !isNaN(t));
 
@@ -638,23 +645,38 @@ const AssessmentPage = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setManagerSettings(prev => ({ ...prev, is_final_unlocked: !prev.is_final_unlocked }));
+                      if (!isPlanFullyCompleted) {
+                        setManagerSettings(prev => ({ ...prev, is_final_unlocked: !prev.is_final_unlocked }));
+                      }
                     }}
+                    disabled={isPlanFullyCompleted}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
-                      managerSettings.is_final_unlocked
-                        ? 'bg-amber-500 text-white hover:bg-amber-600'
-                        : 'bg-input-background text-hover-orange hover:bg-orange-border border border-orange-border'
+                      isPlanFullyCompleted
+                        ? 'bg-emerald-50 text-emerald-600 cursor-not-allowed border border-emerald-200'
+                        : managerSettings.is_final_unlocked
+                          ? 'bg-amber-500 text-white hover:bg-amber-600'
+                          : 'bg-input-background text-hover-orange hover:bg-orange-border border border-orange-border'
                     }`}
                   >
-                    {managerSettings.is_final_unlocked ? '🔒 Relock to Default' : '🔓 Force Unlock Early'}
+                    {isPlanFullyCompleted 
+                      ? '✅ Auto-Unlocked' 
+                      : managerSettings.is_final_unlocked 
+                        ? '🔒 Relock to Default' 
+                        : '🔓 Force Unlock Early'}
                   </button>
                   
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                    managerSettings.is_final_unlocked
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-input-background text-secondary-text border border-light-border'
+                    isPlanFullyCompleted
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : managerSettings.is_final_unlocked
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : 'bg-input-background text-secondary-text border border-light-border'
                   }`}>
-                    {managerSettings.is_final_unlocked ? 'Unlocked Early' : 'Requires 100% Plan'}
+                    {isPlanFullyCompleted
+                      ? 'Plan 100% Completed'
+                      : managerSettings.is_final_unlocked 
+                        ? 'Unlocked Early' 
+                        : 'Requires 100% Plan'}
                   </span>
                 </div>
               </div>
