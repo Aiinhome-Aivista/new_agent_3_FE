@@ -207,7 +207,14 @@ const TrackingPage = () => {
                     : ''}
                 >
                   <option value="">-- Select Topic --</option>
-                  {topicOptions.map(t => {
+                  {topicOptions
+                    .filter(t => {
+                      const label = `${t.day_label || ''} ${t.topic_name}`.toLowerCase();
+                      return !label.includes('final assessment') &&
+                             !label.includes('shadow phase') &&
+                             !label.includes('lead phase');
+                    })
+                    .map(t => {
                     const fullLabel = t.day_label && t.day_label !== 'General' ? `${t.day_label} — ${t.topic_name}` : t.topic_name;
                     let displayLabel = fullLabel;
                     if (displayLabel.length > 60) {
