@@ -1,19 +1,17 @@
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:3011/api';
+import api from './api';
 
 export const createProject = async (projectData) => {
-  return axios.post(`${API_BASE_URL}/projects/`, projectData);
+  return api.post('/projects/', projectData);
 };
 
 export const getProjects = async () => {
-  return axios.get(`${API_BASE_URL}/projects/`);
+  return api.get('/projects/');
 };
 
 export const getProjectById = async (id) => {
-  return axios.get(`${API_BASE_URL}/projects/${id}`);
+  return api.get(`/projects/${id}`);
 };
 
 export const updateProject = async (id, projectData) => {
-  return axios.put(`${API_BASE_URL}/projects/${id}`, projectData);
+  return api.put(`/projects/${id}`, projectData);
 };
