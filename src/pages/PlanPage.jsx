@@ -148,9 +148,9 @@ const ProjectCard = ({ project, onClick, isLoading }) => (
     className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-primary-orange transition-all flex flex-col justify-center items-center h-40 p-6 relative group ${isLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'}`}
   >
     {isLoading ? (
-      <RefreshCw size={32} className="text-primary-orange animate-spin mb-3" />
+      <RefreshCw size={32} className="text-primary-orange animate-spin mb-3 flex-shrink-0" />
     ) : (
-      <FolderOpen size={32} className="text-gray-400 group-hover:text-primary-orange mb-3 transition-colors" />
+      <FolderOpen size={32} className="text-gray-400 group-hover:text-primary-orange mb-3 transition-colors flex-shrink-0" />
     )}
     <h3 className="text-lg font-bold text-gray-800 text-center">{project.name}</h3>
     <p className="text-xs text-gray-500 mt-2">{project.plan_count || 0} Plans</p>

@@ -332,7 +332,7 @@ const KnowledgeBasePage = () => {
                   <button
                     type="submit"
                     disabled={uploading}
-                    className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-button-orange cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-primary-orange via-purple-500 to-primary-orange bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-primary-orange/30 hover:-translate-y-1'
+                    className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-button-orange cursor-not-allowed shadow-none' : 'bg-primary-orange hover:bg-[100%_center] hover:shadow-primary-orange/30 hover:-translate-y-1'
                       } focus:outline-none focus:ring-4 focus:ring-orange-border flex justify-center items-center`}
                   >
                     {uploading ? (
