@@ -297,7 +297,7 @@ const TrackingPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{new Date(t.last_updated).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{t.last_updated ? new Date(t.last_updated.replace(/ GMT$/, '')).toLocaleDateString() : ''}</td>
                   </tr>
                 )})}
                 {topics.length === 0 && (

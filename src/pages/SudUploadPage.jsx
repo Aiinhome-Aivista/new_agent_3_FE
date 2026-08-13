@@ -337,7 +337,7 @@ const SudUploadPage = () => {
                             </span>
                           </td>
                           <td className="py-3 px-3 text-xs text-slate-500">
-                            <span>{new Date(doc.uploaded_at).toLocaleDateString()}</span>
+                            <span>{new Date(doc.uploaded_at.replace(/ GMT$/, '')).toLocaleDateString()}</span>
                           </td>
                           <td className="py-3 px-3 text-right">
                             <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 text-xs font-medium px-2 py-0.5 rounded-full border border-emerald-200">

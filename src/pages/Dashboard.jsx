@@ -53,7 +53,11 @@ const Dashboard = () => {
           user?.role?.toLowerCase().includes('receiver') ||
           user?.role?.toLowerCase().includes('incoming');
 
-        if (isKnowledgeReceiverUser) {
+        const isKnowledgeGiverUser = user?.role === 'Outgoing SME (Knowledge Giver)' ||
+          user?.role?.toLowerCase().includes('giver') ||
+          user?.role?.toLowerCase().includes('outgoing');
+
+        if (isKnowledgeReceiverUser || isKnowledgeGiverUser) {
           const assignedProjectIds = new Set(
             plansData.map(p => p.project_id ? String(p.project_id) : null).filter(Boolean)
           );

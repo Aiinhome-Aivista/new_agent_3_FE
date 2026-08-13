@@ -1358,7 +1358,7 @@ const AssessmentPage = () => {
                               <div className="p-3 bg-light-background border border-gray-100 rounded-xl shadow-sm">
                                 <span className="text-[10px] text-secondary-text block font-semibold uppercase tracking-wider">Date</span>
                                 <span className="text-sm font-bold text-gray-700 mt-1 block">
-                                  {new Date(attempt.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  {new Date(attempt.created_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
                               </div>
                             </div>
@@ -1441,7 +1441,7 @@ const AssessmentPage = () => {
                             <div className="flex justify-between items-start gap-4">
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-semibold text-primary-text">
-                                  Assessment Date: {new Date(attempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  Assessment Date: {new Date(attempt.created_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                                 </p>
                                 {attempt.assessment_type === 'day_wise' ? (
                                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-input-background text-hover-orange border border-orange-border">
@@ -1550,7 +1550,7 @@ const AssessmentPage = () => {
                             Candidate: {selectedAttempt.stakeholder_name || user?.name || 'Receiver'}
                           </h4>
                           <p className="text-xs text-secondary-text">
-                            Completed on: {new Date(selectedAttempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            Completed on: {new Date(selectedAttempt.created_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                           </p>
                         </div>
                         <div className="bg-light-background px-5 py-3 rounded-xl border border-orange-border text-center shadow-sm min-w-[120px]">

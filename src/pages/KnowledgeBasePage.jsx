@@ -405,7 +405,7 @@ const KnowledgeBasePage = () => {
                         </span>
                       </td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-secondary-text">
-                        {new Date(doc.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(doc.uploaded_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                     </tr>
                   ))}

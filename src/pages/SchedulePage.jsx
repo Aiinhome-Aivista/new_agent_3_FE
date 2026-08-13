@@ -452,6 +452,12 @@ const SchedulePage = () => {
     }
   }, [schedulePopup]);
 
+  useEffect(() => {
+    if (formData.plan_id) {
+      setActiveGlobalTab('KA');
+    }
+  }, [formData.plan_id]);
+
   // Compute specific requirements when plan_id changes
   useEffect(() => {
     setIsSudMandatory(false);
@@ -520,8 +526,8 @@ const SchedulePage = () => {
     try {
       const payload = {
         plan_id: formData.plan_id,
-        shadow_recipients: activeGlobalTab === 'SR' ? selectedShadowRecipients : [],
-        lead_recipients: activeGlobalTab === 'LR' ? selectedLeadRecipients : []
+        shadow_recipients: (activeGlobalTab === 'SR' && isShadowResourcing) ? selectedShadowRecipients : [],
+        lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
       };
 
       const res = await notifyRequirements(payload);
@@ -557,8 +563,8 @@ const SchedulePage = () => {
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders],
         sud_recipients: (activeGlobalTab === 'KA' && isSudMandatory) ? selectedSudRecipients : [],
         final_assessment_recipients: (activeGlobalTab === 'KA' && isFinalAssessmentMandatory) ? selectedFinalAssessmentRecipients : [],
-        shadow_recipients: activeGlobalTab === 'SR' ? selectedShadowRecipients : [],
-        lead_recipients: activeGlobalTab === 'LR' ? selectedLeadRecipients : []
+        shadow_recipients: (activeGlobalTab === 'SR' && isShadowResourcing) ? selectedShadowRecipients : [],
+        lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
       };
       await createMeeting(payload);
       setFormData({
@@ -664,18 +670,22 @@ const SchedulePage = () => {
             >
               Knowledge Acquisition
             </button>
-            <button
-              onClick={() => setActiveGlobalTab('SR')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'SR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Shadow Resourcing
-            </button>
-            <button
-              onClick={() => setActiveGlobalTab('LR')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'LR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Lead Resourcing
-            </button>
+            {isShadowResourcing && (
+              <button
+                onClick={() => setActiveGlobalTab('SR')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'SR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              >
+                Shadow Resourcing
+              </button>
+            )}
+            {isLeadResourcing && (
+              <button
+                onClick={() => setActiveGlobalTab('LR')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'LR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              >
+                Lead Resourcing
+              </button>
+            )}
           </nav>
         </div>
       )}
