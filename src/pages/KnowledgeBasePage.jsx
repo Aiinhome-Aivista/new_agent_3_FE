@@ -47,7 +47,13 @@ const KnowledgeBasePage = () => {
   const fetchTopics = async () => {
     try {
       const res = await getPlanTopicOptions(selectedPlanId);
-      const topics = res.data.data || [];
+      const allTopics = res.data.data || [];
+      const topics = allTopics.filter(t => {
+        const label = `${t.day_label || ''} ${t.topic_name || ''}`.toLowerCase();
+        return !label.includes('final assessment') &&
+               !label.includes('shadow phase') &&
+               !label.includes('lead phase');
+      });
       const dayMap = {};
       topics.forEach(t => {
         if (!t.day_label) return;
