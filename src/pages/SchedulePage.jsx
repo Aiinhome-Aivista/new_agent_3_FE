@@ -88,6 +88,8 @@ const SchedulePage = () => {
   const [isFinalAssessmentMandatory, setIsFinalAssessmentMandatory] = useState(false);
   const [isShadowResourcing, setIsShadowResourcing] = useState(false);
   const [isLeadResourcing, setIsLeadResourcing] = useState(false);
+  const [leadResourcingEntryCriteria, setLeadResourcingEntryCriteria] = useState('Only participants who have completed the Shadow Resourcing phase for this plan are eligible to be selected for Lead Resourcing.');
+  const [shadowResourcingEntryCriteria, setShadowResourcingEntryCriteria] = useState('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
 
   const getAllowedSROrganizers = () => {
     if (!formData.plan_id) return [];
@@ -615,6 +617,36 @@ const SchedulePage = () => {
         setIsFinalAssessmentMandatory(!!track.options.assessment);
         setIsShadowResourcing(!!track.options.shadow_resourcing);
         setIsLeadResourcing(!!track.options.lead_resourcing);
+
+        let srCriteria = [];
+        if (track.options.sud_doc_upload) {
+          srCriteria.push("submitted SUD documents");
+        }
+        if (track.options.assessment_80) {
+          srCriteria.push("scored above 80% in the Final Assessment");
+        }
+        
+        if (srCriteria.length > 0) {
+          setShadowResourcingEntryCriteria(`Only participants who have ${srCriteria.join(' AND ')} are eligible.`);
+        } else {
+          setShadowResourcingEntryCriteria('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
+        }
+
+        let lrCriteria = [];
+        if (track.options.lr_ticket_resolving) {
+          const tickets = track.inputs?.lr_ticket_resolving || '';
+          lrCriteria.push(`Need to be involved in resolving ${tickets} tickets`);
+        }
+        if (track.options.lr_weeks_shadow) {
+          const weeks = track.inputs?.lr_weeks_shadow || '';
+          lrCriteria.push(`Required weeks for shadow resourcing: ${weeks}`);
+        }
+        
+        if (lrCriteria.length > 0) {
+          setLeadResourcingEntryCriteria(lrCriteria.join(' AND '));
+        } else {
+          setLeadResourcingEntryCriteria('Only participants who have completed the Shadow Resourcing phase for this plan are eligible to be selected for Lead Resourcing.');
+        }
       }
     } catch (e) {
       console.error("Error parsing project config", e);
@@ -947,7 +979,7 @@ const SchedulePage = () => {
                         <div className="p-3 bg-primary-orange rounded-lg text-sm text-white flex items-center shadow-sm">
                           <div>
                             <strong className="block mb-1">Entry Criteria:</strong>
-                            Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.
+                            {shadowResourcingEntryCriteria}
                           </div>
                         </div>
                         
@@ -999,15 +1031,23 @@ const SchedulePage = () => {
                     )}
 
                     {activeGlobalTab === 'LR' && (
-                      <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 h-full">
-                        <MultiSelectDropdown
-                          label="Lead Resourcing"
-                          placeholder="Select Participants..."
-                          options={getAllowedLRStakeholders()}
-                          selected={selectedLeadRecipients}
-                          onChange={setSelectedLeadRecipients}
-                          visibleCount={3}
-                        />
+                      <div className="md:col-span-3 bg-orange-50/50 p-4 rounded-lg border border-orange-100 flex flex-col gap-4 h-full">
+                        <div className="p-3 bg-primary-orange rounded-lg text-sm text-white flex items-center shadow-sm">
+                          <div>
+                            <strong className="block mb-1">Entry Criteria:</strong>
+                            {leadResourcingEntryCriteria}
+                          </div>
+                        </div>
+                        <div className="bg-white p-3 rounded shadow-sm border border-gray-100">
+                          <MultiSelectDropdown
+                            label="Lead Resourcing"
+                            placeholder="Select Participants..."
+                            options={getAllowedLRStakeholders()}
+                            selected={selectedLeadRecipients}
+                            onChange={setSelectedLeadRecipients}
+                            visibleCount={3}
+                          />
+                        </div>
                       </div>
                     )}
                   </div>
