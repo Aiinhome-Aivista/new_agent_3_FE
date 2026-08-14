@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx-js-style';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
 import { getProjects, createProject, getProjectById, updateProject } from '../api/projects';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
@@ -1254,7 +1254,7 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                         </button>
                       </>
                     )}
-                    {canGenerate && !hasGeneratedPlan(track, null) && (
+                    {canGenerate && (!track.modules || track.modules.length === 0) && !hasGeneratedPlan(track, null) && (
                       <button
                         onClick={() => {
                           onGeneratePlan({ projectData, projectName: projectData.name, track, module: null });
@@ -1407,6 +1407,9 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
 
 const PlanPage = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
+  const [isUploadingTemplate, setIsUploadingTemplate] = useState(false);
+  const [uploadModalConfig, setUploadModalConfig] = useState(null);
   const [plans, setPlans] = useState([]);
   const [projects, setProjects] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -1415,6 +1418,247 @@ const PlanPage = () => {
   const [planToClose, setPlanToClose] = useState(null);
 
   const [deleteModalConfig, setDeleteModalConfig] = useState(null);
+
+  const handleDownloadProjectTemplate = () => {
+    const wsData = [
+      [
+        "Project Name", "Track Name", "Module Name", 
+        "Knowledge Acquisition", "", "", "", "", "", 
+        "Shadow Resourcing", "", "", "", "", "",
+        "Lead Resourcing", "", "", ""
+      ],
+      [
+        "", "", "", 
+        "Entry Criteria", "", "Exit Criteria", "", "", "", 
+        "Entry Criteria", "", "Exit Criteria", "", "", "",
+        "Entry Criteria", "", "", ""
+      ],
+      [
+        "", "", "", 
+        "Project KT Document Ready (Y/N)", "Stakeholder Mapping Ready (Y/N)", "Reverse KT (Y/N)", "By uploading SUD (Y/N)", "SUD Mandatory (Y/N)", "Assessment (Y/N)", 
+        "Assessment (80% Above) (Y/N)", "SUD Document Uploaded (Y/N)", "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for shadow resourcing (Y/N)", "Weeks (e.g. 2 weeks)",
+        "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for lead resourcing (Y/N)", "Weeks (e.g. 2 weeks)"
+      ],
+      [
+        "Demo Project", "Track 1 - Frontend", "Module 1 - React",
+        "Y", "Y", "Y", "Y", "Y", "Y",
+        "Y", "Y", "Y", "5 tickets", "Y", "2 weeks",
+        "Y", "5 tickets", "Y", "2 weeks"
+      ],
+      [
+        "Demo Project", "Track 1 - Frontend", "Module 2 - Angular",
+        "Y", "Y", "Y", "", "Y", "Y",
+        "Y", "Y", "Y", "3 tickets", "Y", "1 weeks",
+        "Y", "3 tickets", "Y", "1 weeks"
+      ],
+      [
+        "Demo Project", "Track 2 - Backend", "",
+        "Y", "Y", "", "", "", "Y",
+        "Y", "Y", "Y", "10 tickets", "Y", "3 weeks",
+        "Y", "10 tickets", "Y", "3 weeks"
+      ]
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    ws['!merges'] = [
+      // General Info
+      { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } },
+      { s: { r: 0, c: 1 }, e: { r: 2, c: 1 } },
+      { s: { r: 0, c: 2 }, e: { r: 2, c: 2 } },
+      
+      // KA
+      { s: { r: 0, c: 3 }, e: { r: 0, c: 8 } },
+      { s: { r: 1, c: 3 }, e: { r: 1, c: 4 } },
+      { s: { r: 1, c: 5 }, e: { r: 1, c: 8 } },
+      
+      // SR
+      { s: { r: 0, c: 9 }, e: { r: 0, c: 14 } },
+      { s: { r: 1, c: 9 }, e: { r: 1, c: 10 } },
+      { s: { r: 1, c: 11 }, e: { r: 1, c: 14 } },
+      
+      // LR
+      { s: { r: 0, c: 15 }, e: { r: 0, c: 18 } },
+      { s: { r: 1, c: 15 }, e: { r: 1, c: 18 } }
+    ];
+    
+    const getStyle = (r, c) => {
+      const isMainHeader = r === 0;
+      const isGroupHeader = r === 1;
+      
+      let bg = "FFFFFF";
+      let fontColor = "000000";
+      let bold = true;
+
+      if (c <= 2) { 
+        bg = "607D8B"; 
+        fontColor = "FFFFFF";
+      } else if (c <= 8) { 
+        if (isMainHeader) { bg = "1976D2"; fontColor = "FFFFFF"; }
+        else if (isGroupHeader) { bg = "64B5F6"; fontColor = "FFFFFF"; }
+        else { bg = "BBDEFB"; fontColor = "000000"; }
+      } else if (c <= 14) { 
+        if (isMainHeader) { bg = "F57C00"; fontColor = "FFFFFF"; }
+        else if (isGroupHeader) { bg = "FFB74D"; fontColor = "FFFFFF"; }
+        else { bg = "FFE0B2"; fontColor = "000000"; }
+      } else { 
+        if (isMainHeader) { bg = "388E3C"; fontColor = "FFFFFF"; }
+        else if (isGroupHeader) { bg = "81C784"; fontColor = "FFFFFF"; }
+        else { bg = "C8E6C9"; fontColor = "000000"; }
+      }
+
+      return {
+        font: { bold, color: { rgb: fontColor }, sz: isMainHeader ? 12 : 11 },
+        fill: { fgColor: { rgb: bg } },
+        alignment: { vertical: "center", horizontal: "center", wrapText: true },
+        border: {
+          top: { style: "thin", color: { auto: 1 } },
+          bottom: { style: "thin", color: { auto: 1 } },
+          left: { style: "thin", color: { auto: 1 } },
+          right: { style: "thin", color: { auto: 1 } }
+        }
+      };
+    };
+    
+    for (let r = 0; r <= 2; r++) {
+      for (let c = 0; c < wsData[0].length; c++) {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: "" }; 
+        ws[cellRef].s = getStyle(r, c);
+      }
+    }
+    
+    ws['!cols'] = Array(wsData[0].length).fill({ wch: 18 });
+    
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "Project_Template.xlsx");
+  };
+
+  const handleUploadProjectTemplate = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadModalConfig({ file });
+    e.target.value = null;
+  };
+
+  const confirmUploadTemplate = async () => {
+    if (!uploadModalConfig || !uploadModalConfig.file) return;
+    const file = uploadModalConfig.file;
+    setUploadModalConfig(null);
+    setIsUploadingTemplate(true);
+    
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const aoaData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        
+        if (aoaData.length <= 3) {
+          showToast("Template is empty", "error");
+          setIsUploadingTemplate(false);
+          return;
+        }
+
+        const projectsMap = {};
+        for (let i = 3; i < aoaData.length; i++) {
+          const row = aoaData[i];
+          if (!row || row.length === 0) continue;
+          
+          const pName = row[0];
+          if (!pName || pName === "Demo Project") continue;
+          if (!projectsMap[pName]) projectsMap[pName] = { name: pName, tracks: [] };
+          
+          const tName = row[1];
+          if (!tName) continue;
+          
+          let track = projectsMap[pName].tracks.find(t => t.name === tName);
+          if (!track) {
+            track = {
+              id: Date.now() + Math.random(),
+              name: tName,
+              modules: [],
+              options: {},
+              inputs: {},
+              showConfig: true
+            };
+            projectsMap[pName].tracks.push(track);
+          }
+          
+          const mName = row[2];
+          const parseBool = (val) => val && val.toString().trim().toUpperCase() === 'Y';
+          
+          const options = {
+            ka: parseBool(row[3]) || parseBool(row[4]) || parseBool(row[5]) || parseBool(row[6]) || parseBool(row[7]) || parseBool(row[8]),
+            kt_doc: parseBool(row[3]),
+            stakeholder_map: parseBool(row[4]),
+            rkt: parseBool(row[5]),
+            upload_sud: parseBool(row[6]),
+            sud_mandatory: parseBool(row[7]),
+            assessment: parseBool(row[8]),
+            shadow_resourcing: parseBool(row[9]) || parseBool(row[10]) || parseBool(row[11]) || parseBool(row[13]),
+            assessment_80: parseBool(row[9]),
+            sud_doc_upload: parseBool(row[10]),
+            ticket_resolving: parseBool(row[11]),
+            weeks_shadow: parseBool(row[13]),
+            lead_resourcing: parseBool(row[15]) || parseBool(row[17]),
+            lr_ticket_resolving: parseBool(row[15]),
+            lr_weeks_shadow: parseBool(row[17])
+          };
+          
+          const inputs = {};
+          if (row[12]) inputs.ticket_resolving = row[12].toString();
+          if (row[14]) inputs.weeks_shadow = row[14].toString();
+          if (row[16]) inputs.lr_ticket_resolving = row[16].toString();
+          if (row[18]) inputs.lr_weeks_shadow = row[18].toString();
+          
+          if (mName && mName.toString().trim() !== "" && mName !== "Module 1 (Optional)") {
+            track.modules.push({
+              id: Date.now() + Math.random(),
+              name: mName.toString(),
+              options,
+              inputs,
+              showConfig: true
+            });
+          } else {
+            track.options = options;
+            track.inputs = inputs;
+          }
+        }
+        
+        const projectNames = Object.keys(projectsMap);
+        const chunkSize = 3;
+        for (let i = 0; i < projectNames.length; i += chunkSize) {
+          const chunk = projectNames.slice(i, i + chunkSize);
+          await Promise.all(chunk.map(async (pName) => {
+            const pData = projectsMap[pName];
+            try {
+              const res = await createProject(pData);
+              if (res.data && res.data.success) {
+                showToast(`Project ${pName} created successfully`, "success");
+              }
+            } catch (err) {
+              showToast(`Error creating project ${pName}: ` + err.message, "error");
+            }
+          }));
+        }
+        
+        fetchProjects();
+        setIsUploadingTemplate(false);
+      } catch (err) {
+        showToast("Error processing template: " + err.message, "error");
+        setIsUploadingTemplate(false);
+      }
+    };
+    reader.onerror = () => {
+      showToast("Error reading file", "error");
+      setIsUploadingTemplate(false);
+    };
+    reader.readAsBinaryString(file);
+  };
 
   const executeDelete = async () => {
     if (!deleteModalConfig || !projectToView) return;
@@ -1478,8 +1722,6 @@ const PlanPage = () => {
   const [projectConfig, setProjectConfig] = useState(null);
   const [showSaveProjectModal, setShowSaveProjectModal] = useState(false);
   const [pendingPlanId, setPendingPlanId] = useState(null);
-  const { showToast } = useToast();
-
   const viewLevel = (projectToView ? 1 : 0) + (isAddingProject ? 1 : 0) + (isEditingProject ? 1 : 0) + (showGenerateForms ? 1 : 0) + (planToView ? 1 : 0);
   const [historyLevel, setHistoryLevel] = useState(0);
 
@@ -1979,12 +2221,25 @@ const PlanPage = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-primary-text">Projects {/* Force reload */}</h2>
         {!isAddingProject && canGenerate && !showGenerateForms && !projectToView && !planToView && (
-          <button 
-            onClick={() => { setIsAddingProject(true); setProjectConfig(null); }}
-            className="flex items-center px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
-          >
-            <Plus size={16} className="mr-2" /> Add Project
-          </button>
+          <div className="flex space-x-3 items-center">
+            <button 
+              onClick={() => { setIsAddingProject(true); setProjectConfig(null); }}
+              className="flex items-center px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
+            >
+              <Plus size={16} className="mr-2" /> Add Project
+            </button>
+            <button 
+              onClick={handleDownloadProjectTemplate}
+              className="flex items-center px-4 py-2 bg-white border border-light-border text-primary-text text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-50"
+            >
+              <Download size={16} className="mr-2" /> Download Template
+            </button>
+            <label className={`flex items-center px-4 py-2 bg-white border border-light-border text-primary-text text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-50 mb-0 ${isUploadingTemplate ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+              {isUploadingTemplate ? <Loader className="w-4 h-4 mr-2" /> : <Upload size={16} className="mr-2" />}
+              {isUploadingTemplate ? 'Uploading...' : 'Upload Template'}
+              <input type="file" accept=".xlsx, .xls" className="hidden" disabled={isUploadingTemplate} onChange={handleUploadProjectTemplate} />
+            </label>
+          </div>
         )}
       </div>
 
@@ -2477,6 +2732,31 @@ const PlanPage = () => {
                   className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {uploadModalConfig && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transform transition-all animate-scaleIn">
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Confirm Upload</h3>
+              <p className="text-gray-600 mb-6">Are you sure you want to upload "{uploadModalConfig.file.name}" and create projects from this template?</p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setUploadModalConfig(null)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmUploadTemplate}
+                  className="px-4 py-2 bg-primary-orange text-white font-medium rounded-lg hover:bg-hover-orange transition-colors shadow-sm"
+                >
+                  Confirm Upload
                 </button>
               </div>
             </div>

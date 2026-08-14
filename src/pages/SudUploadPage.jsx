@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { getPlans, uploadSudDocument, getSudDocuments } from '../api/api';
+import { getPlans, uploadSudDocument, getSudDocuments, getPlanSummary } from '../api/api';
 import CustomSelect from '../components/CustomSelect';
 import Loader from '../components/Loader';
-import { Upload, FileText, CheckCircle2, AlertCircle, Clock, FileCheck, Layers } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, Clock, FileCheck, Layers, Lock, Unlock } from 'lucide-react';
 import { useOperations } from '../context/OperationsContext';
 
 const SudUploadPage = () => {
@@ -17,6 +17,8 @@ const SudUploadPage = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
+  const [kaSummary, setKaSummary] = useState(null);
+  const [checkingKa, setCheckingKa] = useState(false);
 
   useEffect(() => {
     fetchAssignedPlans();
@@ -25,8 +27,10 @@ const SudUploadPage = () => {
   useEffect(() => {
     if (selectedPlanId) {
       fetchDocuments(selectedPlanId);
+      fetchKaStatus(selectedPlanId);
     } else {
       setDocuments([]);
+      setKaSummary(null);
     }
   }, [selectedPlanId]);
 
@@ -41,6 +45,19 @@ const SudUploadPage = () => {
       setErrorMsg('Failed to fetch assigned KT plans.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchKaStatus = async (planId) => {
+    try {
+      setCheckingKa(true);
+      const res = await getPlanSummary(planId);
+      setKaSummary(res.data?.data || null);
+    } catch (err) {
+      console.error('Error fetching KA summary:', err);
+      setKaSummary(null);
+    } finally {
+      setCheckingKa(false);
     }
   };
 
@@ -115,6 +132,9 @@ const SudUploadPage = () => {
     (doc.kt_day && doc.kt_day.toLowerCase().includes(searchFilter.toLowerCase()))
   );
 
+  const kaCompletionPercent = kaSummary ? (kaSummary.avg_completion_percent || 0) : 0;
+  const isKaComplete = selectedPlanId ? (kaCompletionPercent >= 100) : false;
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-fadeIn">
       {/* Page Header */}
@@ -186,6 +206,42 @@ const SudUploadPage = () => {
                 Upload File
               </h2>
 
+              {/* KA Phase Lock Status Card */}
+              {selectedPlanId && !checkingKa && (
+                !isKaComplete ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-amber-900 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-xs flex items-center gap-1.5 text-amber-800">
+                        <Lock className="text-amber-600 shrink-0" size={16} />
+                        SUD Upload Locked
+                      </span>
+                      <span className="text-[11px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                        KA Progress: {kaCompletionPercent}%
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      Knowledge Acquisition (KA) Phase is currently ongoing ({kaCompletionPercent}% completed). SUD Document upload unlocks automatically when KA Phase reaches 100%.
+                    </p>
+                    <div className="w-full bg-amber-200 h-2 rounded-full overflow-hidden mt-1">
+                      <div 
+                        className="bg-amber-600 h-full transition-all duration-500 rounded-full" 
+                        style={{ width: `${Math.min(100, Math.max(0, kaCompletionPercent))}%` }} 
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-emerald-800 text-xs shadow-sm">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <Unlock className="text-emerald-600 shrink-0" size={16} />
+                      KA Phase 100% Completed
+                    </span>
+                    <span className="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full font-bold text-[11px] border border-emerald-200">
+                      Upload Unlocked
+                    </span>
+                  </div>
+                )
+              )}
+
               <form onSubmit={handleUpload} className="space-y-4">
                 {/* File Drop Area */}
                 <div>
@@ -193,16 +249,33 @@ const SudUploadPage = () => {
                     SUD File(s) (PDF, DOCX, PPTX, TXT)
                   </label>
                   <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-slate-300 hover:border-primary-orange rounded-xl p-6 text-center cursor-pointer transition-colors bg-slate-50 hover:bg-orange-50/30"
+                    onClick={() => isKaComplete && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                      !selectedPlanId || !isKaComplete
+                        ? 'border-slate-200 bg-slate-100/70 cursor-not-allowed opacity-75'
+                        : 'border-slate-300 hover:border-primary-orange cursor-pointer bg-slate-50 hover:bg-orange-50/30'
+                    }`}
                   >
-                    <Upload className="mx-auto text-slate-400 mb-2" size={32} />
-                    <p className="text-sm font-medium text-slate-700">Click to select file(s)</p>
-                    <p className="text-xs text-slate-500 mt-1">Supports .pdf, .docx, .pptx, .txt</p>
+                    <Upload className={`mx-auto mb-2 ${!selectedPlanId || !isKaComplete ? 'text-slate-300' : 'text-slate-400'}`} size={32} />
+                    <p className="text-sm font-medium text-slate-700">
+                      {!selectedPlanId
+                        ? 'Select a plan to enable upload'
+                        : !isKaComplete
+                        ? 'Upload is locked (KA Phase incomplete)'
+                        : 'Click to select file(s)'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {!selectedPlanId
+                        ? 'Select an assigned plan above'
+                        : !isKaComplete
+                        ? `Requires 100% KA completion (Current: ${kaCompletionPercent}%)`
+                        : 'Supports .pdf, .docx, .pptx, .txt'}
+                    </p>
                     <input 
                       ref={fileInputRef}
                       type="file"
                       multiple
+                      disabled={!selectedPlanId || !isKaComplete}
                       accept=".pdf,.docx,.doc,.pptx,.ppt,.txt"
                       onChange={handleFileChange}
                       className="hidden"
@@ -250,9 +323,9 @@ const SudUploadPage = () => {
                 {/* Upload Button */}
                 <button
                   type="submit"
-                  disabled={uploading || files.length === 0 || !selectedPlanId}
+                  disabled={!isKaComplete || uploading || files.length === 0 || !selectedPlanId}
                   className={`w-full py-3 px-4 rounded-xl text-white font-medium flex items-center justify-center gap-2 transition-all ${
-                    uploading || files.length === 0 || !selectedPlanId
+                    !isKaComplete || uploading || files.length === 0 || !selectedPlanId
                       ? 'bg-slate-300 cursor-not-allowed'
                       : 'bg-primary-orange hover:bg-orange-600 shadow-md hover:shadow-lg'
                   }`}
@@ -261,6 +334,11 @@ const SudUploadPage = () => {
                     <>
                       <Loader size="sm" />
                       <span>Uploading & Processing...</span>
+                    </>
+                  ) : !isKaComplete && selectedPlanId ? (
+                    <>
+                      <Lock size={18} />
+                      <span>Upload Locked (KA Phase Incomplete)</span>
                     </>
                   ) : (
                     <>
