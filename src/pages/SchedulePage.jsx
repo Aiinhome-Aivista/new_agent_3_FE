@@ -1,12 +1,12 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
+import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults } from '../api/api';
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
-const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4 }) => {
+const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef(null);
 
@@ -22,7 +22,7 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <div className="block text-sm font-medium text-gray-700 mb-1">{label}</div>
       <div
         className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-light-background cursor-pointer flex justify-between items-center"
         onClick={() => setIsOpen(!isOpen)}
@@ -41,23 +41,28 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
             <div className="p-3 text-sm text-secondary-text">No options available.</div>
           ) : (
             <div className="p-2 space-y-1">
-              {options.map(opt => (
-                <label key={opt.id} className="flex items-center px-2 py-1.5 hover:bg-light-background cursor-pointer rounded">
-                  <input
-                    type="checkbox"
-                    className="rounded text-primary-orange focus:ring-orange-border mr-2"
-                    checked={selected.includes(opt.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        onChange([...selected, opt.id]);
-                      } else {
-                        onChange(selected.filter(id => id !== opt.id));
-                      }
-                    }}
-                  />
-                  <span className="text-sm text-gray-700">{opt.name} <span className="text-secondary-text text-xs">({opt.role})</span></span>
-                </label>
-              ))}
+              {options.map(opt => {
+                const isDisabled = isOptionDisabledFn ? isOptionDisabledFn(opt) : false;
+                const extraClass = optionClassFn ? optionClassFn(opt) : '';
+                return (
+                  <label key={opt.id} className={`flex items-center px-2 py-1.5 rounded ${isDisabled ? 'cursor-not-allowed' : 'hover:bg-light-background cursor-pointer'} ${extraClass}`}>
+                    <input
+                      type="checkbox"
+                      className={`rounded text-primary-orange focus:ring-orange-border mr-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      checked={selected.includes(opt.id)}
+                      disabled={isDisabled}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          onChange([...selected, opt.id]);
+                        } else {
+                          onChange(selected.filter(id => id !== opt.id));
+                        }
+                      }}
+                    />
+                    <span className="text-sm text-gray-700">{opt.name} <span className="text-secondary-text text-xs">({opt.role})</span></span>
+                  </label>
+                );
+              })}
             </div>
           )}
         </div>
@@ -90,6 +95,13 @@ const SchedulePage = () => {
   const [isLeadResourcing, setIsLeadResourcing] = useState(false);
   const [leadResourcingEntryCriteria, setLeadResourcingEntryCriteria] = useState('Only participants who have completed the Shadow Resourcing phase for this plan are eligible to be selected for Lead Resourcing.');
   const [shadowResourcingEntryCriteria, setShadowResourcingEntryCriteria] = useState('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
+  const [mappedShadowResources, setMappedShadowResources] = useState([]);
+  
+  const [sudDocs, setSudDocs] = useState([]);
+  const [assessmentResults, setAssessmentResults] = useState([]);
+  const [isForcePushEnabled, setIsForcePushEnabled] = useState(false);
+  const [isSudRequiredForSR, setIsSudRequiredForSR] = useState(false);
+  const [isAssessmentRequiredForSR, setIsAssessmentRequiredForSR] = useState(false);
 
   const getAllowedSROrganizers = () => {
     if (!formData.plan_id) return [];
@@ -617,6 +629,37 @@ const SchedulePage = () => {
         setIsFinalAssessmentMandatory(!!track.options.assessment);
         setIsShadowResourcing(!!track.options.shadow_resourcing);
         setIsLeadResourcing(!!track.options.lead_resourcing);
+        
+        setIsSudRequiredForSR(!!track.options.sud_doc_upload);
+        setIsAssessmentRequiredForSR(!!track.options.assessment_80);
+
+        if (track.options.shadow_resourcing) {
+            getResourceMappings(formData.plan_id).then(res => {
+                if (res.data?.success) {
+                    setMappedShadowResources(res.data.data || []);
+                }
+            }).catch(err => console.error("Error fetching resource mappings:", err));
+            
+            if (track.options.sud_doc_upload) {
+                getSudDocuments(formData.plan_id).then(res => {
+                    setSudDocs(res.data?.data || []);
+                }).catch(err => console.error(err));
+            } else {
+                setSudDocs([]);
+            }
+            
+            if (track.options.assessment_80) {
+                getResults(formData.plan_id).then(res => {
+                    setAssessmentResults(res.data?.data || []);
+                }).catch(err => console.error(err));
+            } else {
+                setAssessmentResults([]);
+            }
+        } else {
+            setMappedShadowResources([]);
+            setSudDocs([]);
+            setAssessmentResults([]);
+        }
 
         let srCriteria = [];
         if (track.options.sud_doc_upload) {
@@ -783,6 +826,22 @@ const SchedulePage = () => {
     } catch (err) {
       setSchedulePopup({ message: 'Error sending notification', type: 'error' });
     }
+  };
+
+  const isParticipantEligible = (participantId) => {
+    if (isForcePushEnabled) return true;
+    
+    if (isSudRequiredForSR) {
+      const hasSud = sudDocs.some(doc => doc.stakeholder_id === participantId);
+      if (!hasSud) return false;
+    }
+    
+    if (isAssessmentRequiredForSR) {
+      const result = assessmentResults.find(r => r.stakeholder_id === participantId && r.assessment_type === 'final');
+      if (!result || parseFloat(result.overall_score) < 40) return false;
+    }
+    
+    return true;
   };
 
   if (loading) return <Loader />;
@@ -997,12 +1056,35 @@ const SchedulePage = () => {
                             </div>
                             <div className="flex-[2]">
                               <MultiSelectDropdown
-                                label="Participants (Shadows)"
+                                label={
+                                  <div className="flex justify-between items-center w-full">
+                                    <span>Participants (Shadows)</span>
+                                    <label className="flex items-center space-x-1 cursor-pointer">
+                                      <input 
+                                        type="checkbox" 
+                                        className="rounded text-primary-orange focus:ring-orange-border"
+                                        checked={isForcePushEnabled} 
+                                        onChange={(e) => {
+                                          if (isForcePushEnabled) {
+                                            setIsForcePushEnabled(false);
+                                          } else {
+                                            if (window.confirm("Are you sure you want to override the entry criteria and allow non-eligible candidates?")) {
+                                              setIsForcePushEnabled(true);
+                                            }
+                                          }
+                                        }} 
+                                      />
+                                      <span className="text-xs text-secondary-text font-normal">Force push</span>
+                                    </label>
+                                  </div>
+                                }
                                 placeholder="Select Participants..."
                                 options={getAllowedSRParticipants()}
                                 selected={mapping.participantIds}
                                 onChange={(newIds) => handleShadowMappingParticipantChange(index, newIds)}
                                 visibleCount={3}
+                                isOptionDisabledFn={(opt) => !isParticipantEligible(opt.id)}
+                                optionClassFn={(opt) => !isParticipantEligible(opt.id) ? 'blur-sm opacity-60' : ''}
                               />
                             </div>
                             {shadowMappings.length > 1 && (
@@ -1177,9 +1259,10 @@ const SchedulePage = () => {
           </div>
         </div>
       )}
-      <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+      {(!formData.plan_id || activeGlobalTab === 'KA') && (
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-light-background">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Plan Name</th>
@@ -1356,6 +1439,42 @@ const SchedulePage = () => {
           </table>
         </div>
       </div>
+      )}
+      {(formData.plan_id && activeGlobalTab === 'SR') && (
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-4 bg-purple-50/50 border-b border-purple-100 flex justify-between items-center">
+            <h3 className="text-sm font-semibold text-primary-text">Mapped Shadow Resources</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-light-background">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Participant Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Participant Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Lead Organizer</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Organizer Role</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {mappedShadowResources.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-8 text-center text-secondary-text">No mappings found for this plan.</td>
+                  </tr>
+                ) : (
+                  mappedShadowResources.map((mapping, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-primary-text">{mapping.participant_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text capitalize">{mapping.participant_role}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-primary-text">{mapping.organizer_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text capitalize">{mapping.organizer_role}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       {/* Attendance Modal */}
       {isAttendanceModalOpen && attendanceMeeting && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

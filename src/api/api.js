@@ -83,6 +83,7 @@ export const getMeetings = (planId) => {
 export const updateMeetingStatus = (id, status) => api.put(`/schedule/meetings/${id}/status`, { status });
 export const notifyMeeting = (id, data = {}) => api.post(`/schedule/meetings/${id}/notify`, data);
 export const notifyRequirements = (data) => api.post(`/schedule/notify-requirements`, data);
+export const getResourceMappings = (planId) => api.get(`/schedule/resource-mappings?plan_id=${planId}`);
 export const rescheduleMeeting = (id, data) => api.put(`/schedule/meetings/${id}/reschedule`, data);
 export const getMeetingFeedback = (id) => api.get(`/schedule/meetings/${id}/feedback`);
 export const submitMeetingFeedback = (id, data) => api.post(`/schedule/meetings/${id}/feedback`, data);
