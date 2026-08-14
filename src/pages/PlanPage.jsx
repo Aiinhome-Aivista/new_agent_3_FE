@@ -623,19 +623,19 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     }
     const planName = `${plan?.application_name || 'Generated Plan'} (${plan?.plan_type || 'KT'})`;
 
-    wsData.push([`Project Name: ${projectName}`, "", "", "", ""]);
-    wsData.push([`Track Name: ${trackName}`, "", "", "", ""]);
-    wsData.push([`Plan Name: ${planName}`, "", "", "", ""]);
-    wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", "", "", ""]);
-    wsData.push(["", "", "", "", ""]); 
+    wsData.push([`Project Name: ${projectName}`, "", "", "", "", "", "", "", ""]);
+    wsData.push([`Track Name: ${trackName}`, "", "", "", "", "", "", "", ""]);
+    wsData.push([`Plan Name: ${planName}`, "", "", "", "", "", "", "", ""]);
+    wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", "", "", "", "", "", "", ""]);
+    wsData.push(["", "", "", "", "", "", "", "", ""]); 
     
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } });
-    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } });
-    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 4 } });
-    merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 4 } });
-    merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 4 } });
+    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } });
+    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 8 } });
+    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 8 } });
+    merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 8 } });
+    merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 8 } });
     
-    wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)", "Knowledge Giver", "Knowledge Receiver"]);
+    wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)", "Knowledge Giver", "Knowledge Receiver", "Start Date", "Meeting Link", "SUD Document", "Final Assessment"]);
     
     const excludedKeywords = [
       'assessment evaluation window',
@@ -668,6 +668,10 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
         t.topic_name,
         t.estimated_duration_hours || 'N/A',
         "",
+        "",
+        "",
+        "",
+        "",
         ""
       ]);
 
@@ -691,13 +695,13 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!merges'] = merges;
-    ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }, { wch: 25 }, { wch: 25 }];
+    ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 20 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
     ws['!sheetViews'] = [{ showGridLines: false }];
     
     const thinBorder = { style: "thin", color: { rgb: "CCCCCC" } };
 
     for (let r = 0; r < wsData.length; r++) {
-      for (let c = 0; c < 5; c++) {
+      for (let c = 0; c < 9; c++) {
         const cellRef = XLSX.utils.encode_cell({ r, c });
         if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
         
