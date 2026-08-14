@@ -78,7 +78,7 @@ const SchedulePage = () => {
   
   // Specific Requirement Email Recipients
   const [selectedSudRecipients, setSelectedSudRecipients] = useState([]);
-  const [selectedShadowRecipients, setSelectedShadowRecipients] = useState([]);
+  const [shadowMappings, setShadowMappings] = useState([{ organizerId: '', participantIds: [] }]);
   const [selectedLeadRecipients, setSelectedLeadRecipients] = useState([]);
   const [selectedFinalAssessmentRecipients, setSelectedFinalAssessmentRecipients] = useState([]);
   const [activeGlobalTab, setActiveGlobalTab] = useState('KA');
@@ -88,6 +88,136 @@ const SchedulePage = () => {
   const [isFinalAssessmentMandatory, setIsFinalAssessmentMandatory] = useState(false);
   const [isShadowResourcing, setIsShadowResourcing] = useState(false);
   const [isLeadResourcing, setIsLeadResourcing] = useState(false);
+
+  const getAllowedSROrganizers = () => {
+    if (!formData.plan_id) return [];
+    
+    const planMeetings = meetings.filter(m => m.plan_id === parseInt(formData.plan_id));
+    const validIds = new Set();
+    planMeetings.forEach(m => {
+      if (m.all_stakeholder_ids) {
+        m.all_stakeholder_ids.forEach(id => validIds.add(id));
+      }
+    });
+
+    const allUsers = [...knowledgeGivers, ...stakeholders];
+    const seen = new Set();
+    return allUsers.filter(u => {
+      if (seen.has(u.id)) return false;
+      seen.add(u.id);
+      if (!validIds.has(u.id)) return false;
+      if (!(u.role.includes('Giver') || u.role.includes('outgoing') || u.role.includes('manager') || u.role.includes('Manager'))) return false;
+      return true;
+    });
+  };
+
+  const getAllowedSRParticipants = () => {
+    if (!formData.plan_id) return [];
+    
+    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
+    
+    const planMeetings = meetings.filter(m => m.plan_id === parseInt(formData.plan_id));
+    const validIds = new Set();
+    planMeetings.forEach(m => {
+      if (m.all_stakeholder_ids) {
+        m.all_stakeholder_ids.forEach(id => validIds.add(id));
+      }
+    });
+    
+    const allUsers = [...knowledgeGivers, ...stakeholders];
+    const seen = new Set();
+    return allUsers.filter(u => {
+      if (seen.has(u.id)) return false;
+      seen.add(u.id);
+      if (!validIds.has(u.id)) return false;
+      if (!(u.role.includes('Receiver') || u.role.includes('incoming'))) return false;
+      return true;
+    });
+  };
+
+  const getAllowedLRStakeholders = () => {
+    if (!formData.plan_id) return [];
+    
+    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
+    if (!selectedPlan || !selectedPlan.shadow_stakeholder_ids) return [];
+    
+    const validIds = new Set(selectedPlan.shadow_stakeholder_ids);
+    return stakeholders.filter(u => validIds.has(u.id));
+  };
+
+  const handleShadowMappingParticipantChange = (mappingIndex, newParticipantIds) => {
+    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
+    const eligibleParticipantIds = new Set((selectedPlan?.shadow_eligible_stakeholder_ids || []).map(Number));
+    const sudSubmittedIds = new Set((selectedPlan?.sud_submitted_stakeholder_ids || []).map(Number));
+    const asmtPassedIds = new Set((selectedPlan?.assessment_passed_stakeholder_ids || []).map(Number));
+    
+    const currentSelection = shadowMappings[mappingIndex].participantIds;
+    const addedIds = newParticipantIds.filter(id => !currentSelection.includes(id));
+    
+    for (const rawId of addedIds) {
+      const id = Number(rawId);
+      const isParticipant = stakeholders.some(s => Number(s.id) === id);
+      if (isParticipant && !eligibleParticipantIds.has(id)) {
+        const userObj = stakeholders.find(s => Number(s.id) === id);
+        let reasons = [];
+        if (!sudSubmittedIds.has(id)) reasons.push("SUD Document not submitted");
+        if (!asmtPassedIds.has(id)) reasons.push("Final Assessment score below 80%");
+        
+        const reasonText = reasons.length > 0 ? ` (${reasons.join(' AND ')})` : '';
+        
+        setSchedulePopup({
+          message: `${userObj?.name} does not meet the Entry Criteria for Shadow Resourcing${reasonText}.`,
+          type: 'error'
+        });
+        return; // Prevent selection
+      }
+      
+      const alreadySelectedInAnother = shadowMappings.some((mapping, idx) => idx !== mappingIndex && mapping.participantIds.includes(id));
+      if (alreadySelectedInAnother) {
+        const userObj = stakeholders.find(s => Number(s.id) === id);
+        setSchedulePopup({
+          message: `${userObj?.name} is already assigned to another Organizer.`,
+          type: 'error'
+        });
+        return; // Prevent selection
+      }
+    }
+    
+    setShadowMappings(prev => {
+      const newMappings = [...prev];
+      newMappings[mappingIndex].participantIds = newParticipantIds;
+      return newMappings;
+    });
+  };
+
+  const handleShadowMappingOrganizerChange = (mappingIndex, newIds) => {
+    const organizerId = newIds.length > 0 ? newIds[newIds.length - 1] : '';
+    
+    if (organizerId) {
+      const alreadySelected = shadowMappings.some((mapping, idx) => idx !== mappingIndex && String(mapping.organizerId) === String(organizerId));
+      if (alreadySelected) {
+        setSchedulePopup({
+          message: `This Organizer is already mapped to participants. Add more participants to their existing mapping instead.`,
+          type: 'error'
+        });
+        return;
+      }
+    }
+    
+    setShadowMappings(prev => {
+      const newMappings = [...prev];
+      newMappings[mappingIndex].organizerId = organizerId;
+      return newMappings;
+    });
+  };
+
+  const addShadowMapping = () => {
+    setShadowMappings(prev => [...prev, { organizerId: '', participantIds: [] }]);
+  };
+
+  const removeShadowMapping = (index) => {
+    setShadowMappings(prev => prev.filter((_, idx) => idx !== index));
+  };
 
   const [loading, setLoading] = useState(true);
   const { activeOperations, startOperation, endOperation } = useOperations();
@@ -465,7 +595,7 @@ const SchedulePage = () => {
     setIsShadowResourcing(false);
     setIsLeadResourcing(false);
     setSelectedSudRecipients([]);
-    setSelectedShadowRecipients([]);
+    setShadowMappings([{ organizerId: '', participantIds: [] }]);
     setSelectedLeadRecipients([]);
     setSelectedFinalAssessmentRecipients([]);
 
@@ -509,15 +639,23 @@ const SchedulePage = () => {
     if (removed.length > 0) {
       setSelectedSudRecipients(prev => prev.filter(id => !removed.includes(id)));
       setSelectedFinalAssessmentRecipients(prev => prev.filter(id => !removed.includes(id)));
-      setSelectedShadowRecipients(prev => prev.filter(id => !removed.includes(id)));
+      setShadowMappings(prev => prev.map(m => ({ ...m, participantIds: m.participantIds.filter(id => !removed.includes(id)) })));
       setSelectedLeadRecipients(prev => prev.filter(id => !removed.includes(id)));
     }
   };
 
   const handleNotifySubmit = async (e) => {
     e.preventDefault();
-    const recipients = activeGlobalTab === 'SR' ? selectedShadowRecipients : selectedLeadRecipients;
-    if (recipients.length === 0) {
+    const isSRAvailable = shadowMappings.some(m => m.organizerId && m.participantIds.length > 0);
+    const hasInvalidSR = activeGlobalTab === 'SR' && shadowMappings.some(m => (!m.organizerId && m.participantIds.length > 0) || (m.organizerId && m.participantIds.length === 0));
+    const recipients = activeGlobalTab === 'SR' ? (isSRAvailable ? [1] : []) : selectedLeadRecipients;
+    
+    if (activeGlobalTab === 'SR' && hasInvalidSR) {
+      setSchedulePopup({ message: 'Please ensure each mapping has both an Organizer and at least one Participant selected.', type: 'error' });
+      return;
+    }
+    
+    if (recipients.length === 0 && (activeGlobalTab === 'SR' ? shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0) : true)) {
       setSchedulePopup({ message: 'Please select at least one recipient to notify.', type: 'error' });
       return;
     }
@@ -526,14 +664,14 @@ const SchedulePage = () => {
     try {
       const payload = {
         plan_id: formData.plan_id,
-        shadow_recipients: (activeGlobalTab === 'SR' && isShadowResourcing) ? selectedShadowRecipients : [],
+        shadow_mappings: (activeGlobalTab === 'SR' && isShadowResourcing) ? shadowMappings.filter(m => m.organizerId && m.participantIds.length > 0) : [],
         lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
       };
 
       const res = await notifyRequirements(payload);
       if (res.data.success) {
         if (activeGlobalTab === 'SR') {
-          setSelectedShadowRecipients([]);
+          setShadowMappings([{ organizerId: '', participantIds: [] }]);
         } else {
           setSelectedLeadRecipients([]);
         }
@@ -563,7 +701,7 @@ const SchedulePage = () => {
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders],
         sud_recipients: (activeGlobalTab === 'KA' && isSudMandatory) ? selectedSudRecipients : [],
         final_assessment_recipients: (activeGlobalTab === 'KA' && isFinalAssessmentMandatory) ? selectedFinalAssessmentRecipients : [],
-        shadow_recipients: (activeGlobalTab === 'SR' && isShadowResourcing) ? selectedShadowRecipients : [],
+        shadow_mappings: (activeGlobalTab === 'SR' && isShadowResourcing) ? shadowMappings.filter(m => m.organizerId && m.participantIds.length > 0) : [],
         lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
       };
       await createMeeting(payload);
@@ -576,7 +714,7 @@ const SchedulePage = () => {
       setSelectedOrganizers([]);
       setSelectedSudRecipients([]);
       setSelectedFinalAssessmentRecipients([]);
-      setSelectedShadowRecipients([]);
+      setShadowMappings([{ organizerId: '', participantIds: [] }]);
       setSelectedLeadRecipients([]);
       fetchData();
       setSchedulePopup({ message: 'Meeting scheduled successfully! Notifications triggered.', type: 'success' });
@@ -805,15 +943,58 @@ const SchedulePage = () => {
                     )}
 
                     {activeGlobalTab === 'SR' && (
-                      <div className="bg-purple-50/50 p-4 rounded-lg border border-purple-100 h-full">
-                        <MultiSelectDropdown
-                          label="Shadow Resourcing"
-                          placeholder="Select Organizers, Participants..."
-                          options={[...knowledgeGivers, ...stakeholders]}
-                          selected={selectedShadowRecipients}
-                          onChange={setSelectedShadowRecipients}
-                          visibleCount={3}
-                        />
+                      <div className="md:col-span-3 bg-purple-50/50 p-4 rounded-lg border border-purple-100 flex flex-col gap-4">
+                        <div className="p-3 bg-primary-orange rounded-lg text-sm text-white flex items-center shadow-sm">
+                          <div>
+                            <strong className="block mb-1">Entry Criteria:</strong>
+                            Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.
+                          </div>
+                        </div>
+                        
+                        {shadowMappings.map((mapping, index) => (
+                          <div key={index} className="flex flex-col md:flex-row gap-4 items-start bg-white p-3 rounded shadow-sm border border-gray-100">
+                            <div className="flex-1">
+                              <MultiSelectDropdown
+                                label="Organizer (Lead)"
+                                placeholder="Select Organizer..."
+                                options={getAllowedSROrganizers()}
+                                selected={mapping.organizerId ? [Number(mapping.organizerId)] : []}
+                                onChange={(newIds) => handleShadowMappingOrganizerChange(index, newIds)}
+                                visibleCount={3}
+                              />
+                            </div>
+                            <div className="flex-[2]">
+                              <MultiSelectDropdown
+                                label="Participants (Shadows)"
+                                placeholder="Select Participants..."
+                                options={getAllowedSRParticipants()}
+                                selected={mapping.participantIds}
+                                onChange={(newIds) => handleShadowMappingParticipantChange(index, newIds)}
+                                visibleCount={3}
+                              />
+                            </div>
+                            {shadowMappings.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeShadowMapping(index)}
+                                className="mt-6 p-2 text-red-500 hover:text-red-700 bg-red-50 rounded-md transition-colors"
+                                title="Remove Mapping"
+                              >
+                                <X size={20} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        
+                        <div className="flex justify-start">
+                          <button
+                            type="button"
+                            onClick={addShadowMapping}
+                            className="text-sm font-medium text-primary-orange hover:text-hover-orange underline"
+                          >
+                            + Add Another Mapping
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -822,7 +1003,7 @@ const SchedulePage = () => {
                         <MultiSelectDropdown
                           label="Lead Resourcing"
                           placeholder="Select Participants..."
-                          options={stakeholders}
+                          options={getAllowedLRStakeholders()}
                           selected={selectedLeadRecipients}
                           onChange={setSelectedLeadRecipients}
                           visibleCount={3}
@@ -838,7 +1019,7 @@ const SchedulePage = () => {
                         (activeGlobalTab === 'KA' && scheduling) ||
                         (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']) ||
                         (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                        (activeGlobalTab === 'SR' && selectedShadowRecipients.length === 0) ||
+                        (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
                         (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
                       }
                       className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
@@ -846,7 +1027,7 @@ const SchedulePage = () => {
                           ? 'bg-button-orange cursor-not-allowed'
                           : (
                               (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                              (activeGlobalTab === 'SR' && selectedShadowRecipients.length === 0) ||
+                              (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
                               (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
                             )
                             ? 'bg-gray-400 cursor-not-allowed'
