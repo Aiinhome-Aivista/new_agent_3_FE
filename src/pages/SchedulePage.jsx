@@ -623,7 +623,23 @@ const SchedulePage = () => {
     
     try {
       const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
-      const track = (config.tracks || []).find(t => t.name.trim() === selectedPlan.application_name.trim());
+      let planConfig = selectedPlan.project_config;
+      if (typeof planConfig === 'string') {
+        try { planConfig = JSON.parse(planConfig); } catch(e) {}
+      }
+      
+      let track = null;
+      if (planConfig && planConfig._meta && planConfig._meta.trackId) {
+        track = (config.tracks || []).find(t => String(t.id) === String(planConfig._meta.trackId));
+      }
+      
+      if (!track) {
+        track = (config.tracks || []).find(t => 
+          selectedPlan.application_name.trim() === t.name.trim() || 
+          selectedPlan.application_name.includes(t.name.trim())
+        );
+      }
+
       if (track && track.options) {
         setIsSudMandatory(!!track.options.sud_mandatory);
         setIsFinalAssessmentMandatory(!!track.options.assessment);
