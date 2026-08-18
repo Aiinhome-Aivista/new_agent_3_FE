@@ -2012,7 +2012,10 @@ const PlanPage = () => {
       if (!targetProjId && projectConfig && res.data?.data?.id) {
         setPendingPlanId(res.data.data.id);
         setShowSaveProjectModal(true);
+      } else if (targetProjId) {
+        refreshProjectToView();
       }
+      setShowGenerateForms(false);
     } catch (err) {
       showToast('Error generating plan', 'error');
     } finally {
