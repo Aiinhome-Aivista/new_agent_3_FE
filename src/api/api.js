@@ -169,12 +169,22 @@ export const getLeadershipTrackingSummary = () => api.get('/leadership/tracking-
 export const getLeadershipRiskSummary = () => api.get('/leadership/risk-summary');
 export const getLeadershipGiverSummary = () => api.get('/leadership/giver-summary');
 
-export const askChatbot2 = (sessionId, question, userId, contextId, planId = null) =>
-  api.post('/chatbot2/ask', {
+export const askChatbot2 = (
+  sessionId,
+  question,
+  userId,
+  contextId,
+  planId = null,
+  conversationMode = 'auto',
+  scopeName = null
+) =>
+  api.post('/chatbot3/ask', {
     session_id: sessionId,
     question,
     user_id: userId,
     context_id: contextId,
+    conversation_mode: conversationMode,
+    ...(scopeName ? { scope_name: scopeName } : {}),
     ...(planId ? { plan_id: planId } : {})
   });
 
