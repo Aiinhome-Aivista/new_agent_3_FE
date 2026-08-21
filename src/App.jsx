@@ -22,7 +22,6 @@ import HolidaysPage from './pages/HolidaysPage';
 import CalendarPage from './pages/CalendarPage';
 
 
-
 function App() {
   return (
     <AuthProvider>
