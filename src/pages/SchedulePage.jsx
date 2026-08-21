@@ -1130,12 +1130,7 @@ const SchedulePage = () => {
 
                     {activeGlobalTab === 'LR' && (
                       <div className="md:col-span-3 bg-orange-50/50 p-4 rounded-lg border border-orange-100 flex flex-col gap-4 h-full">
-                        <div className="p-3 bg-primary-orange rounded-lg text-sm text-white flex items-center shadow-sm">
-                          <div>
-                            <strong className="block mb-1">Entry Criteria:</strong>
-                            {leadResourcingEntryCriteria}
-                          </div>
-                        </div>
+                        
                         <div className="bg-white p-3 rounded shadow-sm border border-gray-100">
                           <MultiSelectDropdown
                             label="Lead Resourcing"
