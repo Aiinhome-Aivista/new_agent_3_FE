@@ -21,13 +21,16 @@ const CalendarPage = () => {
   useEffect(() => {
     // Small timeout ensures the DOM is fully painted before scrolling
     setTimeout(() => {
-      if (scrollTargetRef.current) {
-        scrollTargetRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (scrollTargetRef.current && timelineContainerRef.current) {
+        const container = timelineContainerRef.current;
+        const target = scrollTargetRef.current;
+        const scrollLeft = target.offsetLeft - (container.clientWidth / 2) + (target.clientWidth / 2);
+        container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
       } else if (timelineContainerRef.current) {
-        timelineContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        timelineContainerRef.current.scrollTo({ left: 0, behavior: 'smooth' });
       }
-    }, 100);
-  }, [selectedPlan, meetings]);
+    }, 300);
+  }, [selectedPlan, meetings, loading]);
 
   const processMeetingsWithDayLabel = (meetingsData) => {
     const sorted = [...meetingsData].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
@@ -205,85 +208,165 @@ const CalendarPage = () => {
        grouped[dateStr].push(m);
     });
 
-    const sortedDates = Object.keys(grouped).sort();
     const todayStrGlobal = new Date().toISOString().split('T')[0];
-    const upcomingDateStr = sortedDates.find(d => d >= todayStrGlobal);
-
-    if (sortedDates.length === 0) {
-      return (
-        <div className="py-8 text-center text-secondary-text text-sm">
-          No schedules found for this plan.
-        </div>
-      );
+    if (!grouped[todayStrGlobal]) {
+      grouped[todayStrGlobal] = [];
     }
 
-    return (
-      <div className="">
-        <h3 className="font-semibold text-primary-text mb-4 text-sm">Plan Timeline</h3>
-        <div ref={timelineContainerRef} className="overflow-y-auto max-h-[400px] custom-scrollbar pr-2">
-          <div className="relative ml-2 space-y-6 pb-2">
-            {sortedDates.map((dateStr, index) => {
-              const dateObj = new Date(dateStr);
-              const todayStr = new Date().toISOString().split('T')[0];
-              const isToday = todayStr === dateStr;
-              const isUpcomingScrollTarget = dateStr === upcomingDateStr;
-              const isPastDate = dateStr < todayStr;
-              const dayItems = grouped[dateStr].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
-              const isDateCompleted = dayItems.every(m => m.status?.toLowerCase() === 'completed');
-              const isDateOverdue = isPastDate && !isDateCompleted;
+    const sortedDates = Object.keys(grouped).sort();
+    const upcomingDateStr = sortedDates.find(d => d >= todayStrGlobal);
 
-              return (
-                <div key={dateStr} className="relative" ref={isUpcomingScrollTarget ? scrollTargetRef : null}>
-                  {/* Vertical line connecting to next item */}
-                  {index < sortedDates.length - 1 && (
-                    <div className={`absolute left-[7px] top-[20px] h-[calc(100%+8px)] w-0.5 ${isDateCompleted ? 'bg-green-500' : 'bg-input-background'}`}></div>
-                  )}
-                  {/* Date dot */}
-                  <div className={`absolute left-0 top-1 h-4 w-4 rounded-full border-2 border-white z-10 ${isDateCompleted ? 'bg-green-500 ring-2 ring-green-200' : (isToday ? 'bg-primary-orange ring-2 ring-input-background animate-pulse' : (isDateOverdue ? 'bg-red-500 ring-2 ring-red-200' : 'bg-gray-300'))}`}></div>
-                  <div className="ml-6">
-                    <h4 className={`text-xs font-bold mb-2 flex items-center gap-2 ${isToday ? 'text-primary-orange' : (isDateOverdue ? 'text-red-600' : 'text-primary-text')}`}>
-                      <span>{dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })}</span>
-                      {isToday && <span className="text-[9px] bg-input-background text-hover-orange px-1.5 py-0.5 rounded-full font-bold">Today</span>}
-                    </h4>
-                    <div className="space-y-2">
-                      {dayItems.map((meeting, i) => {
-                        const isCompleted = meeting.status?.toLowerCase() === 'completed';
-                        const isOverdueItem = isPastDate && !isCompleted;
-                        return (
-                          <div key={meeting.id} className={`bg-light-background border rounded-md p-2 hover:shadow-sm transition-shadow ${isCompleted ? 'border-l-4 border-l-green-500 border-y-gray-200 border-r-gray-200' : (isOverdueItem ? 'border-l-4 border-l-red-500 border-y-red-200 border-r-red-200 bg-red-50' : 'border-light-border')}`}>
-                            <div className="flex flex-col gap-1">
-                               <div className="flex justify-between items-start">
-                                 <div className="flex items-center gap-1.5">
-                                   <span className={`text-xs font-semibold ${isOverdueItem ? 'text-red-800' : 'text-primary-text'} leading-tight`}>
-                                     {meeting.dayLabel && <span className={`${isOverdueItem ? 'text-red-600' : 'text-primary-orange'} font-bold mr-1`}>{meeting.dayLabel} -</span>}
-                                     {meeting.title || 'KT Session'}
-                                   </span>
-                                 </div>
-                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ml-2 ${isCompleted ? 'bg-green-100 text-green-800 font-bold border border-green-200' : (isOverdueItem ? 'bg-red-100 text-red-800 font-bold border border-red-200' : 'bg-input-background text-primary-orange font-bold border border-primary-orange/20')}`}>
-                                   {isCompleted ? 'Completed' : (isOverdueItem ? 'Overdue' : 'Upcoming')}
-                                 </span>
-                               </div>
-                               <p className="text-[10px] text-secondary-text flex items-center flex-wrap gap-1 mt-0.5">
-                                 <span>{new Date(meeting.scheduled_at).toLocaleTimeString([], {timeZone: 'UTC', hour: '2-digit', minute:'2-digit'})}</span>
-                                 {plansMap[meeting.plan_id] && <span className="mx-0.5">•</span>}
-                                 {plansMap[meeting.plan_id] && <span className="text-primary-orange truncate max-w-[120px]" title={plansMap[meeting.plan_id]}>{plansMap[meeting.plan_id]}</span>}
-                               </p>
-                               {meeting.meeting_link && (
-                                 <a href={meeting.meeting_link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary-orange hover:underline mt-0.5">
-                                   Join Meeting
-                                 </a>
-                               )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+    return (
+      <div className="bg-light-background rounded-xl shadow-sm border border-light-border p-6 w-full relative overflow-hidden mb-6">
+        <style dangerouslySetInnerHTML={{__html: `
+          .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}} />
+        
+        {/* Background glow effects - subtle for light theme */}
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary-orange/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div className="flex justify-between items-center mb-8 relative z-10">
+          <h3 className="font-bold text-primary-text text-xl flex items-center">
+             <span className="w-1.5 h-6 bg-primary-orange rounded-full mr-3"></span>
+             KT Timeline
+          </h3>
+          <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-secondary-text bg-white px-4 py-2 rounded-full border border-gray-200 shadow-sm">
+             <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-primary-orange animate-pulse shadow-[0_0_8px_rgba(255,107,0,0.6)]"></span> Today</div>
+             <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-gray-300"></span> Pending</div>
+             <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]"></span> Completed</div>
+             <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Cancelled / Overdue</div>
           </div>
         </div>
+
+        {loading ? (
+          <div className="py-16 flex justify-center items-center">
+            <Loader />
+          </div>
+        ) : (
+          <div ref={timelineContainerRef} className="h-[220px] overflow-auto hide-scrollbar relative z-10 scroll-smooth rounded-xl">
+            <div className="pt-32 pb-32 min-w-max">
+              <div className={`flex items-center relative px-12 ${sortedDates.length === 1 ? 'justify-center w-full min-w-full' : 'min-w-max'}`}>
+                {/* The main continuous horizontal line */}
+                <div className="absolute left-12 right-12 h-0.5 bg-gray-200 top-1/2 -translate-y-1/2"></div>
+              
+              {sortedDates.map((dateStr, index) => {
+                const dateObj = new Date(dateStr);
+                const isToday = todayStrGlobal === dateStr;
+                const isUpcomingScrollTarget = dateStr === upcomingDateStr;
+                const isPastDate = dateStr < todayStrGlobal;
+                const dayItems = grouped[dateStr].sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime());
+                const isDateCompleted = dayItems.length > 0 && dayItems.every(m => m.status?.toLowerCase() === 'completed');
+                const isDateOverdue = isPastDate && dayItems.length > 0 && !isDateCompleted;
+
+                const isTop = index % 2 === 0;
+
+                // Connect line to previous
+                const previousIsCompleted = index > 0 && grouped[sortedDates[index-1]].length > 0 && grouped[sortedDates[index-1]].every(m => m.status?.toLowerCase() === 'completed');
+                const thisConnectionCompleted = isDateCompleted && previousIsCompleted;
+                
+                let nodeColorClass = 'border-gray-300 bg-white';
+                let ringClass = '';
+                let textColorClass = 'text-gray-500';
+                let titleColorClass = 'text-primary-text';
+                let nodeCenter = '';
+                
+                if (isToday) {
+                   nodeColorClass = 'border-primary-orange bg-white';
+                   ringClass = 'shadow-[0_0_15px_rgba(255,107,0,0.3)] ring-4 ring-primary-orange/10';
+                   textColorClass = 'text-primary-orange font-bold';
+                   nodeCenter = 'bg-primary-orange';
+                } else if (isDateCompleted) {
+                   nodeColorClass = 'border-green-500 bg-white';
+                   ringClass = 'shadow-[0_0_10px_rgba(34,197,94,0.2)] ring-2 ring-green-500/10';
+                   textColorClass = 'text-green-600 font-medium';
+                   nodeCenter = 'bg-green-500';
+                } else if (isDateOverdue) {
+                   nodeColorClass = 'border-red-500 bg-white';
+                   textColorClass = 'text-red-600 font-medium';
+                   nodeCenter = 'bg-red-500';
+                }
+
+                return (
+                  <div key={dateStr} className="relative flex flex-col items-center w-56 shrink-0 group" ref={isUpcomingScrollTarget ? scrollTargetRef : null}>
+                    
+                    {/* Connection line filled if previous is completed and this is completed */}
+                    {index > 0 && (
+                      <div className={`absolute right-[50%] top-1/2 -translate-y-1/2 h-0.5 w-full -z-10 transition-colors duration-500 ${thisConnectionCompleted ? 'bg-gradient-to-r from-green-400 to-green-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]' : (isToday && previousIsCompleted ? 'bg-gradient-to-r from-green-400 to-primary-orange shadow-[0_0_8px_rgba(255,107,0,0.2)]' : 'bg-transparent')}`}></div>
+                    )}
+
+                    {/* Content (Top or Bottom) */}
+                    <div className={`absolute w-full px-2 ${isTop ? 'bottom-8' : 'top-8'}`}>
+                      <div className={`flex flex-col ${isTop ? 'items-center text-center' : 'items-center text-center'} transition-transform duration-300 group-hover:${isTop ? '-translate-y-1' : 'translate-y-1'}`}>
+                        
+                        {isToday && isTop && (
+                          <div className="mb-3 px-3 py-1 bg-orange-50 border border-primary-orange text-primary-orange text-[10px] font-bold rounded-full shadow-sm flex items-center gap-1.5">
+                             <div className="w-1.5 h-1.5 bg-primary-orange rounded-full animate-pulse"></div>
+                             TODAY
+                          </div>
+                        )}
+                        
+                        <div className={`text-xs px-3 py-1 rounded-full border ${isToday ? 'border-primary-orange/50 bg-orange-50' : (isDateCompleted ? 'border-green-500/50 bg-green-50' : 'border-gray-200 bg-gray-50')} mb-2 ${textColorClass} tracking-wide shadow-sm`}>
+                           {dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+                        </div>
+                        
+                        <div className="space-y-2 w-full max-w-[180px] max-h-[90px] overflow-y-auto hide-scrollbar">
+                          {dayItems.length === 0 && isToday ? (
+                             <div className="text-[11px] text-gray-400 italic font-medium">No plans today</div>
+                          ) : (
+                            dayItems.map((meeting) => {
+                               const isCompleted = meeting.status?.toLowerCase() === 'completed';
+                               return (
+                                 <div key={meeting.id} className="flex flex-col mb-1.5" title={meeting.title}>
+                                   <div className={`text-[11px] truncate ${isCompleted ? 'text-green-600 font-bold' : `${titleColorClass} font-medium`}`}>
+                                     {meeting.title || 'KT Session'}
+                                   </div>
+                                   {isCompleted && (
+                                     <div className="text-[9px] text-green-500 font-semibold mt-0.5">
+                                       Completed on {dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}
+                                     </div>
+                                   )}
+                                 </div>
+                               );
+                            })
+                          )}
+                        </div>
+
+                        {isToday && !isTop && (
+                          <div className="mt-3 px-3 py-1 bg-orange-50 border border-primary-orange text-primary-orange text-[10px] font-bold rounded-full shadow-sm flex items-center gap-1.5">
+                             <div className="w-1.5 h-1.5 bg-primary-orange rounded-full animate-pulse"></div>
+                             TODAY
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Vertical Connector Line from Node to Content */}
+                    <div className={`absolute w-px bg-gray-300 transition-all duration-300 group-hover:bg-primary-orange ${isTop ? 'bottom-3 h-5' : 'top-3 h-5'}`}></div>
+
+                    {/* The Timeline Node */}
+                    <div className={`relative z-10 w-4 h-4 rounded-full border-[3px] ${nodeColorClass} ${ringClass} transition-all duration-300 group-hover:scale-125 cursor-pointer`}>
+                       {nodeCenter && <div className={`absolute inset-0 m-auto w-1.5 h-1.5 rounded-full ${nodeCenter}`}></div>}
+                    </div>
+
+                    {/* Hover tooltip for exact date */}
+                    <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity duration-300 bottom-full mb-10 text-[10px] bg-gray-800 text-white px-2 py-1 rounded shadow-lg pointer-events-none whitespace-nowrap z-20">
+                       {dateObj.toLocaleDateString(undefined, { weekday: 'long', timeZone: 'UTC' })}
+                    </div>
+
+                  </div>
+                );
+              })}
+            </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -313,6 +396,8 @@ const CalendarPage = () => {
           </CustomSelect>
         </div>
       </div>
+
+      {selectedPlan !== 'All' && renderTimeline()}
 
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Calendar Main Section */}
@@ -414,13 +499,6 @@ const CalendarPage = () => {
              )}
            </div>
           </div>
-
-          {/* Monthly Timeline Card */}
-          {selectedPlan !== 'All' && (
-            <div className="bg-light-background rounded-xl shadow-sm border border-light-border p-5">
-              {renderTimeline()}
-            </div>
-          )}
 
         </div>
       </div>

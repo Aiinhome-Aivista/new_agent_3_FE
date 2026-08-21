@@ -44,6 +44,9 @@ export const getStakeholder = (id) => api.get(`/stakeholders/${id}`);
 export const createStakeholder = (data) => api.post('/stakeholders/', data);
 export const updateStakeholder = (id, data) => api.put(`/stakeholders/${id}`, data);
 export const deleteStakeholder = (id) => api.delete(`/stakeholders/${id}`);
+export const uploadStakeholdersExcel = (formData) => api.post('/stakeholders/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 
 // Plans
 export const generatePlan = (data) => api.post('/plans/generate', data);
@@ -54,8 +57,11 @@ export const getPlans = (params) => {
   const qs = params ? new URLSearchParams(params).toString() : '';
   return api.get(qs ? `/plans/?${qs}` : '/plans/');
 };
+export const getProjects = () => api.get('/projects/');
+export const getPlan = (id) => api.get(`/plans/${id}`);
 export const approvePlan = (id) => api.put(`/plans/${id}/approve`);
 export const closePlan = (id) => api.put(`/plans/${id}/close`);
+export const linkPlanToProject = (planId, projectId) => api.put(`/plans/${planId}/link-project`, { project_id: projectId });
 export const editPlan = (id, data) => api.put(`/plans/${id}/edit`, data);
 export const getPlanTopicOptions = (planId) => api.get(`/plans/${planId}/topics`);
 export const resyncPlanTopics = (planId) => api.post(`/plans/${planId}/topics/resync`);
@@ -67,12 +73,17 @@ export const deletePlanTopic = (topicId) => api.delete(`/plans/topics/${topicId}
 
 // Schedule
 export const createMeeting = (data) => api.post('/schedule/meetings', data);
+export const bulkScheduleMeetings = (formData) => api.post('/schedule/bulk-upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
 export const getMeetings = (planId) => {
   const url = planId ? `/schedule/meetings?plan_id=${planId}` : '/schedule/meetings';
   return api.get(url);
 };
 export const updateMeetingStatus = (id, status) => api.put(`/schedule/meetings/${id}/status`, { status });
 export const notifyMeeting = (id, data = {}) => api.post(`/schedule/meetings/${id}/notify`, data);
+export const notifyRequirements = (data) => api.post(`/schedule/notify-requirements`, data);
+export const getResourceMappings = (planId) => api.get(`/schedule/resource-mappings?plan_id=${planId}`);
 export const rescheduleMeeting = (id, data) => api.put(`/schedule/meetings/${id}/reschedule`, data);
 export const getMeetingFeedback = (id) => api.get(`/schedule/meetings/${id}/feedback`);
 export const submitMeetingFeedback = (id, data) => api.post(`/schedule/meetings/${id}/feedback`, data);
@@ -139,6 +150,10 @@ export const uploadKnowledgeDocument = (formData) => api.post('/knowledge/upload
   headers: { 'Content-Type': 'multipart/form-data' }
 });
 export const getKnowledgeDocuments = (planId) => api.get(`/knowledge/plan/${planId}`);
+export const uploadSudDocument = (formData) => api.post('/sud/upload', formData, {
+  headers: { 'Content-Type': 'multipart/form-data' }
+});
+export const getSudDocuments = (planId) => api.get(`/sud/plan/${planId}`);
 export const extractVideoTranscript = (data) => api.post('/knowledge/extract-transcript', data);
 export const uploadTranscript = (data) => api.post('/knowledge/upload-transcript', data);
 
@@ -154,12 +169,22 @@ export const getLeadershipTrackingSummary = () => api.get('/leadership/tracking-
 export const getLeadershipRiskSummary = () => api.get('/leadership/risk-summary');
 export const getLeadershipGiverSummary = () => api.get('/leadership/giver-summary');
 
-export const askChatbot2 = (sessionId, question, userId, contextId, planId = null) =>
-  api.post('/chatbot2/ask', {
+export const askChatbot2 = (
+  sessionId,
+  question,
+  userId,
+  contextId,
+  planId = null,
+  conversationMode = 'auto',
+  scopeName = null
+) =>
+  api.post('/chatbot3/ask', {
     session_id: sessionId,
     question,
     user_id: userId,
     context_id: contextId,
+    conversation_mode: conversationMode,
+    ...(scopeName ? { scope_name: scopeName } : {}),
     ...(planId ? { plan_id: planId } : {})
   });
 

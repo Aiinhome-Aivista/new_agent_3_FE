@@ -1,29 +1,33 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getPlans, getStakeholders, getMeetings, getRisks, getLeadershipCompletionSummary, getLeadershipGiverSummary } from '../api/api';
+import { getPlans, getProjects, getStakeholders, getMeetings, getRisks, getLeadershipCompletionSummary, getLeadershipGiverSummary } from '../api/api';
 import Loader from '../components/Loader';
 import { Users, FileText, Calendar, AlertTriangle, Clock, BarChart2, Award, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const Dashboard = () => {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    plans: 0,
-    stakeholders: 0,
-    upcomingMeetings: [],
-    activeRisks: [],
-    plansMap: {}
+  const [rawData, setRawData] = useState({
+    projects: [],
+    plans: [],
+    stakeholders: [],
+    meetings: [],
+    risks: [],
+    plansMap: {},
+    performanceData: null,
+    giverData: null
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedPerfPlan, setSelectedPerfPlan] = useState('');
+  const [globalSelectedProject, setGlobalSelectedProject] = useState('All');
   const [rankingTab, setRankingTab] = useState('receivers');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [plansRes, stakeholdersRes, meetingsRes, risksRes] = await Promise.all([
+        const [plansRes, projectsRes, stakeholdersRes, meetingsRes, risksRes] = await Promise.all([
           getPlans({ for_dropdown: 'true' }),
+          getProjects(),
           getStakeholders(),
           getMeetings(),
           getRisks()
@@ -43,6 +47,23 @@ const Dashboard = () => {
         }
 
         const plansData = plansRes.data.data || [];
+        let projectsData = projectsRes.data.data || [];
+
+        const isKnowledgeReceiverUser = user?.role === 'Incoming Team Member (Knowledge Receiver)' ||
+          user?.role?.toLowerCase().includes('receiver') ||
+          user?.role?.toLowerCase().includes('incoming');
+
+        const isKnowledgeGiverUser = user?.role === 'Outgoing SME (Knowledge Giver)' ||
+          user?.role?.toLowerCase().includes('giver') ||
+          user?.role?.toLowerCase().includes('outgoing');
+
+        if (isKnowledgeReceiverUser || isKnowledgeGiverUser) {
+          const assignedProjectIds = new Set(
+            plansData.map(p => p.project_id ? String(p.project_id) : null).filter(Boolean)
+          );
+          projectsData = projectsData.filter(p => assignedProjectIds.has(String(p.id)));
+        }
+
         const plansMap = {};
         plansData.forEach(p => {
           plansMap[p.id] = p.application_name;
@@ -51,23 +72,14 @@ const Dashboard = () => {
         const allMeetings = meetingsRes.data.data || [];
         const allRisks = risksRes.data.data || [];
 
-        const now = new Date();
-        const upcoming = allMeetings
-          .filter(m => plansMap[m.plan_id])
-          .filter(m => new Date(m.scheduled_at) > now && m.status?.toLowerCase() !== 'completed')
-          .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+        const approvedPlans = plansData.filter(p => p.status && p.status.toLowerCase() === 'approved');
 
-        const active = allRisks
-          .filter(r => plansMap[r.plan_id])
-          .filter(r => ['open', 'in_progress', 'in progress', 'in-progress'].includes(r.status?.toLowerCase()));
-
-        const totalPlansCount = plansData.filter(p => p.status && p.status.toLowerCase() === 'approved').length;
-
-        setStats({
-          plans: totalPlansCount,
-          stakeholders: stakeholdersRes.data.data.length || 0,
-          upcomingMeetings: upcoming,
-          activeRisks: active,
+        setRawData({
+          projects: projectsData,
+          plans: approvedPlans,
+          stakeholders: stakeholdersRes.data.data || [],
+          meetings: allMeetings,
+          risks: allRisks,
           plansMap: plansMap,
           performanceData: perfData,
           giverData: giverData
@@ -79,25 +91,51 @@ const Dashboard = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [user]);
+
+  const computedStats = React.useMemo(() => {
+    const { plans, stakeholders, meetings, risks, plansMap } = rawData;
+    
+    const selectedProjectId = globalSelectedProject === 'All' ? null : globalSelectedProject;
+
+    const filteredPlans = selectedProjectId ? plans.filter(p => p.project_id && p.project_id.toString() === selectedProjectId.toString()) : plans;
+    const planCount = filteredPlans.length;
+    const validPlanIds = new Set(filteredPlans.map(p => p.id));
+
+    const now = new Date();
+    const upcomingMeetings = meetings
+      .filter(m => plansMap[m.plan_id])
+      .filter(m => validPlanIds.has(m.plan_id))
+      .filter(m => new Date(m.scheduled_at) > now && m.status?.toLowerCase() !== 'completed')
+      .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+
+    const activeRisks = risks
+      .filter(r => plansMap[r.plan_id])
+      .filter(r => validPlanIds.has(r.plan_id))
+      .filter(r => ['open', 'in_progress', 'in progress', 'in-progress'].includes(r.status?.toLowerCase()));
+
+    return {
+      filteredPlans,
+      validPlanIds,
+      plansCount: planCount,
+      stakeholdersCount: stakeholders.length,
+      upcomingMeetings,
+      activeRisks,
+    };
+  }, [rawData, globalSelectedProject]);
 
   const allPerfPlans = React.useMemo(() => {
-    if (!stats.performanceData) return [];
-    return stats.performanceData.managers
+    if (!rawData.performanceData) return [];
+    return rawData.performanceData.managers
       .flatMap(m => m.plans || [])
       .filter(p => p.status && !['draft', 'waiting_for_approval'].includes(p.status.toLowerCase()))
-      .filter(p => stats.plansMap[p.plan_id])
+      .filter(p => rawData.plansMap[p.plan_id])
+      .filter(p => computedStats.validPlanIds.has(p.plan_id))
       .sort((a, b) => b.wmo_score - a.wmo_score);
-  }, [stats.performanceData, stats.plansMap]);
-
-  React.useEffect(() => {
-    if (selectedPerfPlan === '' && allPerfPlans.length > 0) {
-      setSelectedPerfPlan(allPerfPlans[0].plan_id.toString());
-    }
-  }, [allPerfPlans, selectedPerfPlan]);
+  }, [rawData.performanceData, rawData.plansMap, computedStats.validPlanIds]);
 
   const receiverRankings = React.useMemo(() => {
-    const plans = selectedPerfPlan ? allPerfPlans.filter(p => p.plan_id.toString() === selectedPerfPlan.toString()) : allPerfPlans;
+    const plans = allPerfPlans;
     const receiverMap = {};
     plans.forEach(p => {
       if (p.receivers && p.receivers.length > 0) {
@@ -132,46 +170,33 @@ const Dashboard = () => {
     });
 
     return result.sort((a, b) => b.wmo_score - a.wmo_score);
-  }, [allPerfPlans, selectedPerfPlan]);
+  }, [allPerfPlans]);
 
   const displayedPerf = React.useMemo(() => {
-    if (!stats.performanceData) return null;
-    if (selectedPerfPlan === '') {
-      if (allPerfPlans.length === 0) {
-        return { completion: 0, attendance: 0, wmo: 0, title: 'Overall Performance' };
-      }
-      let sumComp = 0, sumAtt = 0, sumWmo = 0;
-      allPerfPlans.forEach(p => {
-        sumComp += p.completion_percent || 0;
-        sumAtt += p.attendance_percent || 0;
-        sumWmo += p.wmo_score || 0;
-      });
-      return {
-        completion: Math.round(sumComp / allPerfPlans.length),
-        attendance: Math.round(sumAtt / allPerfPlans.length),
-        wmo: Math.round(sumWmo / allPerfPlans.length),
-        title: 'Overall Performance'
-      };
-    } else {
-      const plan = allPerfPlans.find(p => p.plan_id.toString() === selectedPerfPlan.toString());
-      if (plan) {
-        return {
-          completion: plan.completion_percent,
-          attendance: plan.attendance_percent,
-          wmo: plan.wmo_score,
-          title: plan.application_name
-        };
-      }
+    if (!rawData.performanceData) return null;
+    if (allPerfPlans.length === 0) {
+      return { completion: 0, attendance: 0, wmo: 0, title: 'Project Performance' };
     }
-    return null;
-  }, [stats.performanceData, selectedPerfPlan, allPerfPlans]);
+    let sumComp = 0, sumAtt = 0, sumWmo = 0;
+    allPerfPlans.forEach(p => {
+      sumComp += p.completion_percent || 0;
+      sumAtt += p.attendance_percent || 0;
+      sumWmo += p.wmo_score || 0;
+    });
+    return {
+      completion: Math.round(sumComp / allPerfPlans.length),
+      attendance: Math.round(sumAtt / allPerfPlans.length),
+      wmo: Math.round(sumWmo / allPerfPlans.length),
+      title: 'Project Performance'
+    };
+  }, [rawData.performanceData, allPerfPlans]);
 
   const displayedGivers = React.useMemo(() => {
-    if (!stats.giverData || !stats.giverData.knowledge_givers) return [];
+    if (!rawData.giverData || !rawData.giverData.knowledge_givers) return [];
     
     const filteredGivers = [];
-    stats.giverData.knowledge_givers.forEach(g => {
-      const validPlans = (g.plans || []).filter(p => stats.plansMap[p.plan_id]);
+    rawData.giverData.knowledge_givers.forEach(g => {
+      const validPlans = (g.plans || []).filter(p => rawData.plansMap[p.plan_id] && computedStats.validPlanIds.has(p.plan_id));
       if (validPlans.length > 0) {
         let totalScore = 0;
         let totalFeedbacks = 0;
@@ -190,32 +215,33 @@ const Dashboard = () => {
       }
     });
 
-    if (!selectedPerfPlan) {
-      return filteredGivers.sort((a, b) => b.average_rating - a.average_rating);
-    }
-
-    const strictlyFiltered = [];
-    filteredGivers.forEach(g => {
-      const planData = g.plans.find(p => p.plan_id.toString() === selectedPerfPlan.toString());
-      if (planData) {
-        strictlyFiltered.push({
-          ...g,
-          total_feedbacks: planData.total_feedbacks,
-          average_rating: planData.average_rating
-        });
-      }
-    });
-    return strictlyFiltered.sort((a, b) => b.average_rating - a.average_rating);
-  }, [stats.giverData, selectedPerfPlan, stats.plansMap]);
+    return filteredGivers.sort((a, b) => b.average_rating - a.average_rating);
+  }, [rawData.giverData, rawData.plansMap, computedStats.validPlanIds]);
 
   if (loading) return <Loader />;
 
-  const highPriorityRisks = stats.activeRisks.filter(r => r.severity?.toLowerCase() === 'high' || r.severity?.toLowerCase() === 'critical');
+  const highPriorityRisks = computedStats.activeRisks.filter(r => r.severity?.toLowerCase() === 'high' || r.severity?.toLowerCase() === 'critical');
   const isKnowledgeReceiver = user?.role === 'Incoming Team Member (Knowledge Receiver)';
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-primary-text">Dashboard</h2>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h2 className="text-2xl font-bold text-primary-text">Dashboard</h2>
+        
+        <div className="flex items-center space-x-2 bg-light-background px-4 py-2 rounded-lg shadow-sm border border-light-border w-full md:w-auto xl:w-[400px]">
+          <span className="text-sm font-medium text-secondary-text whitespace-nowrap">Project:</span>
+          <CustomSelect 
+            value={globalSelectedProject}
+            onChange={(e) => setGlobalSelectedProject(e.target.value)}
+            className="text-sm border-none bg-transparent focus:ring-0 cursor-pointer text-primary-text font-semibold outline-none py-1 pl-1 w-full truncate"
+          >
+            <option value="All">All Projects</option>
+            {rawData.projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </CustomSelect>
+        </div>
+      </div>
 
       {error && (
         <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
@@ -230,8 +256,8 @@ const Dashboard = () => {
             <FileText size={24} />
           </div>
           <div>
-            <p className="text-sm font-medium text-secondary-text">Total KT Plans</p>
-            <h3 className="text-2xl font-bold text-primary-text">{stats.plans}</h3>
+            <p className="text-sm font-medium text-secondary-text">Total Plans</p>
+            <h3 className="text-2xl font-bold text-primary-text">{computedStats.plansCount}</h3>
           </div>
         </div>
 
@@ -241,7 +267,7 @@ const Dashboard = () => {
           </div>
           <div>
             <p className="text-sm font-medium text-secondary-text">Stakeholders</p>
-            <h3 className="text-2xl font-bold text-primary-text">{stats.stakeholders}</h3>
+            <h3 className="text-2xl font-bold text-primary-text">{computedStats.stakeholdersCount}</h3>
           </div>
         </div>
 
@@ -251,7 +277,7 @@ const Dashboard = () => {
           </div>
           <div>
             <p className="text-sm font-medium text-secondary-text">Upcoming Meetings</p>
-            <h3 className="text-2xl font-bold text-primary-text">{stats.upcomingMeetings.length}</h3>
+            <h3 className="text-2xl font-bold text-primary-text">{computedStats.upcomingMeetings.length}</h3>
           </div>
         </div>
 
@@ -262,14 +288,14 @@ const Dashboard = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-secondary-text">Active Risks</p>
-              <h3 className="text-2xl font-bold text-primary-text">{stats.activeRisks.length}</h3>
+              <h3 className="text-2xl font-bold text-primary-text">{computedStats.activeRisks.length}</h3>
             </div>
           </div>
         )}
       </div>
 
       {/* Performance & Ranking Section */}
-      {!isKnowledgeReceiver && (stats.performanceData || stats.giverData) && (
+      {!isKnowledgeReceiver && (rawData.performanceData || rawData.giverData) && (
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 mt-8">
           <div className="flex flex-col md:flex-row items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-primary-text flex items-center">
@@ -293,26 +319,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="flex justify-end mb-6">
-            <div className="w-full md:w-64">
-              <CustomSelect
-                className="block w-full px-3 py-2 border border-light-border rounded-md text-sm focus:outline-none focus:ring-primary-orange disabled:bg-input-background disabled:opacity-75"
-                value={selectedPerfPlan}
-                onChange={(e) => setSelectedPerfPlan(e.target.value)}
-                disabled={allPerfPlans.length === 0}
-              >
-                {allPerfPlans.length === 0 ? (
-                  <option value="">No Active Plan</option>
-                ) : (
-                  allPerfPlans.map((p, idx) => (
-                    <option key={p.plan_id} value={p.plan_id}> {p.application_name}</option>
-                  ))
-                )}
-              </CustomSelect>
-            </div>
-          </div>
-
-          {rankingTab === 'receivers' && stats.performanceData && displayedPerf && (
+          {rankingTab === 'receivers' && rawData.performanceData && displayedPerf && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="bg-input-background rounded-lg p-4 flex flex-col justify-center items-center">
@@ -375,7 +382,7 @@ const Dashboard = () => {
             </>
           )}
 
-          {rankingTab === 'givers' && stats.giverData && (
+          {rankingTab === 'givers' && rawData.giverData && (
             <div>
               <h4 className="text-sm font-bold text-gray-700 uppercase mb-3">Knowledge Giver Rankings (by Star Rating)</h4>
               <div className="overflow-hidden shadow-sm ring-1 ring-black ring-opacity-5 rounded-lg">
@@ -428,10 +435,10 @@ const Dashboard = () => {
             <h3 className="text-lg font-semibold text-primary-text">Upcoming Sessions</h3>
           </div>
           <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-            {stats.upcomingMeetings.length === 0 ? (
+            {computedStats.upcomingMeetings.length === 0 ? (
               <p className="text-sm text-secondary-text">No upcoming meetings scheduled.</p>
             ) : (
-              stats.upcomingMeetings.map(meeting => (
+              computedStats.upcomingMeetings.map(meeting => (
                 <div key={meeting.id} className="flex items-start justify-between p-3 border border-gray-100 rounded-lg hover:bg-light-background transition-colors">
                   <div className="flex items-start">
                     <div className="mt-1 mr-3 p-2 bg-input-background text-primary-orange rounded-full">
@@ -444,10 +451,10 @@ const Dashboard = () => {
                       </p>
                     </div>
                   </div>
-                  {stats.plansMap && stats.plansMap[meeting.plan_id] && (
+                  {rawData.plansMap && rawData.plansMap[meeting.plan_id] && (
                     <div className="ml-4 flex-shrink-0 mt-1">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-input-background text-hover-orange border border-orange-border line-clamp-1 max-w-[150px]" title={stats.plansMap[meeting.plan_id]}>
-                        {stats.plansMap[meeting.plan_id]}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-input-background text-hover-orange border border-orange-border line-clamp-1 max-w-[150px]" title={rawData.plansMap[meeting.plan_id]}>
+                        {rawData.plansMap[meeting.plan_id]}
                       </span>
                     </div>
                   )}

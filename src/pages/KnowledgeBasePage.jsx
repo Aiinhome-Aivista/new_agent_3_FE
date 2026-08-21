@@ -21,7 +21,7 @@ const KnowledgeBasePage = () => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 2;
+  const itemsPerPage = 5;
 
   // Transcript states
   const [videoUrl, setVideoUrl] = useState('');
@@ -47,7 +47,13 @@ const KnowledgeBasePage = () => {
   const fetchTopics = async () => {
     try {
       const res = await getPlanTopicOptions(selectedPlanId);
-      const topics = res.data.data || [];
+      const allTopics = res.data.data || [];
+      const topics = allTopics.filter(t => {
+        const label = `${t.day_label || ''} ${t.topic_name || ''}`.toLowerCase();
+        return !label.includes('final assessment') &&
+               !label.includes('shadow phase') &&
+               !label.includes('lead phase');
+      });
       const dayMap = {};
       topics.forEach(t => {
         if (!t.day_label) return;
@@ -332,7 +338,7 @@ const KnowledgeBasePage = () => {
                   <button
                     type="submit"
                     disabled={uploading}
-                    className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-button-orange cursor-not-allowed shadow-none' : 'bg-gradient-to-r from-primary-orange via-purple-500 to-primary-orange bg-[length:200%_auto] hover:bg-[100%_center] hover:shadow-primary-orange/30 hover:-translate-y-1'
+                    className={`w-full py-4 px-6 rounded-xl shadow-lg text-sm font-bold text-white transition-all duration-300 ${uploading ? 'bg-button-orange cursor-not-allowed shadow-none' : 'bg-primary-orange hover:bg-[100%_center] hover:shadow-primary-orange/30 hover:-translate-y-1'
                       } focus:outline-none focus:ring-4 focus:ring-orange-border flex justify-center items-center`}
                   >
                     {uploading ? (
@@ -399,7 +405,7 @@ const KnowledgeBasePage = () => {
                         </span>
                       </td>
                       <td className="px-8 py-5 whitespace-nowrap text-sm font-medium text-secondary-text">
-                        {new Date(doc.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {new Date(doc.uploaded_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                     </tr>
                   ))}

@@ -139,7 +139,7 @@ const AssessmentPage = () => {
       const planTopicsOptions = optionsRes.data?.data || [];
 
       setRawPlanTopics(planTopicsOptions);
-      const completedList = trackingTopics.filter(t => t.completion_percent === 100).map(t => t.topic);
+      const completedList = trackingTopics.filter(t => parseInt(t.completion_percent, 10) === 100).map(t => t.topic);
       setCompletedTopics(completedList);
 
       const completedTopicNamesSet = new Set(completedList.map(t => t.trim().toLowerCase()));
@@ -169,8 +169,15 @@ const AssessmentPage = () => {
       setDayOptions(completedDays);
 
       // Check if all topics of the entire plan are 100% completed
-      const allTopicsCount = planTopicsOptions.length;
-      const allCompleted = allTopicsCount > 0 && planTopicsOptions.every(pt => {
+      const relevantTopics = planTopicsOptions.filter(pt => {
+        const fullLabel = ((pt.day_label || '') + ' ' + (pt.topic_name || '')).toLowerCase();
+        return !fullLabel.includes('final assessment') && 
+               !fullLabel.includes('shadow phase') && 
+               !fullLabel.includes('lead phase');
+      });
+
+      const allTopicsCount = relevantTopics.length;
+      const allCompleted = allTopicsCount > 0 && relevantTopics.every(pt => {
         const tn = (pt.topic_name || '').trim().toLowerCase();
         const dLabelLower = (pt.day_label || '').trim().toLowerCase();
         return completedTopicNamesSet.has(tn) || 
@@ -188,7 +195,7 @@ const AssessmentPage = () => {
 
       if (allCompleted || currentManagerSettings.is_final_unlocked) {
         const completedTimes = trackingTopics
-          .filter(t => t.completion_percent === 100 && t.last_updated)
+          .filter(t => parseInt(t.completion_percent, 10) === 100 && t.last_updated)
           .map(t => new Date(t.last_updated).getTime())
           .filter(t => !isNaN(t));
 
@@ -423,7 +430,7 @@ const AssessmentPage = () => {
     const stakeholderId = user?.stakeholder_id || stakeholders.find(s => s.email?.toLowerCase() === user?.email?.toLowerCase())?.id;
 
     if (!stakeholderId) {
-      alert("Error: Stakeholder record for the logged-in user not found.");
+      showToast("Error: Stakeholder record for the logged-in user not found.", "Error", "error");
       return;
     }
 
@@ -512,7 +519,7 @@ const AssessmentPage = () => {
       }
     } catch (err) {
       console.error(err);
-      alert('Error evaluating answer. Please try again.');
+      showToast('Error evaluating answer. Please try again.', "Error", "error");
     } finally {
       setEvaluationLoading(false);
     }
@@ -638,23 +645,38 @@ const AssessmentPage = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setManagerSettings(prev => ({ ...prev, is_final_unlocked: !prev.is_final_unlocked }));
+                      if (!isPlanFullyCompleted) {
+                        setManagerSettings(prev => ({ ...prev, is_final_unlocked: !prev.is_final_unlocked }));
+                      }
                     }}
+                    disabled={isPlanFullyCompleted}
                     className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
-                      managerSettings.is_final_unlocked
-                        ? 'bg-amber-500 text-white hover:bg-amber-600'
-                        : 'bg-input-background text-hover-orange hover:bg-orange-border border border-orange-border'
+                      isPlanFullyCompleted
+                        ? 'bg-emerald-50 text-emerald-600 cursor-not-allowed border border-emerald-200'
+                        : managerSettings.is_final_unlocked
+                          ? 'bg-amber-500 text-white hover:bg-amber-600'
+                          : 'bg-input-background text-hover-orange hover:bg-orange-border border border-orange-border'
                     }`}
                   >
-                    {managerSettings.is_final_unlocked ? '🔒 Relock to Default' : '🔓 Force Unlock Early'}
+                    {isPlanFullyCompleted 
+                      ? '✅ Auto-Unlocked' 
+                      : managerSettings.is_final_unlocked 
+                        ? '🔒 Relock to Default' 
+                        : '🔓 Force Unlock Early'}
                   </button>
                   
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                    managerSettings.is_final_unlocked
-                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                      : 'bg-input-background text-secondary-text border border-light-border'
+                    isPlanFullyCompleted
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : managerSettings.is_final_unlocked
+                        ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                        : 'bg-input-background text-secondary-text border border-light-border'
                   }`}>
-                    {managerSettings.is_final_unlocked ? 'Unlocked Early' : 'Requires 100% Plan'}
+                    {isPlanFullyCompleted
+                      ? 'Plan 100% Completed'
+                      : managerSettings.is_final_unlocked 
+                        ? 'Unlocked Early' 
+                        : 'Requires 100% Plan'}
                   </span>
                 </div>
               </div>
@@ -1336,7 +1358,7 @@ const AssessmentPage = () => {
                               <div className="p-3 bg-light-background border border-gray-100 rounded-xl shadow-sm">
                                 <span className="text-[10px] text-secondary-text block font-semibold uppercase tracking-wider">Date</span>
                                 <span className="text-sm font-bold text-gray-700 mt-1 block">
-                                  {new Date(attempt.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  {new Date(attempt.created_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                 </span>
                               </div>
                             </div>
@@ -1419,7 +1441,7 @@ const AssessmentPage = () => {
                             <div className="flex justify-between items-start gap-4">
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-semibold text-primary-text">
-                                  Assessment Date: {new Date(attempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                                  Assessment Date: {new Date(attempt.created_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                                 </p>
                                 {attempt.assessment_type === 'day_wise' ? (
                                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-input-background text-hover-orange border border-orange-border">
@@ -1528,7 +1550,7 @@ const AssessmentPage = () => {
                             Candidate: {selectedAttempt.stakeholder_name || user?.name || 'Receiver'}
                           </h4>
                           <p className="text-xs text-secondary-text">
-                            Completed on: {new Date(selectedAttempt.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                            Completed on: {new Date(selectedAttempt.created_at.replace(/ GMT$/, '')).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                           </p>
                         </div>
                         <div className="bg-light-background px-5 py-3 rounded-xl border border-orange-border text-center shadow-sm min-w-[120px]">

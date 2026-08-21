@@ -1,12 +1,12 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults } from '../api/api';
+import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback } from '../api/api';
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
-const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn }) => {
+const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef(null);
 
@@ -22,7 +22,7 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <div className="block text-sm font-medium text-gray-700 mb-1">{label}</div>
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
       <div
         className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-light-background cursor-pointer flex justify-between items-center"
         onClick={() => setIsOpen(!isOpen)}
@@ -41,28 +41,23 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
             <div className="p-3 text-sm text-secondary-text">No options available.</div>
           ) : (
             <div className="p-2 space-y-1">
-              {options.map(opt => {
-                const isDisabled = isOptionDisabledFn ? isOptionDisabledFn(opt) : false;
-                const extraClass = optionClassFn ? optionClassFn(opt) : '';
-                return (
-                  <label key={opt.id} className={`flex items-center px-2 py-1.5 rounded ${isDisabled ? 'cursor-not-allowed' : 'hover:bg-light-background cursor-pointer'} ${extraClass}`}>
-                    <input
-                      type="checkbox"
-                      className={`rounded text-primary-orange focus:ring-orange-border mr-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      checked={selected.includes(opt.id)}
-                      disabled={isDisabled}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          onChange([...selected, opt.id]);
-                        } else {
-                          onChange(selected.filter(id => id !== opt.id));
-                        }
-                      }}
-                    />
-                    <span className="text-sm text-gray-700">{opt.name} <span className="text-secondary-text text-xs">({opt.role})</span></span>
-                  </label>
-                );
-              })}
+              {options.map(opt => (
+                <label key={opt.id} className="flex items-center px-2 py-1.5 hover:bg-light-background cursor-pointer rounded">
+                  <input
+                    type="checkbox"
+                    className="rounded text-primary-orange focus:ring-orange-border mr-2"
+                    checked={selected.includes(opt.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        onChange([...selected, opt.id]);
+                      } else {
+                        onChange(selected.filter(id => id !== opt.id));
+                      }
+                    }}
+                  />
+                  <span className="text-sm text-gray-700">{opt.name} <span className="text-secondary-text text-xs">({opt.role})</span></span>
+                </label>
+              ))}
             </div>
           )}
         </div>
@@ -83,155 +78,13 @@ const SchedulePage = () => {
   
   // Specific Requirement Email Recipients
   const [selectedSudRecipients, setSelectedSudRecipients] = useState([]);
-  const [shadowMappings, setShadowMappings] = useState([{ organizerId: '', participantIds: [] }]);
+  const [selectedShadowRecipients, setSelectedShadowRecipients] = useState([]);
   const [selectedLeadRecipients, setSelectedLeadRecipients] = useState([]);
-  const [selectedFinalAssessmentRecipients, setSelectedFinalAssessmentRecipients] = useState([]);
-  const [activeGlobalTab, setActiveGlobalTab] = useState('KA');
 
   // Computed requirement flags
   const [isSudMandatory, setIsSudMandatory] = useState(false);
-  const [isFinalAssessmentMandatory, setIsFinalAssessmentMandatory] = useState(false);
   const [isShadowResourcing, setIsShadowResourcing] = useState(false);
   const [isLeadResourcing, setIsLeadResourcing] = useState(false);
-  const [leadResourcingEntryCriteria, setLeadResourcingEntryCriteria] = useState('Only participants who have completed the Shadow Resourcing phase for this plan are eligible to be selected for Lead Resourcing.');
-  const [shadowResourcingEntryCriteria, setShadowResourcingEntryCriteria] = useState('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
-  const [mappedShadowResources, setMappedShadowResources] = useState([]);
-  
-  const [sudDocs, setSudDocs] = useState([]);
-  const [assessmentResults, setAssessmentResults] = useState([]);
-  const [isForcePushEnabled, setIsForcePushEnabled] = useState(false);
-  const [isSudRequiredForSR, setIsSudRequiredForSR] = useState(false);
-  const [isAssessmentRequiredForSR, setIsAssessmentRequiredForSR] = useState(false);
-
-  const getAllowedSROrganizers = () => {
-    if (!formData.plan_id) return [];
-    
-    const planMeetings = meetings.filter(m => m.plan_id === parseInt(formData.plan_id));
-    const validIds = new Set();
-    planMeetings.forEach(m => {
-      if (m.all_stakeholder_ids) {
-        m.all_stakeholder_ids.forEach(id => validIds.add(id));
-      }
-    });
-
-    const allUsers = [...knowledgeGivers, ...stakeholders];
-    const seen = new Set();
-    return allUsers.filter(u => {
-      if (seen.has(u.id)) return false;
-      seen.add(u.id);
-      if (!validIds.has(u.id)) return false;
-      if (!(u.role.includes('Giver') || u.role.includes('outgoing') || u.role.includes('manager') || u.role.includes('Manager'))) return false;
-      return true;
-    });
-  };
-
-  const getAllowedSRParticipants = () => {
-    if (!formData.plan_id) return [];
-    
-    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
-    
-    const planMeetings = meetings.filter(m => m.plan_id === parseInt(formData.plan_id));
-    const validIds = new Set();
-    planMeetings.forEach(m => {
-      if (m.all_stakeholder_ids) {
-        m.all_stakeholder_ids.forEach(id => validIds.add(id));
-      }
-    });
-    
-    const allUsers = [...knowledgeGivers, ...stakeholders];
-    const seen = new Set();
-    return allUsers.filter(u => {
-      if (seen.has(u.id)) return false;
-      seen.add(u.id);
-      if (!validIds.has(u.id)) return false;
-      if (!(u.role.includes('Receiver') || u.role.includes('incoming'))) return false;
-      return true;
-    });
-  };
-
-  const getAllowedLRStakeholders = () => {
-    if (!formData.plan_id) return [];
-    
-    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
-    if (!selectedPlan || !selectedPlan.shadow_stakeholder_ids) return [];
-    
-    const validIds = new Set(selectedPlan.shadow_stakeholder_ids);
-    return stakeholders.filter(u => validIds.has(u.id));
-  };
-
-  const handleShadowMappingParticipantChange = (mappingIndex, newParticipantIds) => {
-    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
-    const eligibleParticipantIds = new Set((selectedPlan?.shadow_eligible_stakeholder_ids || []).map(Number));
-    const sudSubmittedIds = new Set((selectedPlan?.sud_submitted_stakeholder_ids || []).map(Number));
-    const asmtPassedIds = new Set((selectedPlan?.assessment_passed_stakeholder_ids || []).map(Number));
-    
-    const currentSelection = shadowMappings[mappingIndex].participantIds;
-    const addedIds = newParticipantIds.filter(id => !currentSelection.includes(id));
-    
-    for (const rawId of addedIds) {
-      const id = Number(rawId);
-      const isParticipant = stakeholders.some(s => Number(s.id) === id);
-      if (isParticipant && !eligibleParticipantIds.has(id)) {
-        const userObj = stakeholders.find(s => Number(s.id) === id);
-        let reasons = [];
-        if (!sudSubmittedIds.has(id)) reasons.push("SUD Document not submitted");
-        if (!asmtPassedIds.has(id)) reasons.push("Final Assessment score below 80%");
-        
-        const reasonText = reasons.length > 0 ? ` (${reasons.join(' AND ')})` : '';
-        
-        setSchedulePopup({
-          message: `${userObj?.name} does not meet the Entry Criteria for Shadow Resourcing${reasonText}.`,
-          type: 'error'
-        });
-        return; // Prevent selection
-      }
-      
-      const alreadySelectedInAnother = shadowMappings.some((mapping, idx) => idx !== mappingIndex && mapping.participantIds.includes(id));
-      if (alreadySelectedInAnother) {
-        const userObj = stakeholders.find(s => Number(s.id) === id);
-        setSchedulePopup({
-          message: `${userObj?.name} is already assigned to another Organizer.`,
-          type: 'error'
-        });
-        return; // Prevent selection
-      }
-    }
-    
-    setShadowMappings(prev => {
-      const newMappings = [...prev];
-      newMappings[mappingIndex].participantIds = newParticipantIds;
-      return newMappings;
-    });
-  };
-
-  const handleShadowMappingOrganizerChange = (mappingIndex, newIds) => {
-    const organizerId = newIds.length > 0 ? newIds[newIds.length - 1] : '';
-    
-    if (organizerId) {
-      const alreadySelected = shadowMappings.some((mapping, idx) => idx !== mappingIndex && String(mapping.organizerId) === String(organizerId));
-      if (alreadySelected) {
-        setSchedulePopup({
-          message: `This Organizer is already mapped to participants. Add more participants to their existing mapping instead.`,
-          type: 'error'
-        });
-        return;
-      }
-    }
-    
-    setShadowMappings(prev => {
-      const newMappings = [...prev];
-      newMappings[mappingIndex].organizerId = organizerId;
-      return newMappings;
-    });
-  };
-
-  const addShadowMapping = () => {
-    setShadowMappings(prev => [...prev, { organizerId: '', participantIds: [] }]);
-  };
-
-  const removeShadowMapping = (index) => {
-    setShadowMappings(prev => prev.filter((_, idx) => idx !== index));
-  };
 
   const [loading, setLoading] = useState(true);
   const { activeOperations, startOperation, endOperation } = useOperations();
@@ -466,10 +319,10 @@ const SchedulePage = () => {
     }
   };
 
-  const handleAttendanceChange = (stakeholderId, checked) => {
+  const handleToggleAttendee = (stakeholderId) => {
     setAttendees(prev => prev.map(a =>
       a.stakeholder_id === stakeholderId
-        ? { ...a, attended: checked ? 1 : 0 }
+        ? { ...a, attended: a.attended ? 0 : 1 }
         : a
     ));
   };
@@ -508,14 +361,12 @@ const SchedulePage = () => {
   const handleSaveAttendanceAndComplete = async () => {
     setSavingAttendance(true);
     try {
-      await Promise.all(attendees.map(a =>
-        markAttendance({
-          meeting_id: attendanceMeeting.id,
-          stakeholder_id: a.stakeholder_id,
-          attended: a.attended ? 1 : 0,
-          notes: a.notes || ''
-        })
-      ));
+      const records = attendees.map(a => ({
+        stakeholder_id: a.stakeholder_id,
+        status: a.status || 'present',
+        notes: a.notes || null
+      }));
+      await markAttendance(attendanceMeeting.id, records);
       await updateMeetingStatus(attendanceMeeting.id, 'completed');
       setIsAttendanceModalOpen(false);
       setAttendanceMeeting(null);
@@ -596,22 +447,14 @@ const SchedulePage = () => {
     }
   }, [schedulePopup]);
 
-  useEffect(() => {
-    if (formData.plan_id) {
-      setActiveGlobalTab('KA');
-    }
-  }, [formData.plan_id]);
-
   // Compute specific requirements when plan_id changes
   useEffect(() => {
     setIsSudMandatory(false);
-    setIsFinalAssessmentMandatory(false);
     setIsShadowResourcing(false);
     setIsLeadResourcing(false);
     setSelectedSudRecipients([]);
-    setShadowMappings([{ organizerId: '', participantIds: [] }]);
+    setSelectedShadowRecipients([]);
     setSelectedLeadRecipients([]);
-    setSelectedFinalAssessmentRecipients([]);
 
     if (!formData.plan_id) return;
     
@@ -623,159 +466,16 @@ const SchedulePage = () => {
     
     try {
       const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
-      let planConfig = selectedPlan.project_config;
-      if (typeof planConfig === 'string') {
-        try { planConfig = JSON.parse(planConfig); } catch(e) {}
-      }
-      
-      let track = null;
-      if (planConfig && planConfig._meta && planConfig._meta.trackId) {
-        track = (config.tracks || []).find(t => String(t.id) === String(planConfig._meta.trackId));
-      }
-      
-      if (!track) {
-        track = (config.tracks || []).find(t => 
-          selectedPlan.application_name.trim() === t.name.trim() || 
-          selectedPlan.application_name.includes(t.name.trim())
-        );
-      }
-
+      const track = (config.tracks || []).find(t => t.name === selectedPlan.application_name);
       if (track && track.options) {
         setIsSudMandatory(!!track.options.sud_mandatory);
-        setIsFinalAssessmentMandatory(!!track.options.assessment);
         setIsShadowResourcing(!!track.options.shadow_resourcing);
         setIsLeadResourcing(!!track.options.lead_resourcing);
-        
-        setIsSudRequiredForSR(!!track.options.sud_doc_upload);
-        setIsAssessmentRequiredForSR(!!track.options.assessment_80);
-
-        if (track.options.shadow_resourcing) {
-            getResourceMappings(formData.plan_id).then(res => {
-                if (res.data?.success) {
-                    setMappedShadowResources(res.data.data || []);
-                }
-            }).catch(err => console.error("Error fetching resource mappings:", err));
-            
-            if (track.options.sud_doc_upload) {
-                getSudDocuments(formData.plan_id).then(res => {
-                    setSudDocs(res.data?.data || []);
-                }).catch(err => console.error(err));
-            } else {
-                setSudDocs([]);
-            }
-            
-            if (track.options.assessment_80) {
-                getResults(formData.plan_id).then(res => {
-                    setAssessmentResults(res.data?.data || []);
-                }).catch(err => console.error(err));
-            } else {
-                setAssessmentResults([]);
-            }
-        } else {
-            setMappedShadowResources([]);
-            setSudDocs([]);
-            setAssessmentResults([]);
-        }
-
-        let srCriteria = [];
-        if (track.options.sud_doc_upload) {
-          srCriteria.push("submitted SUD documents");
-        }
-        if (track.options.assessment_80) {
-          srCriteria.push("scored above 80% in the Final Assessment");
-        }
-        
-        if (srCriteria.length > 0) {
-          setShadowResourcingEntryCriteria(`Only participants who have ${srCriteria.join(' AND ')} are eligible.`);
-        } else {
-          setShadowResourcingEntryCriteria('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
-        }
-
-        let lrCriteria = [];
-        if (track.options.lr_ticket_resolving) {
-          const tickets = track.inputs?.lr_ticket_resolving || '';
-          lrCriteria.push(`Need to be involved in resolving ${tickets} tickets`);
-        }
-        if (track.options.lr_weeks_shadow) {
-          const weeks = track.inputs?.lr_weeks_shadow || '';
-          lrCriteria.push(`Required weeks for shadow resourcing: ${weeks}`);
-        }
-        
-        if (lrCriteria.length > 0) {
-          setLeadResourcingEntryCriteria(lrCriteria.join(' AND '));
-        } else {
-          setLeadResourcingEntryCriteria('Only participants who have completed the Shadow Resourcing phase for this plan are eligible to be selected for Lead Resourcing.');
-        }
       }
     } catch (e) {
       console.error("Error parsing project config", e);
     }
   }, [formData.plan_id, plans, projects]);
-
-  const handleStakeholdersChange = (newStakeholders) => {
-    const added = newStakeholders.filter(id => !selectedStakeholders.includes(id));
-    const removed = selectedStakeholders.filter(id => !newStakeholders.includes(id));
-    
-    setSelectedStakeholders(newStakeholders);
-    
-    if (added.length > 0) {
-      if (isSudMandatory) {
-        setSelectedSudRecipients(prev => [...new Set([...prev, ...added])]);
-      }
-      if (isFinalAssessmentMandatory) {
-        setSelectedFinalAssessmentRecipients(prev => [...new Set([...prev, ...added])]);
-      }
-    }
-    
-    if (removed.length > 0) {
-      setSelectedSudRecipients(prev => prev.filter(id => !removed.includes(id)));
-      setSelectedFinalAssessmentRecipients(prev => prev.filter(id => !removed.includes(id)));
-      setShadowMappings(prev => prev.map(m => ({ ...m, participantIds: m.participantIds.filter(id => !removed.includes(id)) })));
-      setSelectedLeadRecipients(prev => prev.filter(id => !removed.includes(id)));
-    }
-  };
-
-  const handleNotifySubmit = async (e) => {
-    e.preventDefault();
-    const isSRAvailable = shadowMappings.some(m => m.organizerId && m.participantIds.length > 0);
-    const hasInvalidSR = activeGlobalTab === 'SR' && shadowMappings.some(m => (!m.organizerId && m.participantIds.length > 0) || (m.organizerId && m.participantIds.length === 0));
-    const recipients = activeGlobalTab === 'SR' ? (isSRAvailable ? [1] : []) : selectedLeadRecipients;
-    
-    if (activeGlobalTab === 'SR' && hasInvalidSR) {
-      setSchedulePopup({ message: 'Please ensure each mapping has both an Organizer and at least one Participant selected.', type: 'error' });
-      return;
-    }
-    
-    if (recipients.length === 0 && (activeGlobalTab === 'SR' ? shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0) : true)) {
-      setSchedulePopup({ message: 'Please select at least one recipient to notify.', type: 'error' });
-      return;
-    }
-    
-    startOperation('notify-requirements');
-    try {
-      const payload = {
-        plan_id: formData.plan_id,
-        shadow_mappings: (activeGlobalTab === 'SR' && isShadowResourcing) ? shadowMappings.filter(m => m.organizerId && m.participantIds.length > 0) : [],
-        lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
-      };
-
-      const res = await notifyRequirements(payload);
-      if (res.data.success) {
-        if (activeGlobalTab === 'SR') {
-          setShadowMappings([{ organizerId: '', participantIds: [] }]);
-        } else {
-          setSelectedLeadRecipients([]);
-        }
-        setSchedulePopup({ message: res.data.message || 'Notification sent successfully!', type: 'success' });
-      } else {
-        setSchedulePopup({ message: res.data.message || 'Error sending notification', type: 'error' });
-      }
-    } catch (err) {
-      setSchedulePopup({ message: err?.response?.data?.message || 'Server error sending notification', type: 'error' });
-    } finally {
-      endOperation('notify-requirements');
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -785,27 +485,25 @@ const SchedulePage = () => {
     }
     startOperation('schedule-meeting');
     try {
-      const payload = {
+      await createMeeting({
         plan_id: formData.plan_id,
         scheduled_at: formData.scheduled_at,
         meeting_link: formData.meeting_link,
         stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders],
-        sud_recipients: (activeGlobalTab === 'KA' && isSudMandatory) ? selectedSudRecipients : [],
-        final_assessment_recipients: (activeGlobalTab === 'KA' && isFinalAssessmentMandatory) ? selectedFinalAssessmentRecipients : [],
-        shadow_mappings: (activeGlobalTab === 'SR' && isShadowResourcing) ? shadowMappings.filter(m => m.organizerId && m.participantIds.length > 0) : [],
-        lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
-      };
-      await createMeeting(payload);
+        sud_recipients: selectedSudRecipients,
+        shadow_recipients: selectedShadowRecipients,
+        lead_recipients: selectedLeadRecipients
+      });
       setFormData({
-        ...formData,
+        project_id: '',
+        plan_id: '',
         scheduled_at: '',
         meeting_link: ''
       });
       setSelectedStakeholders([]);
       setSelectedOrganizers([]);
       setSelectedSudRecipients([]);
-      setSelectedFinalAssessmentRecipients([]);
-      setShadowMappings([{ organizerId: '', participantIds: [] }]);
+      setSelectedShadowRecipients([]);
       setSelectedLeadRecipients([]);
       fetchData();
       setSchedulePopup({ message: 'Meeting scheduled successfully! Notifications triggered.', type: 'success' });
@@ -844,22 +542,6 @@ const SchedulePage = () => {
     }
   };
 
-  const isParticipantEligible = (participantId) => {
-    if (isForcePushEnabled) return true;
-    
-    if (isSudRequiredForSR) {
-      const hasSud = sudDocs.some(doc => doc.stakeholder_id === participantId);
-      if (!hasSud) return false;
-    }
-    
-    if (isAssessmentRequiredForSR) {
-      const result = assessmentResults.find(r => r.stakeholder_id === participantId && r.assessment_type === 'final');
-      if (!result || parseFloat(result.overall_score) < 40) return false;
-    }
-    
-    return true;
-  };
-
   if (loading) return <Loader />;
 
   const canManage = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
@@ -869,101 +551,59 @@ const SchedulePage = () => {
       <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
 
       {canManage && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Select Project</label>
-              <CustomSelect
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                value={formData.project_id}
-                onChange={(e) => setFormData({ ...formData, project_id: e.target.value, plan_id: '' })}
-                required
-              >
-                <option value="" disabled>---Select Project---</option>
-                {projects.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </CustomSelect>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Select Plan</label>
-              <CustomSelect
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                value={formData.plan_id}
-                onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
-                required
-                disabled={!formData.project_id}
-              >
-                <option value="" disabled>---Select Plan---</option>
-                {plans
-                  .filter(p => String(p.project_id) === String(formData.project_id))
-                  .map(p => (
-                    <option key={p.id} value={p.id}>{p.application_name}</option>
-                ))}
-              </CustomSelect>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {canManage && formData.project_id && formData.plan_id && (
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100">
+          <div className="flex border-b border-gray-100 bg-gray-50/50 rounded-t-xl overflow-hidden">
             <button
-              onClick={() => setActiveGlobalTab('KA')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'KA' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              onClick={() => setSchedulingMode('manual')}
+              className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'manual' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
             >
-              Knowledge Acquisition
+              Manual Scheduling
             </button>
-            {isShadowResourcing && (
-              <button
-                onClick={() => setActiveGlobalTab('SR')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'SR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                Shadow Resourcing
-              </button>
-            )}
-            {isLeadResourcing && (
-              <button
-                onClick={() => setActiveGlobalTab('LR')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'LR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-              >
-                Lead Resourcing
-              </button>
-            )}
-          </nav>
-        </div>
-      )}
-
-      {canManage && formData.project_id && formData.plan_id && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 mb-6">
-          {activeGlobalTab === 'KA' && (
-            <div className="flex border-b border-gray-100 bg-gray-50/50 rounded-t-xl overflow-hidden">
-              <button
-                onClick={() => setSchedulingMode('manual')}
-                className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'manual' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-              >
-                Manual Scheduling
-              </button>
-              <button
-                onClick={() => setSchedulingMode('upload')}
-                className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'upload' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
-              >
-                Automated Bulk Scheduling
-              </button>
-            </div>
-          )}
+            <button
+              onClick={() => setSchedulingMode('upload')}
+              className={`flex-1 py-4 text-sm font-medium transition-colors ${schedulingMode === 'upload' ? 'text-primary-orange border-b-2 border-primary-orange bg-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+            >
+              Automated Bulk Scheduling
+            </button>
+          </div>
 
           <div className="p-6">
-            {(schedulingMode === 'manual' || activeGlobalTab !== 'KA') ? (
+            {schedulingMode === 'manual' ? (
               <div>
-                <h3 className="text-lg font-semibold text-primary-text mb-4">
-                  {activeGlobalTab === 'KA' ? 'Schedule New Meeting Manually' : `Schedule ${activeGlobalTab === 'SR' ? 'Shadow' : 'Lead'} Resourcing Session`}
-                </h3>
-                <form onSubmit={activeGlobalTab === 'KA' ? handleSubmit : handleNotifySubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  {activeGlobalTab === 'KA' && (
-                    <>
-                      <div>
+                <h3 className="text-lg font-semibold text-primary-text mb-4">Schedule New Meeting Manually</h3>
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Select Project</label>
+                    <CustomSelect
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.project_id}
+                      onChange={(e) => setFormData({ ...formData, project_id: e.target.value, plan_id: '' })}
+                      required
+                    >
+                      <option value="" disabled>---Select Project---</option>
+                      {projects.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </CustomSelect>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Select Plan</label>
+                    <CustomSelect
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                      value={formData.plan_id}
+                      onChange={(e) => setFormData({ ...formData, plan_id: e.target.value })}
+                      required
+                      disabled={!formData.project_id}
+                    >
+                      <option value="" disabled>---Select Plan---</option>
+                      {plans
+                        .filter(p => String(p.project_id) === String(formData.project_id))
+                        .map(p => (
+                          <option key={p.id} value={p.id}>{p.application_name}</option>
+                      ))}
+                    </CustomSelect>
+                  </div>
+                  <div>
                     {user?.role === 'Delivery / Engagement Manager' ? (
                       <MultiSelectDropdown
                         label="Organizers (Knowledge Givers)"
@@ -1005,180 +645,83 @@ const SchedulePage = () => {
                     />
                   </div>
 
-                  <div>
+                  <div className="md:col-span-5">
                     <MultiSelectDropdown
                       label="Participants (Knowledge Receivers)"
                       placeholder="Select Receivers..."
                       options={stakeholders}
                       selected={selectedStakeholders}
-                      onChange={handleStakeholdersChange}
+                      onChange={setSelectedStakeholders}
                       visibleCount={4}
                     />
                   </div>
 
-                    </>
-                  )}
-
-                  <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                    {activeGlobalTab === 'KA' && (
-                      <>
-                        {isSudMandatory && (
-                          <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 h-full">
-                            <MultiSelectDropdown
-                              label="SUD Document"
-                              placeholder="Select Participants..."
-                              options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
-                              selected={selectedSudRecipients}
-                              onChange={setSelectedSudRecipients}
-                              visibleCount={3}
-                            />
-                          </div>
-                        )}
-                        {isFinalAssessmentMandatory && (
-                          <div className="bg-green-50/50 p-4 rounded-lg border border-green-100 h-full">
-                            <MultiSelectDropdown
-                              label="Final Assessment"
-                              placeholder="Select Participants..."
-                              options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
-                              selected={selectedFinalAssessmentRecipients}
-                              onChange={setSelectedFinalAssessmentRecipients}
-                              visibleCount={3}
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-
-                    {activeGlobalTab === 'SR' && (
-                      <div className="md:col-span-3 bg-purple-50/50 p-4 rounded-lg border border-purple-100 flex flex-col gap-4">
-                        <div className="p-3 bg-primary-orange rounded-lg text-sm text-white flex items-center shadow-sm">
-                          <div>
-                            <strong className="block mb-1">Entry Criteria:</strong>
-                            {shadowResourcingEntryCriteria}
-                          </div>
+                  {(isSudMandatory || isShadowResourcing || isLeadResourcing) && (
+                    <div className="md:col-span-5 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                      {isSudMandatory && (
+                        <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 h-full">
+                          <MultiSelectDropdown
+                            label="SUD Document"
+                            placeholder="Select Participants..."
+                            options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
+                            selected={selectedSudRecipients}
+                            onChange={setSelectedSudRecipients}
+                            visibleCount={3}
+                          />
                         </div>
-                        
-                        {shadowMappings.map((mapping, index) => (
-                          <div key={index} className="flex flex-col md:flex-row gap-4 items-start bg-white p-3 rounded shadow-sm border border-gray-100">
-                            <div className="flex-1">
-                              <MultiSelectDropdown
-                                label="Organizer (Lead)"
-                                placeholder="Select Organizer..."
-                                options={getAllowedSROrganizers()}
-                                selected={mapping.organizerId ? [Number(mapping.organizerId)] : []}
-                                onChange={(newIds) => handleShadowMappingOrganizerChange(index, newIds)}
-                                visibleCount={3}
-                              />
-                            </div>
-                            <div className="flex-[2]">
-                              <MultiSelectDropdown
-                                label={
-                                  <div className="flex justify-between items-center w-full">
-                                    <span>Participants (Shadows)</span>
-                                    <label className="flex items-center space-x-1 cursor-pointer">
-                                      <input 
-                                        type="checkbox" 
-                                        className="rounded text-primary-orange focus:ring-orange-border"
-                                        checked={isForcePushEnabled} 
-                                        onChange={(e) => {
-                                          if (isForcePushEnabled) {
-                                            setIsForcePushEnabled(false);
-                                          } else {
-                                            if (window.confirm("Are you sure you want to override the entry criteria and allow non-eligible candidates?")) {
-                                              setIsForcePushEnabled(true);
-                                            }
-                                          }
-                                        }} 
-                                      />
-                                      <span className="text-xs text-secondary-text font-normal">Force push</span>
-                                    </label>
-                                  </div>
-                                }
-                                placeholder="Select Participants..."
-                                options={getAllowedSRParticipants()}
-                                selected={mapping.participantIds}
-                                onChange={(newIds) => handleShadowMappingParticipantChange(index, newIds)}
-                                visibleCount={3}
-                                isOptionDisabledFn={(opt) => !isParticipantEligible(opt.id)}
-                                optionClassFn={(opt) => !isParticipantEligible(opt.id) ? 'blur-sm opacity-60' : ''}
-                              />
-                            </div>
-                            {shadowMappings.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removeShadowMapping(index)}
-                                className="mt-6 p-2 text-red-500 hover:text-red-700 bg-red-50 rounded-md transition-colors"
-                                title="Remove Mapping"
-                              >
-                                <X size={20} />
-                              </button>
-                            )}
-                          </div>
-                        ))}
-                        
-                        <div className="flex justify-start">
-                          <button
-                            type="button"
-                            onClick={addShadowMapping}
-                            className="text-sm font-medium text-primary-orange hover:text-hover-orange underline"
-                          >
-                            + Add Another Mapping
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                      )}
 
-                    {activeGlobalTab === 'LR' && (
-                      <div className="md:col-span-3 bg-orange-50/50 p-4 rounded-lg border border-orange-100 flex flex-col gap-4 h-full">
-                        
-                        <div className="bg-white p-3 rounded shadow-sm border border-gray-100">
+                      {isShadowResourcing && (
+                        <div className="bg-purple-50/50 p-4 rounded-lg border border-purple-100 h-full">
+                          <MultiSelectDropdown
+                            label="Shadow Resourcing"
+                            placeholder="Select Organizers, Participants..."
+                            options={[...knowledgeGivers.filter(g => selectedOrganizers.includes(g.id)), ...stakeholders.filter(s => selectedStakeholders.includes(s.id))]}
+                            selected={selectedShadowRecipients}
+                            onChange={setSelectedShadowRecipients}
+                            visibleCount={3}
+                          />
+                        </div>
+                      )}
+
+                      {isLeadResourcing && (
+                        <div className="bg-orange-50/50 p-4 rounded-lg border border-orange-100 h-full">
                           <MultiSelectDropdown
                             label="Lead Resourcing"
                             placeholder="Select Participants..."
-                            options={getAllowedLRStakeholders()}
+                            options={stakeholders.filter(s => selectedShadowRecipients.includes(s.id))}
                             selected={selectedLeadRecipients}
                             onChange={setSelectedLeadRecipients}
                             visibleCount={3}
                           />
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
 
-                  <div className="md:col-span-4 flex justify-end mt-2">
+                  <div className="md:col-span-5 flex justify-end mt-2">
                     <button
                       type="submit"
-                      disabled={
-                        (activeGlobalTab === 'KA' && scheduling) ||
-                        (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']) ||
-                        (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                        (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
-                        (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
-                      }
-                      className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
-                        ((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']))
-                          ? 'bg-button-orange cursor-not-allowed'
-                          : (
-                              (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                              (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
-                              (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
-                            )
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-primary-orange hover:bg-hover-orange'
-                      }`}
+                      disabled={scheduling || (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)}
+                      className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${scheduling
+                        ? 'bg-button-orange cursor-not-allowed'
+                        : (selectedStakeholders.length === 0 && selectedOrganizers.length === 0)
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-primary-orange hover:bg-hover-orange'
+                        }`}
                     >
-                      {((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements'])) ? (
+                      {scheduling ? (
                         <>
                           <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                           </svg>
-                          {activeGlobalTab === 'KA' ? 'Scheduling...' : 'Notifying...'}
+                          Scheduling...
                         </>
                       ) : (
                         <>
-                          {activeGlobalTab === 'KA' ? <Calendar size={16} /> : <span style={{ fontSize: '16px' }}>🔔</span>}
-                          {activeGlobalTab === 'KA' ? 'Schedule' : 'Notify'}
+                          <Calendar size={16} />
+                          Schedule
                         </>
                       )}
                     </button>
@@ -1270,10 +813,10 @@ const SchedulePage = () => {
           </div>
         </div>
       )}
-      {(!formData.plan_id || activeGlobalTab === 'KA') && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+
+      <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-light-background">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Plan Name</th>
@@ -1450,42 +993,6 @@ const SchedulePage = () => {
           </table>
         </div>
       </div>
-      )}
-      {(formData.plan_id && activeGlobalTab === 'SR') && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-4 bg-purple-50/50 border-b border-purple-100 flex justify-between items-center">
-            <h3 className="text-sm font-semibold text-primary-text">Mapped Shadow Resources</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-light-background">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Participant Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Participant Role</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Lead Organizer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Organizer Role</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {mappedShadowResources.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="px-6 py-8 text-center text-secondary-text">No mappings found for this plan.</td>
-                  </tr>
-                ) : (
-                  mappedShadowResources.map((mapping, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-primary-text">{mapping.participant_name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text capitalize">{mapping.participant_role}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-primary-text">{mapping.organizer_name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text capitalize">{mapping.organizer_role}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
       {/* Attendance Modal */}
       {isAttendanceModalOpen && attendanceMeeting && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

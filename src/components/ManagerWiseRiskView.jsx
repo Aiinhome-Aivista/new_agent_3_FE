@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getLeadershipRiskSummary, escalateRisk } from '../api/api';
 import Loader from './Loader';
 import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 const getSeverityColor = (severity) => {
   switch (severity.toLowerCase()) {
@@ -215,7 +216,7 @@ const ManagerWiseRiskView = ({ refreshTrigger, renderHeader }) => {
       await escalateRisk(id);
       fetchSummary(); // Refresh data after escalation
     } catch (err) {
-      alert('Error escalating risk');
+      showToast('Error escalating risk', 'error');
     }
   };
 

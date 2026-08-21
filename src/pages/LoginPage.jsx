@@ -50,7 +50,11 @@ const LoginPage = () => {
     setLoading(false);
 
     if (result.success) {
-      navigate('/dashboard');
+      if (result.role === 'Delivery / Engagement Manager' || result.role?.toLowerCase().includes('manager')) {
+        navigate('/plans');
+      } else {
+        navigate('/dashboard');
+      }
     } else {
       setApiError(result.message);
     }
@@ -69,7 +73,7 @@ const LoginPage = () => {
           <div className="bg-button-orange p-2.5 rounded-xl shadow-lg shadow-orange-border flex items-center justify-center">
             <BookOpen className="text-white h-6 w-6" />
           </div>
-          <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-orange to-purple-600">
+          <span className="text-2xl font-bold bg-clip-text text-primary-orange">
             Virtual KT Manager
           </span>
         </div>
