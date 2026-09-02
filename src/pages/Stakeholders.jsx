@@ -1,9 +1,9 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getStakeholders, createStakeholder, updateStakeholder, deleteStakeholder, getProjects, uploadStakeholdersExcel } from '../api/api';
+import { getStakeholders, createStakeholder, updateStakeholder, deleteStakeholder, getProjects, uploadStakeholdersExcel, downloadStakeholdersTemplate } from '../api/api';
 import Loader from '../components/Loader';
 import { useToast } from '../context/ToastContext';
-import { ChevronLeft, ChevronRight, Trash2, Edit2, AlertTriangle, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit2, AlertTriangle, X, Download } from 'lucide-react';
 
 const Stakeholders = () => {
   const [stakeholders, setStakeholders] = useState([]);
@@ -16,6 +16,7 @@ const Stakeholders = () => {
   const [editingStakeholderId, setEditingStakeholderId] = useState(null);
   const [activeTab, setActiveTab] = useState('single');
   const [uploadingExcel, setUploadingExcel] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
   const [bulkProjectId, setBulkProjectId] = useState('');
   const [bulkTrackName, setBulkTrackName] = useState('');
   const [bulkProjectTracks, setBulkProjectTracks] = useState([]);
@@ -156,6 +157,25 @@ const Stakeholders = () => {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    setIsDownloadingTemplate(true);
+    try {
+      const response = await downloadStakeholdersTemplate();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'stakeholders_template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast('Error downloading template', 'error');
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
+
 
   if (loading) return <Loader />;
 
@@ -255,7 +275,29 @@ const Stakeholders = () => {
               <h3 className="text-lg font-semibold text-primary-text mb-4">Bulk Add Stakeholders</h3>
               <p className="text-sm text-secondary-text mb-4">Upload an Excel file to automatically add stakeholders.</p>
               <div className="space-y-4">
-
+                
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  disabled={isDownloadingTemplate}
+                  className={`w-full flex justify-center items-center py-2 px-4 border border-orange-border rounded-md shadow-sm text-sm font-medium text-primary-orange bg-white hover:bg-orange-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50`}
+                  title="Download Template"
+                >
+                  {isDownloadingTemplate ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={18} className="mr-2" />
+                      Download Template
+                    </>
+                  )}
+                </button>
                 
                 <input
                   type="file"

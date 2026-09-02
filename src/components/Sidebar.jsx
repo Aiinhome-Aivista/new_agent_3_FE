@@ -28,9 +28,8 @@ const Sidebar = () => {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
+      { name: 'Projects', path: '/plans', icon: <FileText size={20} /> },
     { name: 'Stakeholders', path: '/stakeholders', icon: <Users size={20} /> },
-
-    { name: 'Projects', path: '/plans', icon: <FileText size={20} /> },
     { name: 'Schedule', path: '/schedule', icon: <Calendar size={20} /> },
     { name: 'KT Calendar', path: '/calendar', icon: <Calendar size={20} /> },
     { name: 'Tracking', path: '/tracking', icon: <CheckSquare size={20} /> },

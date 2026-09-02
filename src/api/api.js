@@ -47,6 +47,8 @@ export const deleteStakeholder = (id) => api.delete(`/stakeholders/${id}`);
 export const uploadStakeholdersExcel = (formData) => api.post('/stakeholders/upload', formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });
+export const downloadStakeholdersTemplate = () => api.get('/stakeholders/template', { responseType: 'blob' });
+
 
 // Plans
 export const generatePlan = (data) => api.post('/plans/generate', data);
