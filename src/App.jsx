@@ -27,33 +27,33 @@ function App() {
     <AuthProvider>
       <OperationsProvider>
         <ToastProvider>
-        <Router>
-          <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
+          <Router>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected/Internal Routes wrapped in AppLayout */}
-          <Route element={<ProtectedRoute />}>
-            <Route element={<AppLayout />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/stakeholders" element={<Stakeholders />} />
-              <Route path="/plans" element={<PlanPage />} />
-              <Route path="/schedule" element={<SchedulePage />} />
-              <Route path="/tracking" element={<TrackingPage />} />
-              <Route path="/risks" element={<RisksPage />} />
-              <Route path="/assessment" element={<AssessmentPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
-              <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
-              <Route path="/sud-upload" element={<SudUploadPage />} />
-              <Route path="/chatbot" element={<ChatbotPage />} />
-              <Route path="/holidays" element={<HolidaysPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-            </Route>
-          </Route>
-        </Routes>
-      </Router>
-      </ToastProvider>
+              {/* Protected/Internal Routes wrapped in AppLayout */}
+              <Route element={<ProtectedRoute />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/stakeholders" element={<Stakeholders />} />
+                  <Route path="/plans" element={<PlanPage />} />
+                  <Route path="/schedule" element={<SchedulePage />} />
+                  <Route path="/tracking" element={<TrackingPage />} />
+                  <Route path="/risks" element={<RisksPage />} />
+                  <Route path="/assessment" element={<AssessmentPage />} />
+                  <Route path="/reports" element={<ReportsPage />} />
+                  <Route path="/knowledge-base" element={<KnowledgeBasePage />} />
+                  <Route path="/sud-upload" element={<SudUploadPage />} />
+                  <Route path="/chatbot" element={<ChatbotPage />} />
+                  <Route path="/holidays" element={<HolidaysPage />} />
+                  <Route path="/calendar" element={<CalendarPage />} />
+                </Route>
+              </Route>
+            </Routes>
+          </Router>
+        </ToastProvider>
       </OperationsProvider>
     </AuthProvider>
   );
