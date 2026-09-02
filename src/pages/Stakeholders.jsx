@@ -1,20 +1,30 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getStakeholders, createStakeholder, deleteStakeholder } from '../api/api';
+import { getStakeholders, createStakeholder, updateStakeholder, deleteStakeholder, getProjects, uploadStakeholdersExcel, downloadStakeholdersTemplate } from '../api/api';
 import Loader from '../components/Loader';
 import { useToast } from '../context/ToastContext';
-import { ChevronLeft, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2, Edit2, AlertTriangle, X, Download } from 'lucide-react';
 
 const Stakeholders = () => {
   const [stakeholders, setStakeholders] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [stakeholderToDelete, setStakeholderToDelete] = useState(null);
+  const [editingStakeholderId, setEditingStakeholderId] = useState(null);
+  const [activeTab, setActiveTab] = useState('single');
+  const [uploadingExcel, setUploadingExcel] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
+  const [bulkProjectId, setBulkProjectId] = useState('');
+  const [bulkTrackName, setBulkTrackName] = useState('');
+  const [bulkProjectTracks, setBulkProjectTracks] = useState([]);
+  const fileInputRef = React.useRef(null);
   const { showToast } = useToast();
 
-  const [formData, setFormData] = useState({ name: '', email: '', role: '' });
+  const [formData, setFormData] = useState({ name: '', email: '', role: '', project_id: '', track_name: '' });
+  const [selectedProjectTracks, setSelectedProjectTracks] = useState([]);
 
   const fetchStakeholders = async () => {
     try {
@@ -27,23 +37,81 @@ const Stakeholders = () => {
     }
   };
 
+  const fetchProjects = async () => {
+    try {
+      const res = await getProjects();
+      setProjects(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch projects', err);
+    }
+  };
+
   useEffect(() => {
     fetchStakeholders();
+    fetchProjects();
   }, []);
+
+  useEffect(() => {
+    if (formData.project_id) {
+      const proj = projects.find(p => p.id === parseInt(formData.project_id));
+      if (proj && proj.config && proj.config.tracks) {
+        setSelectedProjectTracks(proj.config.tracks);
+      } else {
+        setSelectedProjectTracks([]);
+      }
+    } else {
+      setSelectedProjectTracks([]);
+    }
+  }, [formData.project_id, projects]);
+
+  useEffect(() => {
+    if (bulkProjectId) {
+      const proj = projects.find(p => p.id === parseInt(bulkProjectId));
+      if (proj && proj.config && proj.config.tracks) {
+        setBulkProjectTracks(proj.config.tracks);
+      } else {
+        setBulkProjectTracks([]);
+      }
+    } else {
+      setBulkProjectTracks([]);
+    }
+  }, [bulkProjectId, projects]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await createStakeholder(formData);
-      setFormData({ name: '', email: '', role: '' });
-      showToast('Stakeholder added successfully!', 'success');
+      if (editingStakeholderId) {
+        await updateStakeholder(editingStakeholderId, formData);
+        showToast('Stakeholder updated successfully!', 'success');
+      } else {
+        await createStakeholder(formData);
+        showToast('Stakeholder added successfully!', 'success');
+      }
+      setFormData({ name: '', email: '', role: '', project_id: '', track_name: '' });
+      setEditingStakeholderId(null);
       fetchStakeholders();
     } catch (err) {
-      showToast('Error creating stakeholder', 'error');
+      showToast(`Error ${editingStakeholderId ? 'updating' : 'creating'} stakeholder`, 'error');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEdit = (person) => {
+    setEditingStakeholderId(person.id);
+    setFormData({
+      name: person.name || '',
+      email: person.email || '',
+      role: person.role || '',
+      project_id: person.project_id || '',
+      track_name: person.track_name || ''
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingStakeholderId(null);
+    setFormData({ name: '', email: '', role: '', project_id: '', track_name: '' });
   };
 
   const handleDelete = (id) => {
@@ -63,6 +131,52 @@ const Stakeholders = () => {
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setUploadingExcel(true);
+    const data = new FormData();
+    data.append('file', file);
+    data.append('project_id', bulkProjectId);
+    if (bulkTrackName) {
+      data.append('track_name', bulkTrackName);
+    }
+    
+    try {
+      const res = await uploadStakeholdersExcel(data);
+      if (res.data.success) {
+        showToast(res.data.message || 'Stakeholders uploaded successfully!', 'success');
+        fetchStakeholders();
+      }
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Error uploading excel file.', 'error');
+    } finally {
+      setUploadingExcel(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    setIsDownloadingTemplate(true);
+    try {
+      const response = await downloadStakeholdersTemplate();
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'stakeholders_template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast('Error downloading template', 'error');
+    } finally {
+      setIsDownloadingTemplate(false);
+    }
+  };
+
+
   if (loading) return <Loader />;
 
   const itemsPerPage = 5;
@@ -78,52 +192,145 @@ const Stakeholders = () => {
       {error && <div className="p-4 text-red-700 bg-red-100 rounded-lg">{error}</div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
-          <h3 className="text-lg font-semibold text-primary-text mb-4">Add Stakeholder</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
-              <input
-                type="text"
-                required
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
-              <input
-                type="email"
-                required
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <CustomSelect
-                className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                required
-              >
-                <option value="" disabled>---Select Role---</option>
-                <option value="Delivery / Engagement Manager">Delivery / Engagement Manager</option>
-                <option value="Outgoing SME (Knowledge Giver)">Outgoing SME (Knowledge Giver)</option>
-                <option value="Incoming Team Member (Knowledge Receiver)">Incoming Team Member (Knowledge Receiver)</option>
-                <option value="PwC Leadership">PwC Leadership</option>
-              </CustomSelect>
-            </div>
+        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1 h-fit">
+          <div className="flex border-b border-gray-200 mb-6">
             <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50"
+              onClick={() => setActiveTab('single')}
+              className={`flex-1 py-2 text-center text-sm font-medium transition-colors ${activeTab === 'single' ? 'text-primary-orange border-b-2 border-primary-orange' : 'text-gray-500 hover:text-gray-700'}`}
             >
-              {isSubmitting ? 'Adding...' : 'Add Stakeholder'}
+              Add Stakeholder
             </button>
-          </form>
+            <button
+              onClick={() => setActiveTab('bulk')}
+              className={`flex-1 py-2 text-center text-sm font-medium transition-colors ${activeTab === 'bulk' ? 'text-primary-orange border-b-2 border-primary-orange' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              Bulk Add
+            </button>
+          </div>
+
+          {activeTab === 'single' ? (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-primary-text">
+                  {editingStakeholderId ? 'Edit Stakeholder' : 'Add Stakeholder'}
+                </h3>
+                {editingStakeholderId && (
+                  <button
+                    onClick={cancelEdit}
+                    className="text-gray-500 hover:text-gray-700"
+                    title="Cancel Edit"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
+              </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Name</label>
+                  <input
+                    type="text"
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    required
+                    className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Role</label>
+                  <CustomSelect
+                    className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:outline-none focus:ring-orange-border focus:border-orange-border"
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    required
+                  >
+                    <option value="" disabled>---Select Role---</option>
+                    <option value="Delivery / Engagement Manager">Delivery / Engagement Manager</option>
+                    <option value="Outgoing SME (Knowledge Giver)">Outgoing SME (Knowledge Giver)</option>
+                    <option value="Incoming Team Member (Knowledge Receiver)">Incoming Team Member (Knowledge Receiver)</option>
+                    <option value="PwC Leadership">PwC Leadership</option>
+                  </CustomSelect>
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50"
+                >
+                  {isSubmitting ? (editingStakeholderId ? 'Updating...' : 'Adding...') : (editingStakeholderId ? 'Update Stakeholder' : 'Add Stakeholder')}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <h3 className="text-lg font-semibold text-primary-text mb-4">Bulk Add Stakeholders</h3>
+              <p className="text-sm text-secondary-text mb-4">Upload an Excel file to automatically add stakeholders.</p>
+              <div className="space-y-4">
+                
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  disabled={isDownloadingTemplate}
+                  className={`w-full flex justify-center items-center py-2 px-4 border border-orange-border rounded-md shadow-sm text-sm font-medium text-primary-orange bg-white hover:bg-orange-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50`}
+                  title="Download Template"
+                >
+                  {isDownloadingTemplate ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <Download size={18} className="mr-2" />
+                      Download Template
+                    </>
+                  )}
+                </button>
+                
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current.click()}
+                  disabled={uploadingExcel}
+                  className={`w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 ${uploadingExcel
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-primary-orange hover:bg-hover-orange'
+                  }`}
+                  title={"Upload Excel"}
+                >
+                  {uploadingExcel ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Uploading...
+                    </>
+                  ) : (
+                    'Upload Excel'
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-2 overflow-x-auto">
@@ -144,6 +351,13 @@ const Stakeholders = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{person.email}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text capitalize">{person.role.replace('_', ' ')}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => handleEdit(person)}
+                      className="text-blue-600 hover:text-blue-900 focus:outline-none transition-colors mr-3"
+                      title="Edit Stakeholder"
+                    >
+                      <Edit2 size={18} />
+                    </button>
                     <button
                       onClick={() => handleDelete(person.id)}
                       className="text-red-600 hover:text-red-900 focus:outline-none transition-colors"

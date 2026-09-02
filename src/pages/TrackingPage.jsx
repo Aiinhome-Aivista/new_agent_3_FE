@@ -4,9 +4,11 @@ import { getPlans, getPlanSummary, getPlanTopics, updateCompletion, getPlanTopic
 import Loader from '../components/Loader';
 import { useAuth } from '../context/AuthContext';
 import ManagerWiseCompletionView from '../components/ManagerWiseCompletionView';
+import { useToast } from '../context/ToastContext';
 
 const TrackingPage = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [summary, setSummary] = useState(null);
@@ -14,6 +16,10 @@ const TrackingPage = () => {
   const [loading, setLoading] = useState(true);
   const [loadingData, setLoadingData] = useState(false);
   const [topicOptions, setTopicOptions] = useState([]);
+  
+  // pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   // form state
   const [topicName, setTopicName] = useState('');
@@ -54,6 +60,7 @@ const TrackingPage = () => {
       setSummary(sumRes.data.data);
       setTopics(topRes.data.data);
       setTopicOptions(optRes.data.data || []);
+      setCurrentPage(1);
     } catch (err) {
       console.error(err);
     } finally {
@@ -88,7 +95,7 @@ const TrackingPage = () => {
         setSuccessMsg('');
       }, 3000);
     } catch (err) {
-      alert('Error updating completion');
+      showToast('Error updating completion', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -116,61 +123,70 @@ const TrackingPage = () => {
 
   const canManage = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
 
+  const indexOfLastTopic = currentPage * itemsPerPage;
+  const indexOfFirstTopic = indexOfLastTopic - itemsPerPage;
+  const currentTopics = topics.slice(indexOfFirstTopic, indexOfLastTopic);
+  const totalPages = Math.ceil(topics.length / itemsPerPage);
+
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-primary-text">Completion Tracking</h2>
 
-      {user?.role !== 'PwC Leadership' && (
-        <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
-          <CustomSelect
-            className="block w-full max-w-md px-3 py-2 border border-light-border rounded-md"
-            value={selectedPlanId}
-            onChange={(e) => setSelectedPlanId(e.target.value)}
-          >
-            <option value="" disabled>---Select Plan---</option>
-            {plans.map(p => (
-              <option key={p.id} value={p.id}>{p.application_name}</option>
-            ))}
-          </CustomSelect>
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {user?.role !== 'PwC Leadership' && (
+          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Select Plan to Track</label>
+            <CustomSelect
+              className="block w-full px-3 py-2 border border-light-border rounded-md"
+              value={selectedPlanId}
+              onChange={(e) => setSelectedPlanId(e.target.value)}
+            >
+              <option value="" disabled>---Select Plan---</option>
+              {plans.map(p => (
+                <option key={p.id} value={p.id}>{p.application_name}</option>
+              ))}
+            </CustomSelect>
+          </div>
+        )}
 
-      {loadingData ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader />
-        </div>
-      ) : (
+        {loadingData ? (
+          <div className="md:col-span-2 flex justify-center items-center py-6">
+            <Loader />
+          </div>
+        ) : (
+          summary && (
+            <>
+              <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center">
+                <h3 className="text-lg font-semibold text-primary-text mb-2">Overall Completion</h3>
+                <div className="flex items-center">
+                  <div className="w-full bg-input-background rounded-full h-4 mr-4">
+                    <div 
+                      className="bg-primary-orange h-4 rounded-full" 
+                      style={{ width: `${summary.avg_completion_percent}%` }}
+                    ></div>
+                  </div>
+                  <span className="font-bold text-gray-700">{summary.avg_completion_percent}%</span>
+                </div>
+              </div>
+              <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-center">
+                <h3 className="text-lg font-semibold text-primary-text mb-2">Overall Attendance Rate</h3>
+                <div className="flex items-center">
+                  <div className="w-full bg-input-background rounded-full h-4 mr-4">
+                    <div 
+                      className="bg-green-500 h-4 rounded-full" 
+                      style={{ width: `${summary.attendance_rate_percent}%` }}
+                    ></div>
+                  </div>
+                  <span className="font-bold text-gray-700">{summary.attendance_rate_percent}%</span>
+                </div>
+              </div>
+            </>
+          )
+        )}
+      </div>
+
+      {!loadingData && (
         <>
-          {summary && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-primary-text mb-2">Overall Completion</h3>
-            <div className="flex items-center">
-              <div className="w-full bg-input-background rounded-full h-4 mr-4">
-                <div 
-                  className="bg-primary-orange h-4 rounded-full" 
-                  style={{ width: `${summary.avg_completion_percent}%` }}
-                ></div>
-              </div>
-              <span className="font-bold text-gray-700">{summary.avg_completion_percent}%</span>
-            </div>
-          </div>
-          <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-primary-text mb-2">Overall Attendance Rate</h3>
-            <div className="flex items-center">
-              <div className="w-full bg-input-background rounded-full h-4 mr-4">
-                <div 
-                  className="bg-green-500 h-4 rounded-full" 
-                  style={{ width: `${summary.attendance_rate_percent}%` }}
-                ></div>
-              </div>
-              <span className="font-bold text-gray-700">{summary.attendance_rate_percent}%</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {canManage && (
           <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 lg:col-span-1">
@@ -205,7 +221,14 @@ const TrackingPage = () => {
                     : ''}
                 >
                   <option value="">-- Select Topic --</option>
-                  {topicOptions.map(t => {
+                  {topicOptions
+                    .filter(t => {
+                      const label = `${t.day_label || ''} ${t.topic_name}`.toLowerCase();
+                      return !label.includes('final assessment') &&
+                             !label.includes('shadow phase') &&
+                             !label.includes('lead phase');
+                    })
+                    .map(t => {
                     const fullLabel = t.day_label && t.day_label !== 'General' ? `${t.day_label} — ${t.topic_name}` : t.topic_name;
                     let displayLabel = fullLabel;
                     if (displayLabel.length > 60) {
@@ -252,14 +275,19 @@ const TrackingPage = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-light-background">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Day</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Topic</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Completion</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Last Updated</th>
                 </tr>
               </thead>
               <tbody className="bg-light-background divide-y divide-gray-200">
-                {topics.map((t) => (
+                {currentTopics.map((t) => {
+                  const matchingOption = topicOptions.find(opt => opt.topic_name === t.topic);
+                  const dayLabel = matchingOption && matchingOption.day_label && matchingOption.day_label !== 'General' ? matchingOption.day_label : 'N/A';
+                  return (
                   <tr key={t.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-text">{dayLabel}</td>
                     <td className="px-6 py-4 text-sm font-medium text-primary-text break-words max-w-[200px]">{t.topic}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
                       <div className="flex items-center min-w-[120px]">
@@ -269,15 +297,38 @@ const TrackingPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{new Date(t.last_updated).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{t.last_updated ? new Date(t.last_updated.replace(/ GMT$/, '')).toLocaleDateString() : ''}</td>
                   </tr>
-                ))}
+                )})}
                 {topics.length === 0 && (
-                  <tr><td colSpan="3" className="px-6 py-4 text-center text-sm text-secondary-text">No topics tracked yet.</td></tr>
+                  <tr><td colSpan="4" className="px-6 py-4 text-center text-sm text-secondary-text">No topics tracked yet.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center mt-4">
+              <span className="text-sm text-secondary-text">
+                Page {currentPage} of {totalPages}
+              </span>
+              <div className="space-x-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 rounded border border-light-border bg-white text-sm disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 rounded border border-light-border bg-white text-sm disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       </>

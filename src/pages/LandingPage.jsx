@@ -13,7 +13,7 @@ const LandingPage = () => {
           <div className="bg-button-orange p-2 rounded-lg">
             <BookOpen className="text-white h-6 w-6" />
           </div>
-          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary-orange to-purple-600">
+          <span className="text-xl font-bold text-primary-orange">
             Virtual KT Manager
           </span>
         </div>
@@ -45,7 +45,7 @@ const LandingPage = () => {
           </div>
           
           <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-8 leading-tight">
-            Seamless Knowledge Transition for your <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary-orange to-purple-600">Enterprise</span>
+            Seamless Knowledge Transition for your Enterprise
           </h1>
           
           <p className="text-xl text-secondary-text mb-10 max-w-2xl mx-auto leading-relaxed">
