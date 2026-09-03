@@ -1,10 +1,11 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults } from '../api/api';
+import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, getPlanTopicOptions } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
+import * as XLSX from 'xlsx-js-style';
 
 const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -798,6 +799,173 @@ const SchedulePage = () => {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    if (!formData.plan_id || !formData.project_id) {
+      setSchedulePopup({ message: 'Please select a Project and a Plan first.', type: 'error' });
+      return;
+    }
+    
+    try {
+      startOperation('download-template');
+      const res = await getPlanTopicOptions(formData.plan_id);
+      const topics = res.data.data;
+      
+      if (!topics || topics.length === 0) {
+        setSchedulePopup({ message: "No topics found to export for the selected plan.", type: "error" });
+        return;
+      }
+      
+      const plan = plans.find(p => String(p.id) === String(formData.plan_id));
+      const project = projects.find(p => String(p.id) === String(formData.project_id));
+      
+      const wsData = [];
+      const merges = [];
+      
+      let parsedConfig = plan?.project_config || {};
+      if (typeof parsedConfig === 'string') {
+        try {
+          parsedConfig = JSON.parse(parsedConfig);
+        } catch (e) {
+          parsedConfig = {};
+        }
+      }
+      
+      // 1st Heading (Professional Office Format)
+      const projectName = project?.name || 'N/A';
+      let trackName = 'N/A';
+      if (parsedConfig?._meta?.trackId) {
+        const trk = parsedConfig.tracks?.find(t => String(t.id) === String(parsedConfig._meta.trackId));
+        if (trk) trackName = trk.name;
+      } else if (parsedConfig?.tracks?.[0]) {
+        trackName = parsedConfig.tracks[0].name;
+      } else {
+        trackName = plan?.application_name || 'N/A';
+      }
+      const planName = `${plan?.application_name || 'Generated Plan'} (${plan?.plan_type || 'KT'})`;
+
+      wsData.push([`Project Name: ${projectName}`, "", "", "", "", "", "", "", ""]);
+      wsData.push([`Track Name: ${trackName}`, "", "", "", "", "", "", "", ""]);
+      wsData.push([`Plan Name: ${planName}`, "", "", "", "", "", "", "", ""]);
+      wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", "", "", "", "", "", "", ""]);
+      wsData.push(["", "", "", "", "", "", "", "", ""]); 
+      
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } });
+      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 8 } });
+      merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 8 } });
+      merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 8 } });
+      merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 8 } });
+      
+      wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)", "Knowledge Giver", "Knowledge Receiver", "Start Date", "Meeting Link", "SUD Document", "Final Assessment"]);
+      
+      const excludedKeywords = [
+        'assessment evaluation window',
+        'shadow experience',
+        'shadow phase',
+        'shadow resourcing',
+        'lead the project independently',
+        'lead phase',
+        'lead resourcing'
+      ];
+
+      const cleanedTopics = topics
+        .filter(t => {
+          const text = ((t.topic_name || '') + ' ' + (t.day_label || '')).toLowerCase();
+          return !excludedKeywords.some(kw => text.includes(kw));
+        })
+        .map(t => {
+          let day = t.day_label || 'General';
+          day = day.replace(/:\s*\[Time:.*?\]/gi, '').replace(/\[Time:.*?\]/gi, '').trim();
+          return { ...t, clean_day: day };
+        });
+
+      let currentRowIndex = 6;
+      let startDayRow = 6;
+      let currentDay = cleanedTopics[0]?.clean_day;
+
+      cleanedTopics.forEach((t, idx) => {
+        wsData.push([
+          t.clean_day,
+          t.topic_name,
+          t.estimated_duration_hours || 'N/A',
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ]);
+
+        if (idx > 0) {
+          if (t.clean_day !== currentDay) {
+            if (currentRowIndex - 1 > startDayRow) {
+              merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex - 1, c: 0 } });
+            }
+            startDayRow = currentRowIndex;
+            currentDay = t.clean_day;
+          }
+        }
+        
+        if (idx === cleanedTopics.length - 1) {
+          if (currentRowIndex > startDayRow) {
+            merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex, c: 0 } });
+          }
+        }
+        currentRowIndex++;
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!merges'] = merges;
+      ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 20 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
+      ws['!sheetViews'] = [{ showGridLines: false }];
+      
+      const thinBorder = { style: "thin", color: { rgb: "CCCCCC" } };
+
+      for (let r = 0; r < wsData.length; r++) {
+        for (let c = 0; c < 9; c++) {
+          const cellRef = XLSX.utils.encode_cell({ r, c });
+          if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
+          
+          let cellStyle = {
+            font: { name: "Calibri", sz: 11 },
+            fill: { fgColor: { rgb: "FFFFFF" } },
+            alignment: { vertical: "center", wrapText: true },
+            border: {
+              top: r >= 5 ? thinBorder : null,
+              bottom: r >= 5 ? thinBorder : null,
+              left: r >= 5 ? thinBorder : null,
+              right: r >= 5 ? thinBorder : null
+            }
+          };
+
+          if (r < 5) {
+            cellStyle.alignment.horizontal = "center";
+            cellStyle.font.bold = true;
+            cellStyle.font.sz = 14;
+          } else if (r === 5) {
+            cellStyle.fill = { fgColor: { rgb: "D04A02" } }; // PwC orange
+            cellStyle.font.color = { rgb: "FFFFFF" };
+            cellStyle.font.bold = true;
+            cellStyle.alignment.horizontal = "center";
+          } else {
+            cellStyle.alignment.horizontal = c === 1 ? "left" : "center";
+          }
+
+          ws[cellRef].s = cellStyle;
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "KT_Schedule_Template");
+      XLSX.writeFile(wb, `Schedule_Template_${planName.replace(/\s+/g, '_')}.xlsx`);
+
+    } catch (err) {
+      console.error(err);
+      setSchedulePopup({ message: 'Error generating template', type: 'error' });
+    } finally {
+      endOperation('download-template');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (selectedStakeholders.length === 0 && selectedOrganizers.length === 0) {
@@ -928,7 +1096,7 @@ const SchedulePage = () => {
       )}
 
       {canManage && formData.project_id && formData.plan_id && (
-        <div className="mb-6 border-b border-gray-200">
+        <div className="mb-6 border-b border-gray-200 flex justify-between items-end">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveGlobalTab('KA')}
@@ -953,6 +1121,16 @@ const SchedulePage = () => {
               </button>
             )}
           </nav>
+          <div className="pb-2">
+            <button
+              onClick={handleDownloadTemplate}
+              disabled={isUploadingExcel}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-primary-orange border border-primary-orange rounded-md hover:bg-orange-50 transition-colors shadow-sm text-sm"
+            >
+              <Download size={16} />
+              Download Template
+            </button>
+          </div>
         </div>
       )}
 
@@ -1216,7 +1394,9 @@ const SchedulePage = () => {
               </div>
             ) : (
               <div>
-                <h3 className="text-lg font-semibold text-primary-text mb-4">Automatic Scheduling via Excel</h3>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-primary-text">Automatic Scheduling via Excel</h3>
+                </div>
                 <div 
                   className="border-2 border-dashed border-light-border rounded-lg p-10 flex flex-col items-center justify-center hover:bg-light-background transition-colors cursor-pointer"
                   onDragOver={handleDragOverExcel}
