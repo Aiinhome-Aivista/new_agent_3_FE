@@ -1557,19 +1557,19 @@ const PlanPage = () => {
         const ws = wb.Sheets[wsname];
         const aoaData = XLSX.utils.sheet_to_json(ws, { header: 1 });
         
-        if (aoaData.length <= 3) {
+        if (aoaData.length <= 1) {
           showToast("Template is empty", "error");
           setIsUploadingTemplate(false);
           return;
         }
 
         const projectsMap = {};
-        for (let i = 3; i < aoaData.length; i++) {
+        for (let i = 1; i < aoaData.length; i++) {
           const row = aoaData[i];
           if (!row || row.length === 0) continue;
           
           const pName = row[0];
-          if (!pName || pName === "Demo Project") continue;
+          if (!pName || pName === "Demo Project" || pName === "Project Name") continue;
           if (!projectsMap[pName]) projectsMap[pName] = { name: pName, tracks: [] };
           
           const tName = row[1];
