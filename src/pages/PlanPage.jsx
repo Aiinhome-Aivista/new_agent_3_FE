@@ -610,14 +610,24 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     const wsData = [];
     const merges = [];
     
+    let parsedConfig = plan?.project_config || {};
+    if (typeof parsedConfig === 'string') {
+      try {
+        parsedConfig = JSON.parse(parsedConfig);
+      } catch (e) {
+        console.error("Error parsing project_config", e);
+        parsedConfig = {};
+      }
+    }
+    
     // 1st Heading (Professional Office Format)
-    const projectName = plan?.project_config?.name || projectNameFallback || 'N/A';
+    const projectName = parsedConfig?.name || projectNameFallback || 'N/A';
     let trackName = 'N/A';
-    if (plan?.project_config?._meta?.trackId) {
-      const trk = plan.project_config.tracks?.find(t => t.id === plan.project_config._meta.trackId);
+    if (parsedConfig?._meta?.trackId) {
+      const trk = parsedConfig.tracks?.find(t => String(t.id) === String(parsedConfig._meta.trackId));
       if (trk) trackName = trk.name;
-    } else if (plan?.project_config?.tracks?.[0]) {
-      trackName = plan.project_config.tracks[0].name;
+    } else if (parsedConfig?.tracks?.[0]) {
+      trackName = parsedConfig.tracks[0].name;
     } else {
       trackName = plan?.application_name || 'N/A';
     }

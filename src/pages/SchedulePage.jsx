@@ -542,11 +542,7 @@ const SchedulePage = () => {
       const fetchedMeetings = meetingsRes.data.data;
       
       let allPlansData = plansRes.data.data || [];
-      let myApprovedPlans = allPlansData.filter(p => p.status === 'approved');
-      
-      if (user?.role === 'Delivery / Engagement Manager') {
-        myApprovedPlans = myApprovedPlans.filter(p => p.approved_by === user?.id);
-      }
+      let myApprovedPlans = allPlansData.filter(p => p.status === 'approved' || p.status === 'closed');
       
       const allowedPlanIds = myApprovedPlans.map(plan => plan.id);
       
@@ -640,23 +636,48 @@ const SchedulePage = () => {
         );
       }
 
-      if (track && track.options) {
-        setIsSudMandatory(!!track.options.sud_mandatory);
-        setIsFinalAssessmentMandatory(!!track.options.assessment);
-        setIsShadowResourcing(!!track.options.shadow_resourcing);
-        setIsLeadResourcing(!!track.options.lead_resourcing);
-        
-        setIsSudRequiredForSR(!!track.options.sud_doc_upload);
-        setIsAssessmentRequiredForSR(!!track.options.assessment_80);
+      let activeOptions = null;
+      let activeInputs = null;
+      
+      if (track) {
+          activeOptions = track.options;
+          activeInputs = track.inputs;
+          
+          if (track.modules && track.modules.length > 0) {
+              let module = null;
+              if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
+                  module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
+              }
+              if (!module) {
+                  module = track.modules.find(m => 
+                      selectedPlan.application_name.trim() === m.name.trim() || 
+                      selectedPlan.application_name.includes(m.name.trim())
+                  );
+              }
+              if (module && module.options) {
+                  activeOptions = module.options;
+                  activeInputs = module.inputs;
+              }
+          }
+      }
 
-        if (track.options.shadow_resourcing) {
+      if (activeOptions) {
+        setIsSudMandatory(!!activeOptions.sud_mandatory);
+        setIsFinalAssessmentMandatory(!!activeOptions.assessment);
+        setIsShadowResourcing(!!activeOptions.shadow_resourcing);
+        setIsLeadResourcing(!!activeOptions.lead_resourcing);
+        
+        setIsSudRequiredForSR(!!activeOptions.sud_doc_upload);
+        setIsAssessmentRequiredForSR(!!activeOptions.assessment_80);
+
+        if (activeOptions.shadow_resourcing) {
             getResourceMappings(formData.plan_id).then(res => {
                 if (res.data?.success) {
                     setMappedShadowResources(res.data.data || []);
                 }
             }).catch(err => console.error("Error fetching resource mappings:", err));
             
-            if (track.options.sud_doc_upload) {
+            if (activeOptions.sud_doc_upload) {
                 getSudDocuments(formData.plan_id).then(res => {
                     setSudDocs(res.data?.data || []);
                 }).catch(err => console.error(err));
@@ -664,7 +685,7 @@ const SchedulePage = () => {
                 setSudDocs([]);
             }
             
-            if (track.options.assessment_80) {
+            if (activeOptions.assessment_80) {
                 getResults(formData.plan_id).then(res => {
                     setAssessmentResults(res.data?.data || []);
                 }).catch(err => console.error(err));
@@ -678,10 +699,10 @@ const SchedulePage = () => {
         }
 
         let srCriteria = [];
-        if (track.options.sud_doc_upload) {
+        if (activeOptions.sud_doc_upload) {
           srCriteria.push("submitted SUD documents");
         }
-        if (track.options.assessment_80) {
+        if (activeOptions.assessment_80) {
           srCriteria.push("scored above 80% in the Final Assessment");
         }
         
@@ -692,12 +713,12 @@ const SchedulePage = () => {
         }
 
         let lrCriteria = [];
-        if (track.options.lr_ticket_resolving) {
-          const tickets = track.inputs?.lr_ticket_resolving || '';
+        if (activeOptions.lr_ticket_resolving) {
+          const tickets = activeInputs?.lr_ticket_resolving || '';
           lrCriteria.push(`Need to be involved in resolving ${tickets} tickets`);
         }
-        if (track.options.lr_weeks_shadow) {
-          const weeks = track.inputs?.lr_weeks_shadow || '';
+        if (activeOptions.lr_weeks_shadow) {
+          const weeks = activeInputs?.lr_weeks_shadow || '';
           lrCriteria.push(`Required weeks for shadow resourcing: ${weeks}`);
         }
         
