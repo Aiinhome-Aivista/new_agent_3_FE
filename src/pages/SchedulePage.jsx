@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import * as XLSX from 'xlsx-js-style';
 
-const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn }) => {
+const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn, titleFn }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef(null);
 
@@ -45,8 +45,9 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
               {options.map(opt => {
                 const isDisabled = isOptionDisabledFn ? isOptionDisabledFn(opt) : false;
                 const extraClass = optionClassFn ? optionClassFn(opt) : '';
+                const titleStr = titleFn ? titleFn(opt) : '';
                 return (
-                  <label key={opt.id} className={`flex items-center px-2 py-1.5 rounded ${isDisabled ? 'cursor-not-allowed' : 'hover:bg-light-background cursor-pointer'} ${extraClass}`}>
+                  <label key={opt.id} title={titleStr} className={`flex items-center px-2 py-1.5 rounded ${isDisabled ? 'cursor-not-allowed' : 'hover:bg-light-background cursor-pointer'} ${extraClass}`}>
                     <input
                       type="checkbox"
                       className={`rounded text-primary-orange focus:ring-orange-border mr-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -148,6 +149,86 @@ const SchedulePage = () => {
       if (!(u.role.includes('Receiver') || u.role.includes('incoming'))) return false;
       return true;
     });
+  };
+
+  const getRequiredLRTickets = () => {
+    if (!formData.plan_id) return 0;
+    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
+    if (!selectedPlan) return 0;
+    
+    const project = projects.find(p => p.id === selectedPlan.project_id);
+    if (!project || !project.config) return 0;
+
+    try {
+      const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
+      let planConfig = selectedPlan.project_config;
+      if (typeof planConfig === 'string') {
+        try { planConfig = JSON.parse(planConfig); } catch(e) {}
+      }
+      
+      let track = null;
+      if (planConfig && planConfig._meta && planConfig._meta.trackId) {
+        track = (config.tracks || []).find(t => String(t.id) === String(planConfig._meta.trackId));
+      }
+      if (!track) {
+        track = (config.tracks || []).find(t => 
+          selectedPlan.application_name.trim() === t.name.trim() || 
+          selectedPlan.application_name.includes(t.name.trim())
+        );
+      }
+
+      let activeOptions = null;
+      let activeInputs = null;
+      
+      if (track) {
+          activeOptions = track.options;
+          activeInputs = track.inputs;
+          if (track.modules && track.modules.length > 0) {
+              let module = null;
+              if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
+                  module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
+              }
+              if (!module) {
+                  module = track.modules.find(m => 
+                      selectedPlan.application_name.trim() === m.name.trim() || 
+                      selectedPlan.application_name.includes(m.name.trim())
+                  );
+              }
+              if (module && module.options) {
+                  activeOptions = module.options;
+                  activeInputs = module.inputs;
+              }
+          }
+      }
+      if (activeOptions && activeOptions.lr_ticket_resolving) {
+        return parseInt(activeInputs?.lr_ticket_resolving) || 0;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return 0;
+  };
+
+  const getLREligibilityReason = (stakeholderId) => {
+    if (isForcePushEnabled) return null;
+    const requiredTickets = getRequiredLRTickets();
+    if (requiredTickets <= 0) return null;
+
+    const stakeholder = stakeholders.find(s => Number(s.id) === Number(stakeholderId));
+    if (!stakeholder) return "Not found";
+
+    const solvedTickets = (jiraTickets || []).filter(t => {
+      const isDone = t.status === 'Done' || t.status === 'Resolved' || t.statusCategory === 'Done';
+      if (!isDone) return false;
+      const matchName = t.assignee && t.assignee.toLowerCase() === (stakeholder.name || '').toLowerCase();
+      const matchEmail = t.assigneeEmail && t.assigneeEmail.toLowerCase() === (stakeholder.email || '').toLowerCase();
+      return matchName || matchEmail;
+    });
+
+    if (solvedTickets.length < requiredTickets) {
+      return `Solved ${solvedTickets.length}/${requiredTickets} required Jira tickets`;
+    }
+    return null;
   };
 
   const getAllowedLRStakeholders = () => {
@@ -254,22 +335,53 @@ const SchedulePage = () => {
 
   // ── Jira Integration State & Handlers ──
   const [isJiraModalOpen, setIsJiraModalOpen] = useState(false);
-  const [jiraConfig, setJiraConfig] = useState({
-    domainUrl: import.meta.env.VITE_JIRA_BASE_URL || '',
-    email: '',
-    apiToken: ''
+  const [jiraConfig, setJiraConfig] = useState(() => {
+    const saved = localStorage.getItem('jiraConfig');
+    return saved ? JSON.parse(saved) : {
+      domainUrl: import.meta.env.VITE_JIRA_BASE_URL || '',
+      email: '',
+      apiToken: ''
+    };
   });
-  const [isJiraConnected, setIsJiraConnected] = useState(false);
-  const [jiraUser, setJiraUser] = useState(null);
-  const [jiraProjects, setJiraProjects] = useState([]);
-  const [selectedJiraProject, setSelectedJiraProject] = useState('');
-  const [jiraTickets, setJiraTickets] = useState([]);
+  const [isJiraConnected, setIsJiraConnected] = useState(() => localStorage.getItem('isJiraConnected') === 'true');
+  const [jiraUser, setJiraUser] = useState(() => {
+    const saved = localStorage.getItem('jiraUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [jiraProjects, setJiraProjects] = useState(() => {
+    const saved = localStorage.getItem('jiraProjects');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selectedJiraProject, setSelectedJiraProject] = useState(() => localStorage.getItem('selectedJiraProject') || '');
+  const [jiraTickets, setJiraTickets] = useState(() => {
+    const saved = localStorage.getItem('jiraTickets');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [selectedTicketKeys, setSelectedTicketKeys] = useState([]);
   const [loadingJiraConnect, setLoadingJiraConnect] = useState(false);
   const [loadingJiraTickets, setLoadingJiraTickets] = useState(false);
-  const [importingJiraTickets, setImportingJiraTickets] = useState(false);
   const [jiraActiveTab, setJiraActiveTab] = useState('connect');
   const [jiraImportPlanId, setJiraImportPlanId] = useState('');
+
+  const handleJiraDisconnect = () => {
+    localStorage.removeItem('jiraConfig');
+    localStorage.removeItem('isJiraConnected');
+    localStorage.removeItem('jiraUser');
+    localStorage.removeItem('jiraProjects');
+    localStorage.removeItem('selectedJiraProject');
+    localStorage.removeItem('jiraTickets');
+    setIsJiraConnected(false);
+    setJiraTickets([]);
+    setJiraUser(null);
+    setJiraProjects([]);
+    setSelectedJiraProject('');
+    setJiraConfig({
+      domainUrl: import.meta.env.VITE_JIRA_BASE_URL || '',
+      email: '',
+      apiToken: ''
+    });
+    setSchedulePopup({ message: 'Disconnected from Jira.', type: 'success' });
+  };
 
   const handleJiraConnect = async (e) => {
     if (e) e.preventDefault();
@@ -286,8 +398,15 @@ const SchedulePage = () => {
         setJiraProjects(res.data.projects || []);
         if (res.data.projects?.length > 0) {
           setSelectedJiraProject(res.data.projects[0].key);
+          localStorage.setItem('selectedJiraProject', res.data.projects[0].key);
         }
         setJiraActiveTab('tickets');
+        
+        localStorage.setItem('jiraConfig', JSON.stringify(jiraConfig));
+        localStorage.setItem('isJiraConnected', 'true');
+        localStorage.setItem('jiraUser', JSON.stringify(res.data.user));
+        localStorage.setItem('jiraProjects', JSON.stringify(res.data.projects || []));
+
         setSchedulePopup({ message: `Successfully connected to Jira as ${res.data.user?.displayName || 'User'}!`, type: 'success' });
       } else {
         setSchedulePopup({ message: res.data?.message || 'Failed to connect Jira.', type: 'error' });
@@ -314,6 +433,7 @@ const SchedulePage = () => {
       });
       if (res.data?.success) {
         setJiraTickets(res.data.issues || []);
+        localStorage.setItem('jiraTickets', JSON.stringify(res.data.issues || []));
         setSelectedTicketKeys([]);
         setSchedulePopup({ message: `Fetched ${res.data.issues?.length || 0} tickets from Jira.`, type: 'success' });
       } else {
@@ -326,38 +446,7 @@ const SchedulePage = () => {
     }
   };
 
-  const handleImportJiraTickets = async () => {
-    const targetPlanId = jiraImportPlanId || formData.plan_id;
-    if (!targetPlanId) {
-      setSchedulePopup({ message: 'Please select a Plan to import tickets into.', type: 'error' });
-      return;
-    }
-    if (selectedTicketKeys.length === 0) {
-      setSchedulePopup({ message: 'Please select at least one ticket to import.', type: 'error' });
-      return;
-    }
-    const ticketsToImport = jiraTickets.filter(t => selectedTicketKeys.includes(t.key));
-    setImportingJiraTickets(true);
-    try {
-      const res = await importJiraTicketsToSchedule({
-        plan_id: targetPlanId,
-        tickets: ticketsToImport
-      });
-      if (res.data?.success) {
-        setSchedulePopup({ message: res.data.message || 'Tickets imported successfully to Schedule!', type: 'success' });
-        setIsJiraModalOpen(false);
-        setSelectedTicketKeys([]);
-        fetchData();
-      } else {
-        setSchedulePopup({ message: res.data?.message || 'Error importing tickets.', type: 'error' });
-      }
-    } catch (err) {
-      setSchedulePopup({ message: err.response?.data?.message || 'Error importing tickets.', type: 'error' });
-    } finally {
-      setImportingJiraTickets(false);
-    }
-  };
-  
+
   const handleDragOverExcel = (e) => {
     e.preventDefault();
   };
@@ -1167,10 +1256,10 @@ const SchedulePage = () => {
           <button
             type="button"
             onClick={() => setIsJiraModalOpen(true)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm transition-all duration-200"
+            className="inline-flex items-center px-4 py-2 bg-primary-orange hover:bg-hover-orange text-white font-medium text-sm rounded-lg shadow-sm transition-all duration-200"
           >
             <LinkIcon className="w-4 h-4 mr-2" />
-            Connect Jira / Import Tickets
+            Connect Jira / Fetch Tickets
             {isJiraConnected && (
               <span className="ml-2 w-2.5 h-2.5 rounded-full bg-green-400 inline-block" title="Jira Connected" />
             )}
@@ -1457,12 +1546,42 @@ const SchedulePage = () => {
                         
                         <div className="bg-white p-3 rounded shadow-sm border border-gray-100">
                           <MultiSelectDropdown
-                            label="Lead Resourcing"
+                            label={
+                              <div className="flex justify-between items-center w-full">
+                                <span>Lead Resourcing</span>
+                                <label className="flex items-center space-x-1 cursor-pointer">
+                                  <input 
+                                    type="checkbox" 
+                                    className="rounded text-primary-orange focus:ring-orange-border"
+                                    checked={isForcePushEnabled} 
+                                    onChange={(e) => {
+                                      if (isForcePushEnabled) {
+                                        setIsForcePushEnabled(false);
+                                      } else {
+                                        if (window.confirm("Are you sure you want to override the entry criteria and allow non-eligible candidates?")) {
+                                          setIsForcePushEnabled(true);
+                                        }
+                                      }
+                                    }} 
+                                  />
+                                  <span className="text-xs text-secondary-text font-normal">Force push</span>
+                                </label>
+                              </div>
+                            }
                             placeholder="Select Participants..."
                             options={getAllowedLRStakeholders()}
                             selected={selectedLeadRecipients}
-                            onChange={setSelectedLeadRecipients}
+                            onChange={(newIds) => {
+                              const validIds = newIds.filter(id => !getLREligibilityReason(id));
+                              if (validIds.length < newIds.length) {
+                                setSchedulePopup({ message: 'Some participants do not meet the Lead Resourcing criteria.', type: 'error' });
+                              }
+                              setSelectedLeadRecipients(validIds);
+                            }}
                             visibleCount={3}
+                            isOptionDisabledFn={(opt) => !!getLREligibilityReason(opt.id)}
+                            optionClassFn={(opt) => getLREligibilityReason(opt.id) ? 'blur-sm opacity-60' : ''}
+                            titleFn={(opt) => getLREligibilityReason(opt.id) || ''}
                           />
                         </div>
                         
@@ -2212,14 +2331,14 @@ const SchedulePage = () => {
         <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-light-background rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden border border-gray-200">
             {/* Modal Header */}
-            <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+            <div className="bg-gradient-to-r from-primary-orange to-primary-orange text-white px-6 py-4 flex justify-between items-center">
               <div className="flex items-center space-x-3">
-                <div className="p-2 bg-blue-600 rounded-lg text-white">
+                <div className="p-2 rounded-lg text-white">
                   <LinkIcon className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-lg font-bold">Atlassian Jira Cloud Integration</h3>
-                  <p className="text-xs text-slate-400">Connect account and import issues into KT Schedule</p>
+                  <p className="text-xs text-white">Connect account and import issues into KT Schedule</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -2246,8 +2365,8 @@ const SchedulePage = () => {
                 onClick={() => setJiraActiveTab('connect')}
                 className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
                   jiraActiveTab === 'connect'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                    ? 'border-primary-orange text-primary-orange'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 cursor-pointer'
                 }`}
               >
                 <ShieldCheck className="w-4 h-4" />
@@ -2259,14 +2378,14 @@ const SchedulePage = () => {
                 disabled={!isJiraConnected}
                 className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
                   jiraActiveTab === 'tickets'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-400 cursor-not-allowed'
+                    ? 'border-primary-orange text-primary-orange'
+                    : `border-transparent ${!isJiraConnected ? 'text-gray-400 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700 cursor-pointer'}`
                 }`}
               >
                 <Layers className="w-4 h-4" />
                 <span>2. Fetch & Import Tickets</span>
                 {jiraTickets.length > 0 && (
-                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                  <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded-full font-medium">
                     {jiraTickets.length}
                   </span>
                 )}
@@ -2287,7 +2406,7 @@ const SchedulePage = () => {
                       value={jiraConfig.domainUrl}
                       onChange={(e) => setJiraConfig({ ...jiraConfig, domainUrl: e.target.value })}
                       placeholder="https://your-domain.atlassian.net"
-                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border"
                     />
                     <p className="text-xs text-secondary-text mt-1">Pre-filled with your Atlassian Jira cloud workspace URL.</p>
                   </div>
@@ -2302,7 +2421,7 @@ const SchedulePage = () => {
                       value={jiraConfig.email}
                       onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
                       placeholder="e.g. user@domain.com"
-                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-blue-500"
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border"
                     />
                   </div>
 
@@ -2313,7 +2432,7 @@ const SchedulePage = () => {
                         href="https://id.atlassian.com/manage-profile/security/api-tokens"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-blue-600 hover:underline flex items-center font-normal lowercase"
+                        className="text-primary-orange hover:underline flex items-center font-normal lowercase"
                       >
                         Create API Token <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
@@ -2324,14 +2443,19 @@ const SchedulePage = () => {
                       value={jiraConfig.apiToken}
                       onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
                       placeholder="Paste your Atlassian API Token..."
-                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-blue-500 font-mono"
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border font-mono"
                     />
                   </div>
 
                   {jiraUser && (
                     <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center space-x-3">
-                      {jiraUser.avatarUrl ? (
-                        <img src={jiraUser.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full" />
+                      {jiraUser.avatarUrl && !jiraUser.avatarError ? (
+                        <img 
+                          src={jiraUser.avatarUrl} 
+                          alt="Avatar" 
+                          className="w-10 h-10 rounded-full bg-white object-cover" 
+                          onError={() => setJiraUser(prev => ({ ...prev, avatarError: true }))}
+                        />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-emerald-200 flex items-center justify-center font-bold text-emerald-800">
                           {jiraUser.displayName?.[0] || 'U'}
@@ -2345,10 +2469,19 @@ const SchedulePage = () => {
                   )}
 
                   <div className="pt-4 flex justify-end space-x-3">
+                    {isJiraConnected && (
+                      <button
+                        type="button"
+                        onClick={handleJiraDisconnect}
+                        className="inline-flex items-center px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
+                      >
+                        Disconnect
+                      </button>
+                    )}
                     <button
                       type="submit"
                       disabled={loadingJiraConnect}
-                      className="inline-flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
+                      className="inline-flex items-center px-5 py-2.5 bg-primary-orange hover:bg-hover-orange disabled:bg-button-orange text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
                     >
                       {loadingJiraConnect ? (
                         <>
@@ -2356,7 +2489,7 @@ const SchedulePage = () => {
                         </>
                       ) : (
                         <>
-                          <ShieldCheck className="w-4 h-4 mr-2" /> Connect & Save Credentials
+                          <ShieldCheck className="w-4 h-4 mr-2" /> {isJiraConnected ? 'Update Credentials' : 'Connect & Save Credentials'}
                         </>
                       )}
                     </button>
@@ -2375,7 +2508,10 @@ const SchedulePage = () => {
                       <CustomSelect
                         className="w-full p-2 border border-light-border rounded-md text-sm bg-white"
                         value={selectedJiraProject}
-                        onChange={(e) => setSelectedJiraProject(e.target.value)}
+                        onChange={(e) => {
+                          setSelectedJiraProject(e.target.value);
+                          localStorage.setItem('selectedJiraProject', e.target.value);
+                        }}
                       >
                         {jiraProjects.length === 0 ? (
                           <option value="">No projects available</option>
@@ -2411,7 +2547,7 @@ const SchedulePage = () => {
                       type="button"
                       onClick={handleFetchJiraTickets}
                       disabled={loadingJiraTickets || !selectedJiraProject}
-                      className="inline-flex items-center justify-center px-4 py-2 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white rounded-md text-sm font-medium transition-colors"
+                      className="inline-flex items-center justify-center px-4 py-2 bg-primary-orange hover:bg-hover-orange disabled:bg-button-orange text-white rounded-md text-sm font-medium transition-colors"
                     >
                       {loadingJiraTickets ? (
                         <>
@@ -2431,7 +2567,7 @@ const SchedulePage = () => {
                       <div className="flex items-center space-x-2">
                         <input
                           type="checkbox"
-                          className="rounded text-blue-600 focus:ring-blue-500"
+                          className="rounded text-primary-orange focus:ring-orange-border"
                           checked={jiraTickets.length > 0 && selectedTicketKeys.length === jiraTickets.length}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -2451,7 +2587,7 @@ const SchedulePage = () => {
                         <div className="p-8 text-center text-gray-500 text-sm">
                           {loadingJiraTickets ? (
                             <div className="flex flex-col items-center">
-                              <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mb-2" />
+                              <RefreshCw className="w-6 h-6 animate-spin text-primary-orange mb-2" />
                               Fetching Jira tickets...
                             </div>
                           ) : (
@@ -2464,8 +2600,8 @@ const SchedulePage = () => {
                           return (
                             <div
                               key={ticket.key}
-                              className={`p-3.5 flex items-center justify-between hover:bg-blue-50 transition-colors cursor-pointer ${
-                                isSelected ? 'bg-blue-50/70' : ''
+                              className={`p-3.5 flex items-center justify-between hover:bg-orange-50 transition-colors cursor-pointer ${
+                                isSelected ? 'bg-orange-50/70' : ''
                               }`}
                               onClick={() => {
                                 if (isSelected) {
@@ -2478,11 +2614,11 @@ const SchedulePage = () => {
                               <div className="flex items-center space-x-3 flex-1 min-w-0 pr-4">
                                 <input
                                   type="checkbox"
-                                  className="rounded text-blue-600 focus:ring-blue-500"
+                                  className="rounded text-primary-orange focus:ring-orange-border"
                                   checked={isSelected}
                                   onChange={() => {}}
                                 />
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-mono font-bold rounded">
+                                <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-mono font-bold rounded">
                                   {ticket.key}
                                 </span>
                                 <div className="truncate">
@@ -2528,24 +2664,7 @@ const SchedulePage = () => {
                 Close
               </button>
 
-              {jiraActiveTab === 'tickets' && (
-                <button
-                  type="button"
-                  onClick={handleImportJiraTickets}
-                  disabled={importingJiraTickets || selectedTicketKeys.length === 0}
-                  className="inline-flex items-center px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-md text-sm font-medium transition-colors shadow-sm"
-                >
-                  {importingJiraTickets ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Importing...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" /> Import {selectedTicketKeys.length} Ticket(s) to Schedule
-                    </>
-                  )}
-                </button>
-              )}
+
             </div>
           </div>
         </div>
