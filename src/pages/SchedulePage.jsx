@@ -2,7 +2,7 @@ import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, connectJiraAccount, getJiraProjects, getJiraTickets, importJiraTicketsToSchedule, getPlanTopicOptions } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import * as XLSX from 'xlsx-js-style';
@@ -357,24 +357,34 @@ const SchedulePage = () => {
     const saved = localStorage.getItem('jiraTickets');
     return saved ? JSON.parse(saved) : [];
   });
+  const [jiraParents, setJiraParents] = useState(() => {
+    const saved = localStorage.getItem('jiraParents');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selectedJiraParentKey, setSelectedJiraParentKey] = useState('');
   const [selectedTicketKeys, setSelectedTicketKeys] = useState([]);
   const [loadingJiraConnect, setLoadingJiraConnect] = useState(false);
   const [loadingJiraTickets, setLoadingJiraTickets] = useState(false);
   const [jiraActiveTab, setJiraActiveTab] = useState('connect');
   const [jiraImportPlanId, setJiraImportPlanId] = useState('');
+  const [showJiraToken, setShowJiraToken] = useState(false);
+  const [autoFetchCountdown, setAutoFetchCountdown] = useState(30);
 
   const handleJiraDisconnect = () => {
     localStorage.removeItem('jiraConfig');
     localStorage.removeItem('isJiraConnected');
     localStorage.removeItem('jiraUser');
     localStorage.removeItem('jiraProjects');
-    localStorage.removeItem('selectedJiraProject');
     localStorage.removeItem('jiraTickets');
+    localStorage.removeItem('jiraParents');
+    localStorage.removeItem('selectedJiraProject');
     setIsJiraConnected(false);
-    setJiraTickets([]);
     setJiraUser(null);
     setJiraProjects([]);
+    setJiraTickets([]);
+    setJiraParents([]);
     setSelectedJiraProject('');
+    setSelectedJiraParentKey('');
     setJiraConfig({
       domainUrl: import.meta.env.VITE_JIRA_BASE_URL || '',
       email: '',
@@ -395,19 +405,27 @@ const SchedulePage = () => {
       if (res.data?.success) {
         setIsJiraConnected(true);
         setJiraUser(res.data.user);
-        setJiraProjects(res.data.projects || []);
-        if (res.data.projects?.length > 0) {
-          setSelectedJiraProject(res.data.projects[0].key);
-          localStorage.setItem('selectedJiraProject', res.data.projects[0].key);
+        const projects = res.data.projects || [];
+        setJiraProjects(projects);
+        
+        let initialProjKey = selectedJiraProject;
+        if (projects.length > 0 && !initialProjKey) {
+          initialProjKey = projects[0].key;
+          setSelectedJiraProject(initialProjKey);
+          localStorage.setItem('selectedJiraProject', initialProjKey);
         }
         setJiraActiveTab('tickets');
         
         localStorage.setItem('jiraConfig', JSON.stringify(jiraConfig));
         localStorage.setItem('isJiraConnected', 'true');
         localStorage.setItem('jiraUser', JSON.stringify(res.data.user));
-        localStorage.setItem('jiraProjects', JSON.stringify(res.data.projects || []));
+        localStorage.setItem('jiraProjects', JSON.stringify(projects));
 
         setSchedulePopup({ message: `Successfully connected to Jira as ${res.data.user?.displayName || 'User'}!`, type: 'success' });
+        
+        if (initialProjKey) {
+          handleFetchJiraTickets(initialProjKey);
+        }
       } else {
         setSchedulePopup({ message: res.data?.message || 'Failed to connect Jira.', type: 'error' });
       }
@@ -418,9 +436,14 @@ const SchedulePage = () => {
     }
   };
 
-  const handleFetchJiraTickets = async () => {
+  const handleFetchJiraTickets = async (overrideProjectKey, isSilent = false) => {
+    const targetProjectKey = overrideProjectKey || selectedJiraProject;
     if (!jiraConfig.email || !jiraConfig.apiToken) {
-      setSchedulePopup({ message: 'Please connect your Jira account first.', type: 'error' });
+      if (!isSilent) setSchedulePopup({ message: 'Please connect your Jira account first.', type: 'error' });
+      return;
+    }
+    if (!targetProjectKey) {
+      if (!isSilent) setSchedulePopup({ message: 'Please select a Jira Project.', type: 'error' });
       return;
     }
     setLoadingJiraTickets(true);
@@ -429,22 +452,49 @@ const SchedulePage = () => {
         domainUrl: jiraConfig.domainUrl,
         email: jiraConfig.email,
         apiToken: jiraConfig.apiToken,
-        projectKey: selectedJiraProject
+        projectKey: targetProjectKey
       });
       if (res.data?.success) {
-        setJiraTickets(res.data.issues || []);
-        localStorage.setItem('jiraTickets', JSON.stringify(res.data.issues || []));
+        const fetchedIssues = res.data.issues || [];
+        const fetchedParents = res.data.parents || [];
+        setJiraTickets(fetchedIssues);
+        setJiraParents(fetchedParents);
+        localStorage.setItem('jiraTickets', JSON.stringify(fetchedIssues));
+        localStorage.setItem('jiraParents', JSON.stringify(fetchedParents));
         setSelectedTicketKeys([]);
-        setSchedulePopup({ message: `Fetched ${res.data.issues?.length || 0} tickets from Jira.`, type: 'success' });
+        if (!isSilent) {
+          setSchedulePopup({ message: `Fetched ${fetchedIssues.length} ticket(s) and ${fetchedParents.length} parent/epic issue(s) for ${targetProjectKey}.`, type: 'success' });
+        }
       } else {
-        setSchedulePopup({ message: res.data?.message || 'Failed to fetch Jira tickets.', type: 'error' });
+        if (!isSilent) setSchedulePopup({ message: res.data?.message || 'Failed to fetch Jira tickets.', type: 'error' });
       }
     } catch (err) {
-      setSchedulePopup({ message: err.response?.data?.message || 'Error fetching tickets.', type: 'error' });
+      if (!isSilent) setSchedulePopup({ message: err.response?.data?.message || 'Error fetching tickets.', type: 'error' });
     } finally {
       setLoadingJiraTickets(false);
     }
   };
+
+  // 30-Second Automatic Fetch Timer
+  useEffect(() => {
+    let interval = null;
+    if (isJiraModalOpen && jiraActiveTab === 'tickets' && isJiraConnected && selectedJiraProject) {
+      interval = setInterval(() => {
+        setAutoFetchCountdown(prev => {
+          if (prev <= 1) {
+            handleFetchJiraTickets(selectedJiraProject, true);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setAutoFetchCountdown(30);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isJiraModalOpen, jiraActiveTab, isJiraConnected, selectedJiraProject]);
 
 
   const handleDragOverExcel = (e) => {
@@ -1586,7 +1636,7 @@ const SchedulePage = () => {
                         </div>
                         
                         <div className="text-xs text-secondary-text mt-2 italic bg-orange-100/50 p-2 rounded border border-orange-100 shadow-sm">
-                          * Disclaimer: Jira ticket integration and assignment for Lead Resourcing will be available in a future implementation.
+                          * Note: Lead Resourcing eligibility is automatically verified against solved Jira tickets (Done/Resolved status) assigned to each participant.
                         </div>
                       </div>
                     )}
@@ -2437,14 +2487,24 @@ const SchedulePage = () => {
                         Create API Token <ExternalLink className="w-3 h-3 ml-1" />
                       </a>
                     </label>
-                    <input
-                      type="password"
-                      required
-                      value={jiraConfig.apiToken}
-                      onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
-                      placeholder="Paste your Atlassian API Token..."
-                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border font-mono"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showJiraToken ? "text" : "password"}
+                        required
+                        value={jiraConfig.apiToken}
+                        onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
+                        placeholder="Paste your Atlassian API Token..."
+                        className="w-full p-2.5 pr-10 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowJiraToken(!showJiraToken)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                        title={showJiraToken ? "Hide token" : "Show token"}
+                      >
+                        {showJiraToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   {jiraUser && (
@@ -2500,7 +2560,7 @@ const SchedulePage = () => {
               {jiraActiveTab === 'tickets' && (
                 <div className="space-y-4">
                   {/* Selectors Bar */}
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                         Select Jira Project
@@ -2509,8 +2569,10 @@ const SchedulePage = () => {
                         className="w-full p-2 border border-light-border rounded-md text-sm bg-white"
                         value={selectedJiraProject}
                         onChange={(e) => {
-                          setSelectedJiraProject(e.target.value);
-                          localStorage.setItem('selectedJiraProject', e.target.value);
+                          const newProj = e.target.value;
+                          setSelectedJiraProject(newProj);
+                          localStorage.setItem('selectedJiraProject', newProj);
+                          handleFetchJiraTickets(newProj);
                         }}
                       >
                         {jiraProjects.length === 0 ? (
@@ -2527,129 +2589,173 @@ const SchedulePage = () => {
 
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                        Target KT Plan (Import To)
+                        Jira Parent / Epic (Plan)
                       </label>
                       <CustomSelect
                         className="w-full p-2 border border-light-border rounded-md text-sm bg-white"
-                        value={jiraImportPlanId || formData.plan_id}
-                        onChange={(e) => setJiraImportPlanId(e.target.value)}
+                        value={selectedJiraParentKey}
+                        onChange={(e) => setSelectedJiraParentKey(e.target.value)}
                       >
-                        <option value="">--- Select Plan ---</option>
-                        {plans.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.application_name}
+                        <option value="">--- All Parents / Epics ({jiraParents.length}) ---</option>
+                        {jiraParents.map((parent) => (
+                          <option key={parent.key} value={parent.key}>
+                            [{parent.key}] {parent.summary}
                           </option>
                         ))}
                       </CustomSelect>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleFetchJiraTickets}
-                      disabled={loadingJiraTickets || !selectedJiraProject}
-                      className="inline-flex items-center justify-center px-4 py-2 bg-primary-orange hover:bg-hover-orange disabled:bg-button-orange text-white rounded-md text-sm font-medium transition-colors"
-                    >
-                      {loadingJiraTickets ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Fetching...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2" /> Fetch Tickets
-                        </>
-                      )}
-                    </button>
+                    <div className="flex flex-col items-stretch">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAutoFetchCountdown(30);
+                          handleFetchJiraTickets();
+                        }}
+                        disabled={loadingJiraTickets || !selectedJiraProject}
+                        className="inline-flex items-center justify-center px-4 py-2 bg-primary-orange hover:bg-hover-orange disabled:bg-button-orange text-white rounded-md text-sm font-medium transition-colors shadow-sm"
+                      >
+                        {loadingJiraTickets ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2" /> Fetch Tickets ({autoFetchCountdown}s)
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-secondary-text mt-1 text-center">
+                        Auto-refreshes in <strong className="text-primary-orange font-semibold">{autoFetchCountdown}s</strong>
+                      </span>
+                    </div>
                   </div>
 
                   {/* Tickets List Table */}
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-100 px-4 py-2.5 flex justify-between items-center border-b border-gray-200 text-xs font-semibold text-gray-600">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          className="rounded text-primary-orange focus:ring-orange-border"
-                          checked={jiraTickets.length > 0 && selectedTicketKeys.length === jiraTickets.length}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedTicketKeys(jiraTickets.map((t) => t.key));
-                            } else {
-                              setSelectedTicketKeys([]);
-                            }
-                          }}
-                        />
-                        <span>Select All ({selectedTicketKeys.length}/{jiraTickets.length})</span>
-                      </div>
-                      <span>Total Issues: {jiraTickets.length}</span>
-                    </div>
+                  {(() => {
+                    const filteredTickets = (jiraTickets || []).filter(t => {
+                      // 1. Never show Epics in the ticket list - only tasks/stories/bugs/sub-tasks
+                      const isEpic = (t.issueType || '').toLowerCase() === 'epic';
+                      if (isEpic) return false;
 
-                    <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
-                      {jiraTickets.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500 text-sm">
-                          {loadingJiraTickets ? (
-                            <div className="flex flex-col items-center">
-                              <RefreshCw className="w-6 h-6 animate-spin text-primary-orange mb-2" />
-                              Fetching Jira tickets...
-                            </div>
-                          ) : (
-                            'No tickets loaded yet. Select a project and click "Fetch Tickets".'
-                          )}
-                        </div>
-                      ) : (
-                        jiraTickets.map((ticket) => {
-                          const isSelected = selectedTicketKeys.includes(ticket.key);
-                          return (
-                            <div
-                              key={ticket.key}
-                              className={`p-3.5 flex items-center justify-between hover:bg-orange-50 transition-colors cursor-pointer ${
-                                isSelected ? 'bg-orange-50/70' : ''
-                              }`}
-                              onClick={() => {
-                                if (isSelected) {
-                                  setSelectedTicketKeys(selectedTicketKeys.filter((k) => k !== ticket.key));
+                      // 2. If a specific parent/epic is selected, only show tickets belonging to that parent
+                      if (selectedJiraParentKey) {
+                        return t.parent?.key === selectedJiraParentKey;
+                      }
+                      return true;
+                    });
+
+                    return (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="bg-gray-100 px-4 py-2.5 flex justify-between items-center border-b border-gray-200 text-xs font-semibold text-gray-600">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              className="rounded text-primary-orange focus:ring-orange-border"
+                              checked={filteredTickets.length > 0 && selectedTicketKeys.length === filteredTickets.length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTicketKeys(filteredTickets.map((t) => t.key));
                                 } else {
-                                  setSelectedTicketKeys([...selectedTicketKeys, ticket.key]);
+                                  setSelectedTicketKeys([]);
                                 }
                               }}
-                            >
-                              <div className="flex items-center space-x-3 flex-1 min-w-0 pr-4">
-                                <input
-                                  type="checkbox"
-                                  className="rounded text-primary-orange focus:ring-orange-border"
-                                  checked={isSelected}
-                                  onChange={() => {}}
-                                />
-                                <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-mono font-bold rounded">
-                                  {ticket.key}
-                                </span>
-                                <div className="truncate">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">
-                                    {ticket.summary}
-                                  </p>
-                                  {ticket.description && (
-                                    <p className="text-xs text-gray-500 truncate">
-                                      {ticket.description}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
+                            />
+                            <span>Select All ({selectedTicketKeys.length}/{filteredTickets.length})</span>
+                          </div>
+                          <span>
+                            Showing {filteredTickets.length} of {jiraTickets.length} Issues
+                            {selectedJiraParentKey ? ` (Filtered by Parent: ${selectedJiraParentKey})` : ''}
+                          </span>
+                        </div>
 
-                              <div className="flex items-center space-x-3 flex-shrink-0 text-xs">
-                                <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200">
-                                  {ticket.issueType}
-                                </span>
-                                <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded border border-amber-200 font-medium">
-                                  {ticket.priority}
-                                </span>
-                                <span className="px-2.5 py-1 bg-green-100 text-green-800 font-semibold rounded-full text-xs">
-                                  {ticket.status}
-                                </span>
-                              </div>
+                        <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
+                          {filteredTickets.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500 text-sm">
+                              {loadingJiraTickets ? (
+                                <div className="flex flex-col items-center">
+                                  <RefreshCw className="w-6 h-6 animate-spin text-primary-orange mb-2" />
+                                  Fetching Jira tickets & parents...
+                                </div>
+                              ) : (
+                                'No tickets match the selected project/parent filter. Select a project and click "Fetch Tickets".'
+                              )}
                             </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
+                          ) : (
+                            filteredTickets.map((ticket) => {
+                              const isSelected = selectedTicketKeys.includes(ticket.key);
+                              return (
+                                <div
+                                  key={ticket.key}
+                                  className={`p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-orange-50/60 transition-colors cursor-pointer ${
+                                    isSelected ? 'bg-orange-50/80 border-l-4 border-primary-orange' : ''
+                                  }`}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedTicketKeys(selectedTicketKeys.filter((k) => k !== ticket.key));
+                                    } else {
+                                      setSelectedTicketKeys([...selectedTicketKeys, ticket.key]);
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-start space-x-3 flex-1 min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      className="mt-1 rounded text-primary-orange focus:ring-orange-border"
+                                      checked={isSelected}
+                                      onChange={() => {}}
+                                    />
+                                    <div className="min-w-0 space-y-1">
+                                      <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-900 text-xs font-mono font-bold rounded">
+                                          {ticket.key}
+                                        </span>
+                                        {ticket.parent && (
+                                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded border border-purple-200">
+                                            Parent: [{ticket.parent.key}] {ticket.parent.summary}
+                                          </span>
+                                        )}
+                                        <span className="text-xs font-medium text-gray-500">
+                                          Assignee: <strong className="text-gray-800">{ticket.assignee}</strong>
+                                          {ticket.assigneeEmail ? ` (${ticket.assigneeEmail})` : ''}
+                                        </span>
+                                      </div>
+
+                                      <p className="text-sm font-semibold text-gray-900 truncate">
+                                        {ticket.summary}
+                                      </p>
+
+                                      {ticket.description && (
+                                        <p className="text-xs text-gray-500 line-clamp-1">
+                                          {ticket.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2 flex-shrink-0 text-xs self-start md:self-center">
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200 font-medium">
+                                      {ticket.issueType}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded border border-amber-200 font-medium">
+                                      {ticket.priority}
+                                    </span>
+                                    <span className={`px-2.5 py-1 font-semibold rounded-full text-xs ${
+                                      ticket.status === 'Done' || ticket.status === 'Resolved' || ticket.statusCategory === 'Done'
+                                        ? 'bg-green-100 text-green-800 border border-green-200'
+                                        : 'bg-blue-50 text-blue-800 border border-blue-200'
+                                    }`}>
+                                      {ticket.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
