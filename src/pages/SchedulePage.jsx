@@ -1,8 +1,8 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults } from '../api/api';
+import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, connectJiraAccount, getJiraProjects, getJiraTickets, importJiraTicketsToSchedule } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 
@@ -250,6 +250,112 @@ const SchedulePage = () => {
 
   const [selectedExcelFiles, setSelectedExcelFiles] = useState([]);
   const excelFileInputRef = React.useRef(null);
+
+  // ── Jira Integration State & Handlers ──
+  const [isJiraModalOpen, setIsJiraModalOpen] = useState(false);
+  const [jiraConfig, setJiraConfig] = useState({
+    domainUrl: import.meta.env.VITE_JIRA_BASE_URL || '',
+    email: '',
+    apiToken: ''
+  });
+  const [isJiraConnected, setIsJiraConnected] = useState(false);
+  const [jiraUser, setJiraUser] = useState(null);
+  const [jiraProjects, setJiraProjects] = useState([]);
+  const [selectedJiraProject, setSelectedJiraProject] = useState('');
+  const [jiraTickets, setJiraTickets] = useState([]);
+  const [selectedTicketKeys, setSelectedTicketKeys] = useState([]);
+  const [loadingJiraConnect, setLoadingJiraConnect] = useState(false);
+  const [loadingJiraTickets, setLoadingJiraTickets] = useState(false);
+  const [importingJiraTickets, setImportingJiraTickets] = useState(false);
+  const [jiraActiveTab, setJiraActiveTab] = useState('connect');
+  const [jiraImportPlanId, setJiraImportPlanId] = useState('');
+
+  const handleJiraConnect = async (e) => {
+    if (e) e.preventDefault();
+    if (!jiraConfig.email || !jiraConfig.apiToken) {
+      setSchedulePopup({ message: 'Please enter your Jira Email and API Token.', type: 'error' });
+      return;
+    }
+    setLoadingJiraConnect(true);
+    try {
+      const res = await connectJiraAccount(jiraConfig);
+      if (res.data?.success) {
+        setIsJiraConnected(true);
+        setJiraUser(res.data.user);
+        setJiraProjects(res.data.projects || []);
+        if (res.data.projects?.length > 0) {
+          setSelectedJiraProject(res.data.projects[0].key);
+        }
+        setJiraActiveTab('tickets');
+        setSchedulePopup({ message: `Successfully connected to Jira as ${res.data.user?.displayName || 'User'}!`, type: 'success' });
+      } else {
+        setSchedulePopup({ message: res.data?.message || 'Failed to connect Jira.', type: 'error' });
+      }
+    } catch (err) {
+      setSchedulePopup({ message: err.response?.data?.message || 'Jira connection error.', type: 'error' });
+    } finally {
+      setLoadingJiraConnect(false);
+    }
+  };
+
+  const handleFetchJiraTickets = async () => {
+    if (!jiraConfig.email || !jiraConfig.apiToken) {
+      setSchedulePopup({ message: 'Please connect your Jira account first.', type: 'error' });
+      return;
+    }
+    setLoadingJiraTickets(true);
+    try {
+      const res = await getJiraTickets({
+        domainUrl: jiraConfig.domainUrl,
+        email: jiraConfig.email,
+        apiToken: jiraConfig.apiToken,
+        projectKey: selectedJiraProject
+      });
+      if (res.data?.success) {
+        setJiraTickets(res.data.issues || []);
+        setSelectedTicketKeys([]);
+        setSchedulePopup({ message: `Fetched ${res.data.issues?.length || 0} tickets from Jira.`, type: 'success' });
+      } else {
+        setSchedulePopup({ message: res.data?.message || 'Failed to fetch Jira tickets.', type: 'error' });
+      }
+    } catch (err) {
+      setSchedulePopup({ message: err.response?.data?.message || 'Error fetching tickets.', type: 'error' });
+    } finally {
+      setLoadingJiraTickets(false);
+    }
+  };
+
+  const handleImportJiraTickets = async () => {
+    const targetPlanId = jiraImportPlanId || formData.plan_id;
+    if (!targetPlanId) {
+      setSchedulePopup({ message: 'Please select a Plan to import tickets into.', type: 'error' });
+      return;
+    }
+    if (selectedTicketKeys.length === 0) {
+      setSchedulePopup({ message: 'Please select at least one ticket to import.', type: 'error' });
+      return;
+    }
+    const ticketsToImport = jiraTickets.filter(t => selectedTicketKeys.includes(t.key));
+    setImportingJiraTickets(true);
+    try {
+      const res = await importJiraTicketsToSchedule({
+        plan_id: targetPlanId,
+        tickets: ticketsToImport
+      });
+      if (res.data?.success) {
+        setSchedulePopup({ message: res.data.message || 'Tickets imported successfully to Schedule!', type: 'success' });
+        setIsJiraModalOpen(false);
+        setSelectedTicketKeys([]);
+        fetchData();
+      } else {
+        setSchedulePopup({ message: res.data?.message || 'Error importing tickets.', type: 'error' });
+      }
+    } catch (err) {
+      setSchedulePopup({ message: err.response?.data?.message || 'Error importing tickets.', type: 'error' });
+    } finally {
+      setImportingJiraTickets(false);
+    }
+  };
   
   const handleDragOverExcel = (e) => {
     e.preventDefault();
@@ -887,7 +993,22 @@ const SchedulePage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setIsJiraModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm transition-all duration-200"
+          >
+            <LinkIcon className="w-4 h-4 mr-2" />
+            Connect Jira / Import Tickets
+            {isJiraConnected && (
+              <span className="ml-2 w-2.5 h-2.5 rounded-full bg-green-400 inline-block" title="Jira Connected" />
+            )}
+          </button>
+        )}
+      </div>
 
       {canManage && (
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -1900,6 +2021,350 @@ const SchedulePage = () => {
                 <span className="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-md text-sm font-medium border border-green-200">
                   <CheckCircle size={16} className="mr-1.5 text-green-600" /> Feedback Submitted
                 </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Jira Integration & Ticket Import Modal ── */}
+      {isJiraModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-light-background rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden border border-gray-200">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-600 rounded-lg text-white">
+                  <LinkIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Atlassian Jira Cloud Integration</h3>
+                  <p className="text-xs text-slate-400">Connect account and import issues into KT Schedule</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                {isJiraConnected && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-900 text-emerald-300 border border-emerald-700">
+                    <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+                    Connected
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsJiraModalOpen(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Sub-Header Tabs */}
+            <div className="border-b border-gray-200 bg-gray-50 px-6 flex space-x-6">
+              <button
+                type="button"
+                onClick={() => setJiraActiveTab('connect')}
+                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
+                  jiraActiveTab === 'connect'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>1. Connect Account</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setJiraActiveTab('tickets')}
+                disabled={!isJiraConnected}
+                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
+                  jiraActiveTab === 'tickets'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>2. Fetch & Import Tickets</span>
+                {jiraTickets.length > 0 && (
+                  <span className="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                    {jiraTickets.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              {jiraActiveTab === 'connect' && (
+                <form onSubmit={handleJiraConnect} className="space-y-4 max-w-xl mx-auto py-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                      Jira Domain URL
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      value={jiraConfig.domainUrl}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, domainUrl: e.target.value })}
+                      placeholder="https://your-domain.atlassian.net"
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-secondary-text mt-1">Pre-filled with your Atlassian Jira cloud workspace URL.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                      Jira User Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={jiraConfig.email}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
+                      placeholder="e.g. user@domain.com"
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1 flex justify-between">
+                      <span>Jira API Token</span>
+                      <a
+                        href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline flex items-center font-normal lowercase"
+                      >
+                        Create API Token <ExternalLink className="w-3 h-3 ml-1" />
+                      </a>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={jiraConfig.apiToken}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
+                      placeholder="Paste your Atlassian API Token..."
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-blue-500 font-mono"
+                    />
+                  </div>
+
+                  {jiraUser && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center space-x-3">
+                      {jiraUser.avatarUrl ? (
+                        <img src={jiraUser.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-emerald-200 flex items-center justify-center font-bold text-emerald-800">
+                          {jiraUser.displayName?.[0] || 'U'}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-emerald-900">{jiraUser.displayName}</p>
+                        <p className="text-xs text-emerald-700">{jiraUser.emailAddress}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex justify-end space-x-3">
+                    <button
+                      type="submit"
+                      disabled={loadingJiraConnect}
+                      className="inline-flex items-center px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
+                    >
+                      {loadingJiraConnect ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Authenticating...
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4 mr-2" /> Connect & Save Credentials
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {jiraActiveTab === 'tickets' && (
+                <div className="space-y-4">
+                  {/* Selectors Bar */}
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                        Select Jira Project
+                      </label>
+                      <CustomSelect
+                        className="w-full p-2 border border-light-border rounded-md text-sm bg-white"
+                        value={selectedJiraProject}
+                        onChange={(e) => setSelectedJiraProject(e.target.value)}
+                      >
+                        {jiraProjects.length === 0 ? (
+                          <option value="">No projects available</option>
+                        ) : (
+                          jiraProjects.map((p) => (
+                            <option key={p.id} value={p.key}>
+                              {p.name} ({p.key})
+                            </option>
+                          ))
+                        )}
+                      </CustomSelect>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                        Target KT Plan (Import To)
+                      </label>
+                      <CustomSelect
+                        className="w-full p-2 border border-light-border rounded-md text-sm bg-white"
+                        value={jiraImportPlanId || formData.plan_id}
+                        onChange={(e) => setJiraImportPlanId(e.target.value)}
+                      >
+                        <option value="">--- Select Plan ---</option>
+                        {plans.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.application_name}
+                          </option>
+                        ))}
+                      </CustomSelect>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleFetchJiraTickets}
+                      disabled={loadingJiraTickets || !selectedJiraProject}
+                      className="inline-flex items-center justify-center px-4 py-2 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white rounded-md text-sm font-medium transition-colors"
+                    >
+                      {loadingJiraTickets ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Fetching...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2" /> Fetch Tickets
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Tickets List Table */}
+                  <div className="border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-100 px-4 py-2.5 flex justify-between items-center border-b border-gray-200 text-xs font-semibold text-gray-600">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          className="rounded text-blue-600 focus:ring-blue-500"
+                          checked={jiraTickets.length > 0 && selectedTicketKeys.length === jiraTickets.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedTicketKeys(jiraTickets.map((t) => t.key));
+                            } else {
+                              setSelectedTicketKeys([]);
+                            }
+                          }}
+                        />
+                        <span>Select All ({selectedTicketKeys.length}/{jiraTickets.length})</span>
+                      </div>
+                      <span>Total Issues: {jiraTickets.length}</span>
+                    </div>
+
+                    <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
+                      {jiraTickets.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500 text-sm">
+                          {loadingJiraTickets ? (
+                            <div className="flex flex-col items-center">
+                              <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mb-2" />
+                              Fetching Jira tickets...
+                            </div>
+                          ) : (
+                            'No tickets loaded yet. Select a project and click "Fetch Tickets".'
+                          )}
+                        </div>
+                      ) : (
+                        jiraTickets.map((ticket) => {
+                          const isSelected = selectedTicketKeys.includes(ticket.key);
+                          return (
+                            <div
+                              key={ticket.key}
+                              className={`p-3.5 flex items-center justify-between hover:bg-blue-50 transition-colors cursor-pointer ${
+                                isSelected ? 'bg-blue-50/70' : ''
+                              }`}
+                              onClick={() => {
+                                if (isSelected) {
+                                  setSelectedTicketKeys(selectedTicketKeys.filter((k) => k !== ticket.key));
+                                } else {
+                                  setSelectedTicketKeys([...selectedTicketKeys, ticket.key]);
+                                }
+                              }}
+                            >
+                              <div className="flex items-center space-x-3 flex-1 min-w-0 pr-4">
+                                <input
+                                  type="checkbox"
+                                  className="rounded text-blue-600 focus:ring-blue-500"
+                                  checked={isSelected}
+                                  onChange={() => {}}
+                                />
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-mono font-bold rounded">
+                                  {ticket.key}
+                                </span>
+                                <div className="truncate">
+                                  <p className="text-sm font-semibold text-gray-900 truncate">
+                                    {ticket.summary}
+                                  </p>
+                                  {ticket.description && (
+                                    <p className="text-xs text-gray-500 truncate">
+                                      {ticket.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center space-x-3 flex-shrink-0 text-xs">
+                                <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200">
+                                  {ticket.issueType}
+                                </span>
+                                <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded border border-amber-200 font-medium">
+                                  {ticket.priority}
+                                </span>
+                                <span className="px-2.5 py-1 bg-green-100 text-green-800 font-semibold rounded-full text-xs">
+                                  {ticket.status}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => setIsJiraModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-100"
+              >
+                Close
+              </button>
+
+              {jiraActiveTab === 'tickets' && (
+                <button
+                  type="button"
+                  onClick={handleImportJiraTickets}
+                  disabled={importingJiraTickets || selectedTicketKeys.length === 0}
+                  className="inline-flex items-center px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-md text-sm font-medium transition-colors shadow-sm"
+                >
+                  {importingJiraTickets ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Importing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" /> Import {selectedTicketKeys.length} Ticket(s) to Schedule
+                    </>
+                  )}
+                </button>
               )}
             </div>
           </div>
