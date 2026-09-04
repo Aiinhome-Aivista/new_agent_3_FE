@@ -1585,9 +1585,7 @@ const SchedulePage = () => {
                           </button>
                         </div>
                         
-                        <div className="text-xs text-secondary-text mt-2 italic bg-purple-100/50 p-2 rounded border border-purple-100 shadow-sm">
-                          * Disclaimer: Jira ticket integration and tracking for Shadow Resourcing will be available in a future implementation.
-                        </div>
+
                       </div>
                     )}
 
