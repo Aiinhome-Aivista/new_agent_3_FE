@@ -354,6 +354,16 @@ const KnowledgeBasePage = () => {
                     )}
                   </button>
                 </form>
+
+                <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                  <p className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                    <Video size={16} className="text-primary-orange" />
+                    Video Transcript Extraction
+                  </p>
+                  <p className="text-xs text-secondary-text mt-1 italic">
+                    * Disclaimer: Transcript extraction from video URLs will be available in a future implementation.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
