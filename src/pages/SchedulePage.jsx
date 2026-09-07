@@ -6,6 +6,7 @@ import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, F
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import * as XLSX from 'xlsx-js-style';
+import ExcelJS from 'exceljs';
 
 const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn, titleFn }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -1063,9 +1064,6 @@ const SchedulePage = () => {
       const plan = plans.find(p => String(p.id) === String(formData.plan_id));
       const project = projects.find(p => String(p.id) === String(formData.project_id));
       
-      const wsData = [];
-      const merges = [];
-      
       let parsedConfig = plan?.project_config || {};
       if (typeof parsedConfig === 'string') {
         try {
@@ -1075,7 +1073,6 @@ const SchedulePage = () => {
         }
       }
       
-      // 1st Heading (Professional Office Format)
       const projectName = project?.name || 'N/A';
       let trackName = 'N/A';
       if (parsedConfig?._meta?.trackId) {
@@ -1088,20 +1085,22 @@ const SchedulePage = () => {
       }
       const planName = `${plan?.application_name || 'Generated Plan'} (${plan?.plan_type || 'KT'})`;
 
-      wsData.push([`Project Name: ${projectName}`, "", "", "", "", "", "", "", ""]);
-      wsData.push([`Track Name: ${trackName}`, "", "", "", "", "", "", "", ""]);
-      wsData.push([`Plan Name: ${planName}`, "", "", "", "", "", "", "", ""]);
-      wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", "", "", "", "", "", "", ""]);
-      wsData.push(["", "", "", "", "", "", "", "", ""]); 
-      
-      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } });
-      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 8 } });
-      merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 8 } });
-      merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 8 } });
-      merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 8 } });
-      
-      wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)", "Knowledge Giver", "Knowledge Receiver", "Start Date", "Meeting Link", "SUD Document", "Final Assessment"]);
-      
+      let giversList = Array.isArray(knowledgeGivers) ? [...knowledgeGivers] : [];
+      let receiversList = Array.isArray(stakeholders) ? [...stakeholders] : [];
+
+      if (giversList.length === 0 || receiversList.length === 0) {
+        try {
+          const [gRes, rRes] = await Promise.all([
+            getStakeholders('Outgoing SME (Knowledge Giver)'),
+            getStakeholders('Incoming Team Member (Knowledge Receiver)')
+          ]);
+          if (gRes?.data?.data && gRes.data.data.length > 0) giversList = gRes.data.data;
+          if (rRes?.data?.data && rRes.data.data.length > 0) receiversList = rRes.data.data;
+        } catch (e) {
+          console.warn('Stakeholders re-fetch note:', e);
+        }
+      }
+
       const excludedKeywords = [
         'assessment evaluation window',
         'shadow experience',
@@ -1123,27 +1122,210 @@ const SchedulePage = () => {
           return { ...t, clean_day: day };
         });
 
-      let currentRowIndex = 6;
-      let startDayRow = 6;
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'KT Manager';
+      wb.created = new Date();
+      wb.calcProperties.fullCalcOnLoad = true;
+
+      // ==========================================
+      // SHEET 1: Stakeholders Dropdown Sheet
+      // ==========================================
+      const ws1 = wb.addWorksheet('Sheet1', { views: [{ showGridLines: true }] });
+      ws1.columns = [
+        { header: 'Name', key: 'name', width: 28 },
+        { header: 'Knowledge Giver', key: 'giver', width: 24 },
+        { header: 'Knowledge Receiver', key: 'receiver', width: 24 },
+        { header: '_GiverAccum', key: 'giverAccum', width: 10, hidden: true },
+        { header: '_ReceiverAccum', key: 'receiverAccum', width: 10, hidden: true }
+      ];
+
+      const headerRow1 = ws1.getRow(1);
+      headerRow1.height = 26;
+      headerRow1.eachCell((cell, colNumber) => {
+        if (colNumber <= 3) {
+          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD04A02' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+          };
+        }
+      });
+
+      let rIdx = 2;
+      // Add Knowledge Givers rows (default: 'No')
+      giversList.forEach(giver => {
+        const row = ws1.addRow({
+          name: giver.name || 'Unknown Giver',
+          giver: 'No',
+          receiver: ''
+        });
+        const giverCell = row.getCell(2);
+        giverCell.dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"Yes,No"']
+        };
+        if (rIdx === 2) {
+          row.getCell(4).value = { formula: 'IF(B2="Yes", A2, "")' };
+          row.getCell(5).value = { formula: 'IF(C2="Yes", A2, "")' };
+        } else {
+          row.getCell(4).value = { formula: `IF(B${rIdx}="Yes", IF(D${rIdx-1}="", A${rIdx}, D${rIdx-1} & ", " & A${rIdx}), D${rIdx-1})` };
+          row.getCell(5).value = { formula: `IF(C${rIdx}="Yes", IF(E${rIdx-1}="", A${rIdx}, E${rIdx-1} & ", " & A${rIdx}), E${rIdx-1})` };
+        }
+        rIdx++;
+      });
+
+      // Add Knowledge Receivers rows (default: 'No')
+      receiversList.forEach(receiver => {
+        const row = ws1.addRow({
+          name: receiver.name || 'Unknown Receiver',
+          giver: '',
+          receiver: 'No'
+        });
+        const receiverCell = row.getCell(3);
+        receiverCell.dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"Yes,No"']
+        };
+        if (rIdx === 2) {
+          row.getCell(4).value = { formula: 'IF(B2="Yes", A2, "")' };
+          row.getCell(5).value = { formula: 'IF(C2="Yes", A2, "")' };
+        } else {
+          row.getCell(4).value = { formula: `IF(B${rIdx}="Yes", IF(D${rIdx-1}="", A${rIdx}, D${rIdx-1} & ", " & A${rIdx}), D${rIdx-1})` };
+          row.getCell(5).value = { formula: `IF(C${rIdx}="Yes", IF(E${rIdx-1}="", A${rIdx}, E${rIdx-1} & ", " & A${rIdx}), E${rIdx-1})` };
+        }
+        rIdx++;
+      });
+
+      const lastRowSheet1 = Math.max(rIdx - 1, 2);
+
+      for (let r = 2; r <= lastRowSheet1; r++) {
+        const row = ws1.getRow(r);
+        row.height = 22;
+        for (let col = 1; col <= 3; col++) {
+          const cell = row.getCell(col);
+          cell.font = { name: 'Calibri', size: 11 };
+          cell.alignment = {
+            vertical: 'middle',
+            horizontal: col === 1 ? 'left' : 'center'
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+          };
+        }
+      }
+
+      // ==========================================
+      // SHEET 2: KT Schedule Table
+      // ==========================================
+      const ws2 = wb.addWorksheet('Sheet2', { views: [{ showGridLines: true }] });
+      ws2.columns = [
+        { width: 20 }, // Day / Section
+        { width: 68 }, // Topic
+        { width: 18 }, // Duration
+        { width: 28 }, // Knowledge Giver
+        { width: 28 }, // Knowledge Receiver
+        { width: 18 }, // Start Date
+        { width: 30 }, // Meeting Link
+        { width: 25 }, // SUD Document
+        { width: 25 }  // Final Assessment
+      ];
+
+      // Rows 1 - 4: Metadata Headers
+      const metaRows = [
+        `Project Name: ${projectName}`,
+        `Track Name: ${trackName}`,
+        `Plan Name: ${planName}`,
+        `Export Date: ${new Date().toLocaleDateString()}`
+      ];
+
+      metaRows.forEach((text, i) => {
+        const rIdx = i + 1;
+        const row = ws2.getRow(rIdx);
+        row.getCell(1).value = text;
+        row.height = 24;
+        ws2.mergeCells(rIdx, 1, rIdx, 9);
+        row.getCell(1).font = { name: 'Calibri', size: 13, bold: true };
+        row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+
+      // Row 5: Empty spacer
+      ws2.getRow(5).height = 14;
+
+      // Row 6: Schedule Table Header
+      const tableHeaders = [
+        "Day / Section",
+        "Topic / Sub-topic Name",
+        "Duration (Hours)",
+        "Knowledge Giver",
+        "Knowledge Receiver",
+        "Start Date",
+        "Meeting Link",
+        "SUD Document",
+        "Final Assessment"
+      ];
+      const headerRow2 = ws2.getRow(6);
+      headerRow2.height = 26;
+      tableHeaders.forEach((h, colIdx) => {
+        const cell = headerRow2.getCell(colIdx + 1);
+        cell.value = h;
+        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD04A02' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
+      });
+
+      let currentRowIndex = 7;
+      let startDayRow = 7;
       let currentDay = cleanedTopics[0]?.clean_day;
 
       cleanedTopics.forEach((t, idx) => {
-        wsData.push([
-          t.clean_day,
-          t.topic_name,
-          t.estimated_duration_hours || 'N/A',
-          "",
-          "",
-          "",
-          "",
-          "",
-          ""
-        ]);
+        const row = ws2.getRow(currentRowIndex);
+        row.height = 22;
+
+        row.getCell(1).value = t.clean_day;
+        row.getCell(2).value = t.topic_name;
+        row.getCell(3).value = t.estimated_duration_hours || 'N/A';
+        row.getCell(4).value = { formula: `Sheet1!$D$${lastRowSheet1}` };
+        row.getCell(5).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+        row.getCell(6).value = '';
+        row.getCell(7).value = '';
+        row.getCell(8).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+        row.getCell(9).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+
+        for (let c = 1; c <= 9; c++) {
+          const cell = row.getCell(c);
+          cell.font = { name: 'Calibri', size: 11 };
+          cell.alignment = {
+            vertical: 'middle',
+            horizontal: c === 2 ? 'left' : 'center',
+            wrapText: true
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+          };
+        }
 
         if (idx > 0) {
           if (t.clean_day !== currentDay) {
             if (currentRowIndex - 1 > startDayRow) {
-              merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex - 1, c: 0 } });
+              ws2.mergeCells(startDayRow, 1, currentRowIndex - 1, 1);
             }
             startDayRow = currentRowIndex;
             currentDay = t.clean_day;
@@ -1152,59 +1334,26 @@ const SchedulePage = () => {
         
         if (idx === cleanedTopics.length - 1) {
           if (currentRowIndex > startDayRow) {
-            merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex, c: 0 } });
+            ws2.mergeCells(startDayRow, 1, currentRowIndex, 1);
           }
         }
         currentRowIndex++;
       });
 
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      ws['!merges'] = merges;
-      ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 20 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
-      ws['!sheetViews'] = [{ showGridLines: false }];
-      
-      const thinBorder = { style: "thin", color: { rgb: "CCCCCC" } };
-
-      for (let r = 0; r < wsData.length; r++) {
-        for (let c = 0; c < 9; c++) {
-          const cellRef = XLSX.utils.encode_cell({ r, c });
-          if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
-          
-          let cellStyle = {
-            font: { name: "Calibri", sz: 11 },
-            fill: { fgColor: { rgb: "FFFFFF" } },
-            alignment: { vertical: "center", wrapText: true },
-            border: {
-              top: r >= 5 ? thinBorder : null,
-              bottom: r >= 5 ? thinBorder : null,
-              left: r >= 5 ? thinBorder : null,
-              right: r >= 5 ? thinBorder : null
-            }
-          };
-
-          if (r < 5) {
-            cellStyle.alignment.horizontal = "center";
-            cellStyle.font.bold = true;
-            cellStyle.font.sz = 14;
-          } else if (r === 5) {
-            cellStyle.fill = { fgColor: { rgb: "D04A02" } }; // PwC orange
-            cellStyle.font.color = { rgb: "FFFFFF" };
-            cellStyle.font.bold = true;
-            cellStyle.alignment.horizontal = "center";
-          } else {
-            cellStyle.alignment.horizontal = c === 1 ? "left" : "center";
-          }
-
-          ws[cellRef].s = cellStyle;
-        }
-      }
-
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "KT_Schedule_Template");
-      XLSX.writeFile(wb, `Schedule_Template_${planName.replace(/\s+/g, '_')}.xlsx`);
+      // Write and download Excel workbook
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = `Schedule_Template_${planName.replace(/\s+/g, '_')}.xlsx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(downloadUrl);
 
     } catch (err) {
-      console.error(err);
+      console.error('Error generating template:', err);
       setSchedulePopup({ message: 'Error generating template', type: 'error' });
     } finally {
       endOperation('download-template');
