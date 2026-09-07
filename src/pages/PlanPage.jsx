@@ -2,7 +2,7 @@ import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
-import { getProjects, createProject, getProjectById, updateProject } from '../api/projects';
+import { getProjects, createProject, getProjectById, updateProject, uploadProjectTemplate } from '../api/projects';
 import Loader from '../components/Loader';
 import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -1557,6 +1557,14 @@ const PlanPage = () => {
     const file = uploadModalConfig.file;
     setUploadModalConfig(null);
     setIsUploadingTemplate(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await uploadProjectTemplate(formData);
+    } catch (err) {
+      console.error("Failed to upload template to S3:", err);
+    }
     
     const reader = new FileReader();
     reader.onload = async (evt) => {
