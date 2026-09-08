@@ -1227,17 +1227,31 @@ const SchedulePage = () => {
       // SHEET 2: KT Schedule Table
       // ==========================================
       const ws2 = wb.addWorksheet('Sheet2', { views: [{ showGridLines: true }] });
-      ws2.columns = [
+      const ws2Columns = [
         { width: 20 }, // Day / Section
         { width: 68 }, // Topic
         { width: 18 }, // Duration
         { width: 28 }, // Knowledge Giver
         { width: 28 }, // Knowledge Receiver
         { width: 18 }, // Start Date
-        { width: 30 }, // Meeting Link
-        { width: 25 }, // SUD Document
-        { width: 25 }  // Final Assessment
+        { width: 30 }  // Meeting Link
       ];
+      if (isSudMandatory) ws2Columns.push({ width: 25 }); // SUD Document
+      if (isFinalAssessmentMandatory) ws2Columns.push({ width: 25 }); // Final Assessment
+      ws2.columns = ws2Columns;
+
+      // Row 6: Schedule Table Header Definition
+      const tableHeaders = [
+        "Day / Section",
+        "Topic / Sub-topic Name",
+        "Duration (Hours)",
+        "Knowledge Giver",
+        "Knowledge Receiver",
+        "Start Date",
+        "Meeting Link"
+      ];
+      if (isSudMandatory) tableHeaders.push("SUD Document");
+      if (isFinalAssessmentMandatory) tableHeaders.push("Final Assessment");
 
       // Rows 1 - 4: Metadata Headers
       const metaRows = [
@@ -1252,26 +1266,18 @@ const SchedulePage = () => {
         const row = ws2.getRow(rIdx);
         row.getCell(1).value = text;
         row.height = 24;
-        ws2.mergeCells(rIdx, 1, rIdx, 9);
+        ws2.mergeCells(rIdx, 1, rIdx, tableHeaders.length);
         row.getCell(1).font = { name: 'Calibri', size: 13, bold: true };
         row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
       });
 
-      // Row 5: Empty spacer
-      ws2.getRow(5).height = 14;
-
-      // Row 6: Schedule Table Header
-      const tableHeaders = [
-        "Day / Section",
-        "Topic / Sub-topic Name",
-        "Duration (Hours)",
-        "Knowledge Giver",
-        "Knowledge Receiver",
-        "Start Date",
-        "Meeting Link",
-        "SUD Document",
-        "Final Assessment"
-      ];
+      // Row 5: Instruction
+      const instructionRow = ws2.getRow(5);
+      instructionRow.getCell(1).value = `Note: To edit Knowledge Giver/Receiver directly, copy the cell and 'Paste as Values' first, or type a new name to overwrite.\nStart Date Format: DD-MM-YYYY HH:MM (e.g., 25-10-2026 14:30)`;
+      instructionRow.height = 32;
+      ws2.mergeCells(5, 1, 5, tableHeaders.length);
+      instructionRow.getCell(1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF555555' } };
+      instructionRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
       const headerRow2 = ws2.getRow(6);
       headerRow2.height = 26;
       tableHeaders.forEach((h, colIdx) => {
@@ -1303,10 +1309,17 @@ const SchedulePage = () => {
         row.getCell(5).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
         row.getCell(6).value = '';
         row.getCell(7).value = '';
-        row.getCell(8).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
-        row.getCell(9).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+        let colIdx = 8;
+        if (isSudMandatory) {
+          row.getCell(colIdx).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+          colIdx++;
+        }
+        if (isFinalAssessmentMandatory) {
+          row.getCell(colIdx).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+          colIdx++;
+        }
 
-        for (let c = 1; c <= 9; c++) {
+        for (let c = 1; c <= tableHeaders.length; c++) {
           const cell = row.getCell(c);
           cell.font = { name: 'Calibri', size: 11 };
           cell.alignment = {
@@ -1326,6 +1339,16 @@ const SchedulePage = () => {
           if (t.clean_day !== currentDay) {
             if (currentRowIndex - 1 > startDayRow) {
               ws2.mergeCells(startDayRow, 1, currentRowIndex - 1, 1);
+              ws2.getCell(startDayRow, 1).alignment = { vertical: 'middle', horizontal: 'center' };
+              
+              ws2.mergeCells(startDayRow, 4, currentRowIndex - 1, 4);
+              ws2.getCell(startDayRow, 4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+              
+              ws2.mergeCells(startDayRow, 5, currentRowIndex - 1, 5);
+              ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+              
+              ws2.mergeCells(startDayRow, 7, currentRowIndex - 1, 7);
+              ws2.getCell(startDayRow, 7).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
             }
             startDayRow = currentRowIndex;
             currentDay = t.clean_day;
@@ -1335,10 +1358,34 @@ const SchedulePage = () => {
         if (idx === cleanedTopics.length - 1) {
           if (currentRowIndex > startDayRow) {
             ws2.mergeCells(startDayRow, 1, currentRowIndex, 1);
+            ws2.getCell(startDayRow, 1).alignment = { vertical: 'middle', horizontal: 'center' };
+            
+            ws2.mergeCells(startDayRow, 4, currentRowIndex, 4);
+            ws2.getCell(startDayRow, 4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            
+            ws2.mergeCells(startDayRow, 5, currentRowIndex, 5);
+            ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            
+            ws2.mergeCells(startDayRow, 7, currentRowIndex, 7);
+            ws2.getCell(startDayRow, 7).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
           }
         }
         currentRowIndex++;
       });
+
+      // Merge Start Date column (column 6) for all data rows
+      if (currentRowIndex > 7) {
+        ws2.mergeCells(7, 6, currentRowIndex - 1, 6);
+        const startDateCell = ws2.getCell(7, 6);
+        startDateCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        
+        if (isFinalAssessmentMandatory) {
+          const faIdx = tableHeaders.indexOf("Final Assessment") + 1;
+          ws2.mergeCells(7, faIdx, currentRowIndex - 1, faIdx);
+          const faCell = ws2.getCell(7, faIdx);
+          faCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        }
+      }
 
       // Write and download Excel workbook
       const buffer = await wb.xlsx.writeBuffer();
