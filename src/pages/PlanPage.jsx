@@ -2,7 +2,7 @@ import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx-js-style';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
-import { getProjects, createProject, getProjectById, updateProject } from '../api/projects';
+import { getProjects, createProject, getProjectById, updateProject, uploadProjectTemplate } from '../api/projects';
 import Loader from '../components/Loader';
 import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit, Download } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -601,145 +601,6 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
       setLoadingTopics(false);
     }
   };
-  const handleExportExcel = () => {
-    if (!topics || topics.length === 0) {
-      showToast("No topics to export.", "error");
-      return;
-    }
-    
-    const wsData = [];
-    const merges = [];
-    
-    // 1st Heading (Professional Office Format)
-    const projectName = plan?.project_config?.name || projectNameFallback || 'N/A';
-    let trackName = 'N/A';
-    if (plan?.project_config?._meta?.trackId) {
-      const trk = plan.project_config.tracks?.find(t => t.id === plan.project_config._meta.trackId);
-      if (trk) trackName = trk.name;
-    } else if (plan?.project_config?.tracks?.[0]) {
-      trackName = plan.project_config.tracks[0].name;
-    } else {
-      trackName = plan?.application_name || 'N/A';
-    }
-    const planName = `${plan?.application_name || 'Generated Plan'} (${plan?.plan_type || 'KT'})`;
-
-    wsData.push([`Project Name: ${projectName}`, "", "", "", "", "", "", "", ""]);
-    wsData.push([`Track Name: ${trackName}`, "", "", "", "", "", "", "", ""]);
-    wsData.push([`Plan Name: ${planName}`, "", "", "", "", "", "", "", ""]);
-    wsData.push([`Export Date: ${new Date().toLocaleDateString()}`, "", "", "", "", "", "", "", ""]);
-    wsData.push(["", "", "", "", "", "", "", "", ""]); 
-    
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } });
-    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 8 } });
-    merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 8 } });
-    merges.push({ s: { r: 3, c: 0 }, e: { r: 3, c: 8 } });
-    merges.push({ s: { r: 4, c: 0 }, e: { r: 4, c: 8 } });
-    
-    wsData.push(["Day / Section", "Topic / Sub-topic Name", "Duration (Hours)", "Knowledge Giver", "Knowledge Receiver", "Start Date", "Meeting Link", "SUD Document", "Final Assessment"]);
-    
-    const excludedKeywords = [
-      'assessment evaluation window',
-      'shadow experience',
-      'shadow phase',
-      'shadow resourcing',
-      'lead the project independently',
-      'lead phase',
-      'lead resourcing'
-    ];
-
-    const cleanedTopics = topics
-      .filter(t => {
-        const text = ((t.topic_name || '') + ' ' + (t.day_label || '')).toLowerCase();
-        return !excludedKeywords.some(kw => text.includes(kw));
-      })
-      .map(t => {
-        let day = t.day_label || 'General';
-        day = day.replace(/:\s*\[Time:.*?\]/gi, '').replace(/\[Time:.*?\]/gi, '').trim();
-        return { ...t, clean_day: day };
-      });
-
-    let currentRowIndex = 6;
-    let startDayRow = 6;
-    let currentDay = cleanedTopics[0]?.clean_day;
-
-    cleanedTopics.forEach((t, idx) => {
-      wsData.push([
-        t.clean_day,
-        t.topic_name,
-        t.estimated_duration_hours || 'N/A',
-        "",
-        "",
-        "",
-        "",
-        "",
-        ""
-      ]);
-
-      if (idx > 0) {
-        if (t.clean_day !== currentDay) {
-          if (currentRowIndex - 1 > startDayRow) {
-            merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex - 1, c: 0 } });
-          }
-          startDayRow = currentRowIndex;
-          currentDay = t.clean_day;
-        }
-      }
-      
-      if (idx === cleanedTopics.length - 1) {
-        if (currentRowIndex > startDayRow) {
-          merges.push({ s: { r: startDayRow, c: 0 }, e: { r: currentRowIndex, c: 0 } });
-        }
-      }
-      currentRowIndex++;
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!merges'] = merges;
-    ws['!cols'] = [{ wch: 20 }, { wch: 70 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 20 }, { wch: 30 }, { wch: 20 }, { wch: 20 }];
-    ws['!sheetViews'] = [{ showGridLines: false }];
-    
-    const thinBorder = { style: "thin", color: { rgb: "CCCCCC" } };
-
-    for (let r = 0; r < wsData.length; r++) {
-      for (let c = 0; c < 9; c++) {
-        const cellRef = XLSX.utils.encode_cell({ r, c });
-        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: '' };
-        
-        let cellStyle = {
-          font: { name: "Calibri", sz: 11 },
-          fill: { fgColor: { rgb: "FFFFFF" } },
-          alignment: { vertical: "center", wrapText: true },
-          border: {
-            top: r >= 5 ? thinBorder : null,
-            bottom: r >= 5 ? thinBorder : null,
-            left: r >= 5 ? thinBorder : null,
-            right: r >= 5 ? thinBorder : null
-          }
-        };
-
-        if (r < 5) {
-          cellStyle.alignment.horizontal = "center";
-          cellStyle.font.bold = true;
-          cellStyle.font.sz = 14;
-        } else if (r === 5) {
-          cellStyle.fill = { fgColor: { rgb: "D04A02" } }; // PwC orange
-          cellStyle.font.color = { rgb: "FFFFFF" };
-          cellStyle.font.bold = true;
-          cellStyle.alignment.horizontal = "center";
-        } else {
-          cellStyle.alignment.horizontal = c === 1 ? "left" : "center";
-        }
-
-        ws[cellRef].s = cellStyle;
-      }
-    }
-    
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Plan Topics");
-    
-    const filename = `Plan_Topics_${planName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
-    XLSX.writeFile(wb, filename);
-  };
 
   return (
     <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -895,14 +756,6 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
               <div className="flex justify-between items-center mb-2">
                 <h4 className="text-sm font-semibold text-primary-text">Sessions / Topics Breakdown</h4>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={handleExportExcel}
-                    disabled={topics.length === 0}
-                    className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-green-600 border border-green-600 rounded hover:bg-green-50 disabled:opacity-50"
-                  >
-                    <FileUp size={14} className="mr-1" />
-                    Export Excel
-                  </button>
                   {(plan.status === 'draft' || canApprove) && (
                     <button
                       onClick={handleResync}
@@ -1548,6 +1401,14 @@ const PlanPage = () => {
     setUploadModalConfig(null);
     setIsUploadingTemplate(true);
     
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await uploadProjectTemplate(formData);
+    } catch (err) {
+      console.error("Failed to upload template to S3:", err);
+    }
+    
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -1557,19 +1418,19 @@ const PlanPage = () => {
         const ws = wb.Sheets[wsname];
         const aoaData = XLSX.utils.sheet_to_json(ws, { header: 1 });
         
-        if (aoaData.length <= 3) {
+        if (aoaData.length <= 1) {
           showToast("Template is empty", "error");
           setIsUploadingTemplate(false);
           return;
         }
 
         const projectsMap = {};
-        for (let i = 3; i < aoaData.length; i++) {
+        for (let i = 1; i < aoaData.length; i++) {
           const row = aoaData[i];
           if (!row || row.length === 0) continue;
           
           const pName = row[0];
-          if (!pName || pName === "Demo Project") continue;
+          if (!pName || pName === "Demo Project" || pName === "Project Name") continue;
           if (!projectsMap[pName]) projectsMap[pName] = { name: pName, tracks: [] };
           
           const tName = row[1];

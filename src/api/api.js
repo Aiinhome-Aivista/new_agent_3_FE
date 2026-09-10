@@ -193,4 +193,10 @@ export const askChatbot2 = (
 export const getChatHistory2 = (userId, contextId) =>
   api.get(`/chatbot2/history?user_id=${encodeURIComponent(userId)}&context_id=${encodeURIComponent(contextId)}`);
 
+// Jira Integration
+export const connectJiraAccount = (data) => api.post('/jira/connect', data);
+export const getJiraProjects = (data) => api.post('/jira/projects', data);
+export const getJiraTickets = (data) => api.post('/jira/tickets', data);
+export const importJiraTicketsToSchedule = (data) => api.post('/jira/import-schedule', data);
+
 export default api;

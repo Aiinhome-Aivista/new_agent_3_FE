@@ -15,3 +15,9 @@ export const getProjectById = async (id) => {
 export const updateProject = async (id, projectData) => {
   return api.put(`/projects/${id}`, projectData);
 };
+
+export const uploadProjectTemplate = async (formData) => {
+  return api.post('/projects/upload-template', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};

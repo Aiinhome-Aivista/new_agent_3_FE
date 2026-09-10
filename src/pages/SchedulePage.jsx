@@ -1,12 +1,14 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults } from '../api/api';
+import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, connectJiraAccount, getJiraProjects, getJiraTickets, importJiraTicketsToSchedule, getPlanTopicOptions } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
+import * as XLSX from 'xlsx-js-style';
+import ExcelJS from 'exceljs';
 
-const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn }) => {
+const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn, titleFn }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = React.useRef(null);
 
@@ -44,8 +46,9 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
               {options.map(opt => {
                 const isDisabled = isOptionDisabledFn ? isOptionDisabledFn(opt) : false;
                 const extraClass = optionClassFn ? optionClassFn(opt) : '';
+                const titleStr = titleFn ? titleFn(opt) : '';
                 return (
-                  <label key={opt.id} className={`flex items-center px-2 py-1.5 rounded ${isDisabled ? 'cursor-not-allowed' : 'hover:bg-light-background cursor-pointer'} ${extraClass}`}>
+                  <label key={opt.id} title={titleStr} className={`flex items-center px-2 py-1.5 rounded ${isDisabled ? 'cursor-not-allowed' : 'hover:bg-light-background cursor-pointer'} ${extraClass}`}>
                     <input
                       type="checkbox"
                       className={`rounded text-primary-orange focus:ring-orange-border mr-2 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -149,6 +152,86 @@ const SchedulePage = () => {
     });
   };
 
+  const getRequiredLRTickets = () => {
+    if (!formData.plan_id) return 0;
+    const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
+    if (!selectedPlan) return 0;
+    
+    const project = projects.find(p => p.id === selectedPlan.project_id);
+    if (!project || !project.config) return 0;
+
+    try {
+      const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
+      let planConfig = selectedPlan.project_config;
+      if (typeof planConfig === 'string') {
+        try { planConfig = JSON.parse(planConfig); } catch(e) {}
+      }
+      
+      let track = null;
+      if (planConfig && planConfig._meta && planConfig._meta.trackId) {
+        track = (config.tracks || []).find(t => String(t.id) === String(planConfig._meta.trackId));
+      }
+      if (!track) {
+        track = (config.tracks || []).find(t => 
+          selectedPlan.application_name.trim() === t.name.trim() || 
+          selectedPlan.application_name.includes(t.name.trim())
+        );
+      }
+
+      let activeOptions = null;
+      let activeInputs = null;
+      
+      if (track) {
+          activeOptions = track.options;
+          activeInputs = track.inputs;
+          if (track.modules && track.modules.length > 0) {
+              let module = null;
+              if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
+                  module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
+              }
+              if (!module) {
+                  module = track.modules.find(m => 
+                      selectedPlan.application_name.trim() === m.name.trim() || 
+                      selectedPlan.application_name.includes(m.name.trim())
+                  );
+              }
+              if (module && module.options) {
+                  activeOptions = module.options;
+                  activeInputs = module.inputs;
+              }
+          }
+      }
+      if (activeOptions && activeOptions.lr_ticket_resolving) {
+        return parseInt(activeInputs?.lr_ticket_resolving) || 0;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return 0;
+  };
+
+  const getLREligibilityReason = (stakeholderId) => {
+    if (isForcePushEnabled) return null;
+    const requiredTickets = getRequiredLRTickets();
+    if (requiredTickets <= 0) return null;
+
+    const stakeholder = stakeholders.find(s => Number(s.id) === Number(stakeholderId));
+    if (!stakeholder) return "Not found";
+
+    const solvedTickets = (jiraTickets || []).filter(t => {
+      const isDone = t.status === 'Done' || t.status === 'Resolved' || t.statusCategory === 'Done';
+      if (!isDone) return false;
+      const matchName = t.assignee && t.assignee.toLowerCase() === (stakeholder.name || '').toLowerCase();
+      const matchEmail = t.assigneeEmail && t.assigneeEmail.toLowerCase() === (stakeholder.email || '').toLowerCase();
+      return matchName || matchEmail;
+    });
+
+    if (solvedTickets.length < requiredTickets) {
+      return `Solved ${solvedTickets.length}/${requiredTickets} required Jira tickets`;
+    }
+    return null;
+  };
+
   const getAllowedLRStakeholders = () => {
     if (!formData.plan_id) return [];
     
@@ -250,7 +333,171 @@ const SchedulePage = () => {
 
   const [selectedExcelFiles, setSelectedExcelFiles] = useState([]);
   const excelFileInputRef = React.useRef(null);
-  
+
+  // ── Jira Integration State & Handlers ──
+  const [isJiraModalOpen, setIsJiraModalOpen] = useState(false);
+  const [jiraConfig, setJiraConfig] = useState(() => {
+    const saved = localStorage.getItem('jiraConfig');
+    return saved ? JSON.parse(saved) : {
+      domainUrl: import.meta.env.VITE_JIRA_BASE_URL || '',
+      email: '',
+      apiToken: ''
+    };
+  });
+  const [isJiraConnected, setIsJiraConnected] = useState(() => localStorage.getItem('isJiraConnected') === 'true');
+  const [jiraUser, setJiraUser] = useState(() => {
+    const saved = localStorage.getItem('jiraUser');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [jiraProjects, setJiraProjects] = useState(() => {
+    const saved = localStorage.getItem('jiraProjects');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selectedJiraProject, setSelectedJiraProject] = useState(() => localStorage.getItem('selectedJiraProject') || '');
+  const [jiraTickets, setJiraTickets] = useState(() => {
+    const saved = localStorage.getItem('jiraTickets');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [jiraParents, setJiraParents] = useState(() => {
+    const saved = localStorage.getItem('jiraParents');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selectedJiraParentKey, setSelectedJiraParentKey] = useState('');
+  const [selectedTicketKeys, setSelectedTicketKeys] = useState([]);
+  const [loadingJiraConnect, setLoadingJiraConnect] = useState(false);
+  const [loadingJiraTickets, setLoadingJiraTickets] = useState(false);
+  const [jiraActiveTab, setJiraActiveTab] = useState('connect');
+  const [jiraImportPlanId, setJiraImportPlanId] = useState('');
+  const [showJiraToken, setShowJiraToken] = useState(false);
+  const [autoFetchCountdown, setAutoFetchCountdown] = useState(30);
+
+  const handleJiraDisconnect = () => {
+    localStorage.removeItem('jiraConfig');
+    localStorage.removeItem('isJiraConnected');
+    localStorage.removeItem('jiraUser');
+    localStorage.removeItem('jiraProjects');
+    localStorage.removeItem('jiraTickets');
+    localStorage.removeItem('jiraParents');
+    localStorage.removeItem('selectedJiraProject');
+    setIsJiraConnected(false);
+    setJiraUser(null);
+    setJiraProjects([]);
+    setJiraTickets([]);
+    setJiraParents([]);
+    setSelectedJiraProject('');
+    setSelectedJiraParentKey('');
+    setJiraConfig({
+      domainUrl: import.meta.env.VITE_JIRA_BASE_URL || '',
+      email: '',
+      apiToken: ''
+    });
+    setSchedulePopup({ message: 'Disconnected from Jira.', type: 'success' });
+  };
+
+  const handleJiraConnect = async (e) => {
+    if (e) e.preventDefault();
+    if (!jiraConfig.email || !jiraConfig.apiToken) {
+      setSchedulePopup({ message: 'Please enter your Jira Email and API Token.', type: 'error' });
+      return;
+    }
+    setLoadingJiraConnect(true);
+    try {
+      const res = await connectJiraAccount(jiraConfig);
+      if (res.data?.success) {
+        setIsJiraConnected(true);
+        setJiraUser(res.data.user);
+        const projects = res.data.projects || [];
+        setJiraProjects(projects);
+        
+        let initialProjKey = selectedJiraProject;
+        if (projects.length > 0 && !initialProjKey) {
+          initialProjKey = projects[0].key;
+          setSelectedJiraProject(initialProjKey);
+          localStorage.setItem('selectedJiraProject', initialProjKey);
+        }
+        setJiraActiveTab('tickets');
+        
+        localStorage.setItem('jiraConfig', JSON.stringify(jiraConfig));
+        localStorage.setItem('isJiraConnected', 'true');
+        localStorage.setItem('jiraUser', JSON.stringify(res.data.user));
+        localStorage.setItem('jiraProjects', JSON.stringify(projects));
+
+        setSchedulePopup({ message: `Successfully connected to Jira as ${res.data.user?.displayName || 'User'}!`, type: 'success' });
+        
+        if (initialProjKey) {
+          handleFetchJiraTickets(initialProjKey);
+        }
+      } else {
+        setSchedulePopup({ message: res.data?.message || 'Failed to connect Jira.', type: 'error' });
+      }
+    } catch (err) {
+      setSchedulePopup({ message: err.response?.data?.message || 'Jira connection error.', type: 'error' });
+    } finally {
+      setLoadingJiraConnect(false);
+    }
+  };
+
+  const handleFetchJiraTickets = async (overrideProjectKey, isSilent = false) => {
+    const targetProjectKey = overrideProjectKey || selectedJiraProject;
+    if (!jiraConfig.email || !jiraConfig.apiToken) {
+      if (!isSilent) setSchedulePopup({ message: 'Please connect your Jira account first.', type: 'error' });
+      return;
+    }
+    if (!targetProjectKey) {
+      if (!isSilent) setSchedulePopup({ message: 'Please select a Jira Project.', type: 'error' });
+      return;
+    }
+    setLoadingJiraTickets(true);
+    try {
+      const res = await getJiraTickets({
+        domainUrl: jiraConfig.domainUrl,
+        email: jiraConfig.email,
+        apiToken: jiraConfig.apiToken,
+        projectKey: targetProjectKey
+      });
+      if (res.data?.success) {
+        const fetchedIssues = res.data.issues || [];
+        const fetchedParents = res.data.parents || [];
+        setJiraTickets(fetchedIssues);
+        setJiraParents(fetchedParents);
+        localStorage.setItem('jiraTickets', JSON.stringify(fetchedIssues));
+        localStorage.setItem('jiraParents', JSON.stringify(fetchedParents));
+        setSelectedTicketKeys([]);
+        if (!isSilent) {
+          setSchedulePopup({ message: `Fetched ${fetchedIssues.length} ticket(s) and ${fetchedParents.length} parent/epic issue(s) for ${targetProjectKey}.`, type: 'success' });
+        }
+      } else {
+        if (!isSilent) setSchedulePopup({ message: res.data?.message || 'Failed to fetch Jira tickets.', type: 'error' });
+      }
+    } catch (err) {
+      if (!isSilent) setSchedulePopup({ message: err.response?.data?.message || 'Error fetching tickets.', type: 'error' });
+    } finally {
+      setLoadingJiraTickets(false);
+    }
+  };
+
+  // 30-Second Automatic Fetch Timer
+  useEffect(() => {
+    let interval = null;
+    if (isJiraModalOpen && jiraActiveTab === 'tickets' && isJiraConnected && selectedJiraProject) {
+      interval = setInterval(() => {
+        setAutoFetchCountdown(prev => {
+          if (prev <= 1) {
+            handleFetchJiraTickets(selectedJiraProject, true);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      setAutoFetchCountdown(30);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isJiraModalOpen, jiraActiveTab, isJiraConnected, selectedJiraProject]);
+
+
   const handleDragOverExcel = (e) => {
     e.preventDefault();
   };
@@ -542,11 +789,7 @@ const SchedulePage = () => {
       const fetchedMeetings = meetingsRes.data.data;
       
       let allPlansData = plansRes.data.data || [];
-      let myApprovedPlans = allPlansData.filter(p => p.status === 'approved');
-      
-      if (user?.role === 'Delivery / Engagement Manager') {
-        myApprovedPlans = myApprovedPlans.filter(p => p.approved_by === user?.id);
-      }
+      let myApprovedPlans = allPlansData.filter(p => p.status === 'approved' || p.status === 'closed');
       
       const allowedPlanIds = myApprovedPlans.map(plan => plan.id);
       
@@ -640,23 +883,48 @@ const SchedulePage = () => {
         );
       }
 
-      if (track && track.options) {
-        setIsSudMandatory(!!track.options.sud_mandatory);
-        setIsFinalAssessmentMandatory(!!track.options.assessment);
-        setIsShadowResourcing(!!track.options.shadow_resourcing);
-        setIsLeadResourcing(!!track.options.lead_resourcing);
-        
-        setIsSudRequiredForSR(!!track.options.sud_doc_upload);
-        setIsAssessmentRequiredForSR(!!track.options.assessment_80);
+      let activeOptions = null;
+      let activeInputs = null;
+      
+      if (track) {
+          activeOptions = track.options;
+          activeInputs = track.inputs;
+          
+          if (track.modules && track.modules.length > 0) {
+              let module = null;
+              if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
+                  module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
+              }
+              if (!module) {
+                  module = track.modules.find(m => 
+                      selectedPlan.application_name.trim() === m.name.trim() || 
+                      selectedPlan.application_name.includes(m.name.trim())
+                  );
+              }
+              if (module && module.options) {
+                  activeOptions = module.options;
+                  activeInputs = module.inputs;
+              }
+          }
+      }
 
-        if (track.options.shadow_resourcing) {
+      if (activeOptions) {
+        setIsSudMandatory(!!activeOptions.sud_mandatory);
+        setIsFinalAssessmentMandatory(!!activeOptions.assessment);
+        setIsShadowResourcing(!!activeOptions.shadow_resourcing);
+        setIsLeadResourcing(!!activeOptions.lead_resourcing);
+        
+        setIsSudRequiredForSR(!!activeOptions.sud_doc_upload);
+        setIsAssessmentRequiredForSR(!!activeOptions.assessment_80);
+
+        if (activeOptions.shadow_resourcing) {
             getResourceMappings(formData.plan_id).then(res => {
                 if (res.data?.success) {
                     setMappedShadowResources(res.data.data || []);
                 }
             }).catch(err => console.error("Error fetching resource mappings:", err));
             
-            if (track.options.sud_doc_upload) {
+            if (activeOptions.sud_doc_upload) {
                 getSudDocuments(formData.plan_id).then(res => {
                     setSudDocs(res.data?.data || []);
                 }).catch(err => console.error(err));
@@ -664,7 +932,7 @@ const SchedulePage = () => {
                 setSudDocs([]);
             }
             
-            if (track.options.assessment_80) {
+            if (activeOptions.assessment_80) {
                 getResults(formData.plan_id).then(res => {
                     setAssessmentResults(res.data?.data || []);
                 }).catch(err => console.error(err));
@@ -678,10 +946,10 @@ const SchedulePage = () => {
         }
 
         let srCriteria = [];
-        if (track.options.sud_doc_upload) {
+        if (activeOptions.sud_doc_upload) {
           srCriteria.push("submitted SUD documents");
         }
-        if (track.options.assessment_80) {
+        if (activeOptions.assessment_80) {
           srCriteria.push("scored above 80% in the Final Assessment");
         }
         
@@ -692,12 +960,12 @@ const SchedulePage = () => {
         }
 
         let lrCriteria = [];
-        if (track.options.lr_ticket_resolving) {
-          const tickets = track.inputs?.lr_ticket_resolving || '';
+        if (activeOptions.lr_ticket_resolving) {
+          const tickets = activeInputs?.lr_ticket_resolving || '';
           lrCriteria.push(`Need to be involved in resolving ${tickets} tickets`);
         }
-        if (track.options.lr_weeks_shadow) {
-          const weeks = track.inputs?.lr_weeks_shadow || '';
+        if (activeOptions.lr_weeks_shadow) {
+          const weeks = activeInputs?.lr_weeks_shadow || '';
           lrCriteria.push(`Required weeks for shadow resourcing: ${weeks}`);
         }
         
@@ -774,6 +1042,368 @@ const SchedulePage = () => {
       setSchedulePopup({ message: err?.response?.data?.message || 'Server error sending notification', type: 'error' });
     } finally {
       endOperation('notify-requirements');
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    if (!formData.plan_id || !formData.project_id) {
+      setSchedulePopup({ message: 'Please select a Project and a Plan first.', type: 'error' });
+      return;
+    }
+    
+    try {
+      startOperation('download-template');
+      const res = await getPlanTopicOptions(formData.plan_id);
+      const topics = res.data.data;
+      
+      if (!topics || topics.length === 0) {
+        setSchedulePopup({ message: "No topics found to export for the selected plan.", type: "error" });
+        return;
+      }
+      
+      const plan = plans.find(p => String(p.id) === String(formData.plan_id));
+      const project = projects.find(p => String(p.id) === String(formData.project_id));
+      
+      let parsedConfig = plan?.project_config || {};
+      if (typeof parsedConfig === 'string') {
+        try {
+          parsedConfig = JSON.parse(parsedConfig);
+        } catch (e) {
+          parsedConfig = {};
+        }
+      }
+      
+      const projectName = project?.name || 'N/A';
+      let trackName = 'N/A';
+      if (parsedConfig?._meta?.trackId) {
+        const trk = parsedConfig.tracks?.find(t => String(t.id) === String(parsedConfig._meta.trackId));
+        if (trk) trackName = trk.name;
+      } else if (parsedConfig?.tracks?.[0]) {
+        trackName = parsedConfig.tracks[0].name;
+      } else {
+        trackName = plan?.application_name || 'N/A';
+      }
+      const planName = `${plan?.application_name || 'Generated Plan'} (${plan?.plan_type || 'KT'})`;
+
+      let giversList = Array.isArray(knowledgeGivers) ? [...knowledgeGivers] : [];
+      let receiversList = Array.isArray(stakeholders) ? [...stakeholders] : [];
+
+      if (giversList.length === 0 || receiversList.length === 0) {
+        try {
+          const [gRes, rRes] = await Promise.all([
+            getStakeholders('Outgoing SME (Knowledge Giver)'),
+            getStakeholders('Incoming Team Member (Knowledge Receiver)')
+          ]);
+          if (gRes?.data?.data && gRes.data.data.length > 0) giversList = gRes.data.data;
+          if (rRes?.data?.data && rRes.data.data.length > 0) receiversList = rRes.data.data;
+        } catch (e) {
+          console.warn('Stakeholders re-fetch note:', e);
+        }
+      }
+
+      const excludedKeywords = [
+        'assessment evaluation window',
+        'shadow experience',
+        'shadow phase',
+        'shadow resourcing',
+        'lead the project independently',
+        'lead phase',
+        'lead resourcing'
+      ];
+
+      const cleanedTopics = topics
+        .filter(t => {
+          const text = ((t.topic_name || '') + ' ' + (t.day_label || '')).toLowerCase();
+          return !excludedKeywords.some(kw => text.includes(kw));
+        })
+        .map(t => {
+          let day = t.day_label || 'General';
+          day = day.replace(/:\s*\[Time:.*?\]/gi, '').replace(/\[Time:.*?\]/gi, '').trim();
+          return { ...t, clean_day: day };
+        });
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'KT Manager';
+      wb.created = new Date();
+      wb.calcProperties.fullCalcOnLoad = true;
+
+      // ==========================================
+      // SHEET 1: Stakeholders Dropdown Sheet
+      // ==========================================
+      const ws1 = wb.addWorksheet('Sheet1', { views: [{ showGridLines: true }] });
+      ws1.columns = [
+        { header: 'Name', key: 'name', width: 28 },
+        { header: 'Knowledge Giver', key: 'giver', width: 24 },
+        { header: 'Knowledge Receiver', key: 'receiver', width: 24 },
+        { header: '_GiverAccum', key: 'giverAccum', width: 10, hidden: true },
+        { header: '_ReceiverAccum', key: 'receiverAccum', width: 10, hidden: true }
+      ];
+
+      const headerRow1 = ws1.getRow(1);
+      headerRow1.height = 26;
+      headerRow1.eachCell((cell, colNumber) => {
+        if (colNumber <= 3) {
+          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD04A02' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+          };
+        }
+      });
+
+      let rIdx = 2;
+      // Add Knowledge Givers rows (default: 'No')
+      giversList.forEach(giver => {
+        const row = ws1.addRow({
+          name: giver.name || 'Unknown Giver',
+          giver: 'No',
+          receiver: ''
+        });
+        const giverCell = row.getCell(2);
+        giverCell.dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"Yes,No"']
+        };
+        if (rIdx === 2) {
+          row.getCell(4).value = { formula: 'IF(B2="Yes", A2, "")' };
+          row.getCell(5).value = { formula: 'IF(C2="Yes", A2, "")' };
+        } else {
+          row.getCell(4).value = { formula: `IF(B${rIdx}="Yes", IF(D${rIdx-1}="", A${rIdx}, D${rIdx-1} & ", " & A${rIdx}), D${rIdx-1})` };
+          row.getCell(5).value = { formula: `IF(C${rIdx}="Yes", IF(E${rIdx-1}="", A${rIdx}, E${rIdx-1} & ", " & A${rIdx}), E${rIdx-1})` };
+        }
+        rIdx++;
+      });
+
+      // Add Knowledge Receivers rows (default: 'No')
+      receiversList.forEach(receiver => {
+        const row = ws1.addRow({
+          name: receiver.name || 'Unknown Receiver',
+          giver: '',
+          receiver: 'No'
+        });
+        const receiverCell = row.getCell(3);
+        receiverCell.dataValidation = {
+          type: 'list',
+          allowBlank: true,
+          formulae: ['"Yes,No"']
+        };
+        if (rIdx === 2) {
+          row.getCell(4).value = { formula: 'IF(B2="Yes", A2, "")' };
+          row.getCell(5).value = { formula: 'IF(C2="Yes", A2, "")' };
+        } else {
+          row.getCell(4).value = { formula: `IF(B${rIdx}="Yes", IF(D${rIdx-1}="", A${rIdx}, D${rIdx-1} & ", " & A${rIdx}), D${rIdx-1})` };
+          row.getCell(5).value = { formula: `IF(C${rIdx}="Yes", IF(E${rIdx-1}="", A${rIdx}, E${rIdx-1} & ", " & A${rIdx}), E${rIdx-1})` };
+        }
+        rIdx++;
+      });
+
+      const lastRowSheet1 = Math.max(rIdx - 1, 2);
+
+      for (let r = 2; r <= lastRowSheet1; r++) {
+        const row = ws1.getRow(r);
+        row.height = 22;
+        for (let col = 1; col <= 3; col++) {
+          const cell = row.getCell(col);
+          cell.font = { name: 'Calibri', size: 11 };
+          cell.alignment = {
+            vertical: 'middle',
+            horizontal: col === 1 ? 'left' : 'center'
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+          };
+        }
+      }
+
+      // ==========================================
+      // SHEET 2: KT Schedule Table
+      // ==========================================
+      const ws2 = wb.addWorksheet('Sheet2', { views: [{ showGridLines: true }] });
+      const ws2Columns = [
+        { width: 20 }, // Day / Section
+        { width: 68 }, // Topic
+        { width: 18 }, // Duration
+        { width: 28 }, // Knowledge Giver
+        { width: 28 }, // Knowledge Receiver
+        { width: 18 }, // Start Date
+        { width: 30 }  // Meeting Link
+      ];
+      if (isSudMandatory) ws2Columns.push({ width: 25 }); // SUD Document
+      if (isFinalAssessmentMandatory) ws2Columns.push({ width: 25 }); // Final Assessment
+      ws2.columns = ws2Columns;
+
+      // Row 6: Schedule Table Header Definition
+      const tableHeaders = [
+        "Day / Section",
+        "Topic / Sub-topic Name",
+        "Duration (Hours)",
+        "Knowledge Giver",
+        "Knowledge Receiver",
+        "Start Date",
+        "Meeting Link"
+      ];
+      if (isSudMandatory) tableHeaders.push("SUD Document");
+      if (isFinalAssessmentMandatory) tableHeaders.push("Final Assessment");
+
+      // Rows 1 - 4: Metadata Headers
+      const metaRows = [
+        `Project Name: ${projectName}`,
+        `Track Name: ${trackName}`,
+        `Plan Name: ${planName}`,
+        `Export Date: ${new Date().toLocaleDateString()}`
+      ];
+
+      metaRows.forEach((text, i) => {
+        const rIdx = i + 1;
+        const row = ws2.getRow(rIdx);
+        row.getCell(1).value = text;
+        row.height = 24;
+        ws2.mergeCells(rIdx, 1, rIdx, tableHeaders.length);
+        row.getCell(1).font = { name: 'Calibri', size: 13, bold: true };
+        row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+
+      // Row 5: Instruction
+      const instructionRow = ws2.getRow(5);
+      instructionRow.getCell(1).value = `Note: To edit Knowledge Giver/Receiver directly, copy the cell and 'Paste as Values' first, or type a new name to overwrite.\nStart Date Format: DD-MM-YYYY HH:MM (e.g., 25-10-2026 14:30)`;
+      instructionRow.height = 32;
+      ws2.mergeCells(5, 1, 5, tableHeaders.length);
+      instructionRow.getCell(1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF555555' } };
+      instructionRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      const headerRow2 = ws2.getRow(6);
+      headerRow2.height = 26;
+      tableHeaders.forEach((h, colIdx) => {
+        const cell = headerRow2.getCell(colIdx + 1);
+        cell.value = h;
+        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD04A02' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
+      });
+
+      let currentRowIndex = 7;
+      let startDayRow = 7;
+      let currentDay = cleanedTopics[0]?.clean_day;
+
+      cleanedTopics.forEach((t, idx) => {
+        const row = ws2.getRow(currentRowIndex);
+        row.height = 22;
+
+        row.getCell(1).value = t.clean_day;
+        row.getCell(2).value = t.topic_name;
+        row.getCell(3).value = t.estimated_duration_hours || 'N/A';
+        row.getCell(4).value = { formula: `Sheet1!$D$${lastRowSheet1}` };
+        row.getCell(5).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+        row.getCell(6).value = '';
+        row.getCell(7).value = '';
+        let colIdx = 8;
+        if (isSudMandatory) {
+          row.getCell(colIdx).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+          colIdx++;
+        }
+        if (isFinalAssessmentMandatory) {
+          row.getCell(colIdx).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+          colIdx++;
+        }
+
+        for (let c = 1; c <= tableHeaders.length; c++) {
+          const cell = row.getCell(c);
+          cell.font = { name: 'Calibri', size: 11 };
+          cell.alignment = {
+            vertical: 'middle',
+            horizontal: c === 2 ? 'left' : 'center',
+            wrapText: true
+          };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+          };
+        }
+
+        if (idx > 0) {
+          if (t.clean_day !== currentDay) {
+            if (currentRowIndex - 1 > startDayRow) {
+              ws2.mergeCells(startDayRow, 1, currentRowIndex - 1, 1);
+              ws2.getCell(startDayRow, 1).alignment = { vertical: 'middle', horizontal: 'center' };
+              
+              ws2.mergeCells(startDayRow, 4, currentRowIndex - 1, 4);
+              ws2.getCell(startDayRow, 4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+              
+              ws2.mergeCells(startDayRow, 5, currentRowIndex - 1, 5);
+              ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+              
+              ws2.mergeCells(startDayRow, 7, currentRowIndex - 1, 7);
+              ws2.getCell(startDayRow, 7).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            }
+            startDayRow = currentRowIndex;
+            currentDay = t.clean_day;
+          }
+        }
+        
+        if (idx === cleanedTopics.length - 1) {
+          if (currentRowIndex > startDayRow) {
+            ws2.mergeCells(startDayRow, 1, currentRowIndex, 1);
+            ws2.getCell(startDayRow, 1).alignment = { vertical: 'middle', horizontal: 'center' };
+            
+            ws2.mergeCells(startDayRow, 4, currentRowIndex, 4);
+            ws2.getCell(startDayRow, 4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            
+            ws2.mergeCells(startDayRow, 5, currentRowIndex, 5);
+            ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            
+            ws2.mergeCells(startDayRow, 7, currentRowIndex, 7);
+            ws2.getCell(startDayRow, 7).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+          }
+        }
+        currentRowIndex++;
+      });
+
+      // Merge Start Date column (column 6) for all data rows
+      if (currentRowIndex > 7) {
+        ws2.mergeCells(7, 6, currentRowIndex - 1, 6);
+        const startDateCell = ws2.getCell(7, 6);
+        startDateCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        
+        if (isFinalAssessmentMandatory) {
+          const faIdx = tableHeaders.indexOf("Final Assessment") + 1;
+          ws2.mergeCells(7, faIdx, currentRowIndex - 1, faIdx);
+          const faCell = ws2.getCell(7, faIdx);
+          faCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        }
+      }
+
+      // Write and download Excel workbook
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = `Schedule_Template_${planName.replace(/\s+/g, '_')}.xlsx`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      window.URL.revokeObjectURL(downloadUrl);
+
+    } catch (err) {
+      console.error('Error generating template:', err);
+      setSchedulePopup({ message: 'Error generating template', type: 'error' });
+    } finally {
+      endOperation('download-template');
     }
   };
 
@@ -866,7 +1496,22 @@ const SchedulePage = () => {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold text-primary-text">Meeting Schedule</h2>
+        {canManage && (
+          <button
+            type="button"
+            onClick={() => setIsJiraModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 bg-primary-orange hover:bg-hover-orange text-white font-medium text-sm rounded-lg shadow-sm transition-all duration-200"
+          >
+            <LinkIcon className="w-4 h-4 mr-2" />
+            Connect Jira / Fetch Tickets
+            {isJiraConnected && (
+              <span className="ml-2 w-2.5 h-2.5 rounded-full bg-green-400 inline-block" title="Jira Connected" />
+            )}
+          </button>
+        )}
+      </div>
 
       {canManage && (
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -907,7 +1552,7 @@ const SchedulePage = () => {
       )}
 
       {canManage && formData.project_id && formData.plan_id && (
-        <div className="mb-6 border-b border-gray-200">
+        <div className="mb-6 border-b border-gray-200 flex justify-between items-end">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveGlobalTab('KA')}
@@ -932,6 +1577,16 @@ const SchedulePage = () => {
               </button>
             )}
           </nav>
+          <div className="pb-2">
+            <button
+              onClick={handleDownloadTemplate}
+              disabled={isUploadingExcel}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-primary-orange border border-primary-orange rounded-md hover:bg-orange-50 transition-colors shadow-sm text-sm"
+            >
+              <Download size={16} />
+              Download Template
+            </button>
+          </div>
         </div>
       )}
 
@@ -1126,9 +1781,7 @@ const SchedulePage = () => {
                           </button>
                         </div>
                         
-                        <div className="text-xs text-secondary-text mt-2 italic bg-purple-100/50 p-2 rounded border border-purple-100 shadow-sm">
-                          * Disclaimer: Jira ticket integration and tracking for Shadow Resourcing will be available in a future implementation.
-                        </div>
+
                       </div>
                     )}
 
@@ -1137,17 +1790,47 @@ const SchedulePage = () => {
                         
                         <div className="bg-white p-3 rounded shadow-sm border border-gray-100">
                           <MultiSelectDropdown
-                            label="Lead Resourcing"
+                            label={
+                              <div className="flex justify-between items-center w-full">
+                                <span>Lead Resourcing</span>
+                                <label className="flex items-center space-x-1 cursor-pointer">
+                                  <input 
+                                    type="checkbox" 
+                                    className="rounded text-primary-orange focus:ring-orange-border"
+                                    checked={isForcePushEnabled} 
+                                    onChange={(e) => {
+                                      if (isForcePushEnabled) {
+                                        setIsForcePushEnabled(false);
+                                      } else {
+                                        if (window.confirm("Are you sure you want to override the entry criteria and allow non-eligible candidates?")) {
+                                          setIsForcePushEnabled(true);
+                                        }
+                                      }
+                                    }} 
+                                  />
+                                  <span className="text-xs text-secondary-text font-normal">Force push</span>
+                                </label>
+                              </div>
+                            }
                             placeholder="Select Participants..."
                             options={getAllowedLRStakeholders()}
                             selected={selectedLeadRecipients}
-                            onChange={setSelectedLeadRecipients}
+                            onChange={(newIds) => {
+                              const validIds = newIds.filter(id => !getLREligibilityReason(id));
+                              if (validIds.length < newIds.length) {
+                                setSchedulePopup({ message: 'Some participants do not meet the Lead Resourcing criteria.', type: 'error' });
+                              }
+                              setSelectedLeadRecipients(validIds);
+                            }}
                             visibleCount={3}
+                            isOptionDisabledFn={(opt) => !!getLREligibilityReason(opt.id)}
+                            optionClassFn={(opt) => getLREligibilityReason(opt.id) ? 'blur-sm opacity-60' : ''}
+                            titleFn={(opt) => getLREligibilityReason(opt.id) || ''}
                           />
                         </div>
                         
                         <div className="text-xs text-secondary-text mt-2 italic bg-orange-100/50 p-2 rounded border border-orange-100 shadow-sm">
-                          * Disclaimer: Jira ticket integration and assignment for Lead Resourcing will be available in a future implementation.
+                          * Note: Lead Resourcing eligibility is automatically verified against solved Jira tickets (Done/Resolved status) assigned to each participant.
                         </div>
                       </div>
                     )}
@@ -1195,7 +1878,9 @@ const SchedulePage = () => {
               </div>
             ) : (
               <div>
-                <h3 className="text-lg font-semibold text-primary-text mb-4">Automatic Scheduling via Excel</h3>
+                <div className="mb-4">
+                  <h3 className="text-lg font-semibold text-primary-text">Automatic Scheduling via Excel</h3>
+                </div>
                 <div 
                   className="border-2 border-dashed border-light-border rounded-lg p-10 flex flex-col items-center justify-center hover:bg-light-background transition-colors cursor-pointer"
                   onDragOver={handleDragOverExcel}
@@ -1880,6 +2565,406 @@ const SchedulePage = () => {
                   <CheckCircle size={16} className="mr-1.5 text-green-600" /> Feedback Submitted
                 </span>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Jira Integration & Ticket Import Modal ── */}
+      {isJiraModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-light-background rounded-xl shadow-2xl max-w-4xl w-full overflow-hidden border border-gray-200">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-primary-orange to-primary-orange text-white px-6 py-4 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-lg text-white">
+                  <LinkIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold">Atlassian Jira Cloud Integration</h3>
+                  <p className="text-xs text-white">Connect account and import issues into KT Schedule</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                {isJiraConnected && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-900 text-emerald-300 border border-emerald-700">
+                    <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-400" />
+                    Connected
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsJiraModalOpen(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Sub-Header Tabs */}
+            <div className="border-b border-gray-200 bg-gray-50 px-6 flex space-x-6">
+              <button
+                type="button"
+                onClick={() => setJiraActiveTab('connect')}
+                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
+                  jiraActiveTab === 'connect'
+                    ? 'border-primary-orange text-primary-orange'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 cursor-pointer'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>1. Connect Account</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setJiraActiveTab('tickets')}
+                disabled={!isJiraConnected}
+                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
+                  jiraActiveTab === 'tickets'
+                    ? 'border-primary-orange text-primary-orange'
+                    : `border-transparent ${!isJiraConnected ? 'text-gray-400 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700 cursor-pointer'}`
+                }`}
+              >
+                <Layers className="w-4 h-4" />
+                <span>2. Fetch & Import Tickets</span>
+                {jiraTickets.length > 0 && (
+                  <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                    {jiraTickets.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+              {jiraActiveTab === 'connect' && (
+                <form onSubmit={handleJiraConnect} className="space-y-4 max-w-xl mx-auto py-2">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                      Jira Domain URL
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      value={jiraConfig.domainUrl}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, domainUrl: e.target.value })}
+                      placeholder="https://your-domain.atlassian.net"
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border"
+                    />
+                    <p className="text-xs text-secondary-text mt-1">Pre-filled with your Atlassian Jira cloud workspace URL.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                      Jira User Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={jiraConfig.email}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
+                      placeholder="e.g. user@domain.com"
+                      className="w-full p-2.5 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1 flex justify-between">
+                      <span>Jira API Token</span>
+                      <a
+                        href="https://id.atlassian.com/manage-profile/security/api-tokens"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary-orange hover:underline flex items-center font-normal lowercase"
+                      >
+                        Create API Token <ExternalLink className="w-3 h-3 ml-1" />
+                      </a>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showJiraToken ? "text" : "password"}
+                        required
+                        value={jiraConfig.apiToken}
+                        onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
+                        placeholder="Paste your Atlassian API Token..."
+                        className="w-full p-2.5 pr-10 text-sm border border-light-border rounded-md focus:ring-2 focus:ring-orange-border focus:border-orange-border font-mono"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowJiraToken(!showJiraToken)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                        title={showJiraToken ? "Hide token" : "Show token"}
+                      >
+                        {showJiraToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {jiraUser && (
+                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center space-x-3">
+                      {jiraUser.avatarUrl && !jiraUser.avatarError ? (
+                        <img 
+                          src={jiraUser.avatarUrl} 
+                          alt="Avatar" 
+                          className="w-10 h-10 rounded-full bg-white object-cover" 
+                          onError={() => setJiraUser(prev => ({ ...prev, avatarError: true }))}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-emerald-200 flex items-center justify-center font-bold text-emerald-800">
+                          {jiraUser.displayName?.[0] || 'U'}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-emerald-900">{jiraUser.displayName}</p>
+                        <p className="text-xs text-emerald-700">{jiraUser.emailAddress}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="pt-4 flex justify-end space-x-3">
+                    {isJiraConnected && (
+                      <button
+                        type="button"
+                        onClick={handleJiraDisconnect}
+                        className="inline-flex items-center px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
+                      >
+                        Disconnect
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={loadingJiraConnect}
+                      className="inline-flex items-center px-5 py-2.5 bg-primary-orange hover:bg-hover-orange disabled:bg-button-orange text-white rounded-lg font-medium text-sm transition-colors shadow-sm"
+                    >
+                      {loadingJiraConnect ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Authenticating...
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4 mr-2" /> {isJiraConnected ? 'Update Credentials' : 'Connect & Save Credentials'}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {jiraActiveTab === 'tickets' && (
+                <div className="space-y-4">
+                  {/* Selectors Bar */}
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                        Select Jira Project
+                      </label>
+                      <CustomSelect
+                        className="w-full p-2 border border-light-border rounded-md text-sm bg-white"
+                        value={selectedJiraProject}
+                        onChange={(e) => {
+                          const newProj = e.target.value;
+                          setSelectedJiraProject(newProj);
+                          localStorage.setItem('selectedJiraProject', newProj);
+                          handleFetchJiraTickets(newProj);
+                        }}
+                      >
+                        {jiraProjects.length === 0 ? (
+                          <option value="">No projects available</option>
+                        ) : (
+                          jiraProjects.map((p) => (
+                            <option key={p.id} value={p.key}>
+                              {p.name} ({p.key})
+                            </option>
+                          ))
+                        )}
+                      </CustomSelect>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                        Jira Parent / Epic (Plan)
+                      </label>
+                      <CustomSelect
+                        className="w-full p-2 border border-light-border rounded-md text-sm bg-white"
+                        value={selectedJiraParentKey}
+                        onChange={(e) => setSelectedJiraParentKey(e.target.value)}
+                      >
+                        <option value="">--- All Parents / Epics ({jiraParents.length}) ---</option>
+                        {jiraParents.map((parent) => (
+                          <option key={parent.key} value={parent.key}>
+                            [{parent.key}] {parent.summary}
+                          </option>
+                        ))}
+                      </CustomSelect>
+                    </div>
+
+                    <div className="flex flex-col items-stretch">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAutoFetchCountdown(30);
+                          handleFetchJiraTickets();
+                        }}
+                        disabled={loadingJiraTickets || !selectedJiraProject}
+                        className="inline-flex items-center justify-center px-4 py-2 bg-primary-orange hover:bg-hover-orange disabled:bg-button-orange text-white rounded-md text-sm font-medium transition-colors shadow-sm"
+                      >
+                        {loadingJiraTickets ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> Fetching...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2" /> Fetch Tickets ({autoFetchCountdown}s)
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[11px] text-secondary-text mt-1 text-center">
+                        Auto-refreshes in <strong className="text-primary-orange font-semibold">{autoFetchCountdown}s</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tickets List Table */}
+                  {(() => {
+                    const filteredTickets = (jiraTickets || []).filter(t => {
+                      // 1. Never show Epics in the ticket list - only tasks/stories/bugs/sub-tasks
+                      const isEpic = (t.issueType || '').toLowerCase() === 'epic';
+                      if (isEpic) return false;
+
+                      // 2. If a specific parent/epic is selected, only show tickets belonging to that parent
+                      if (selectedJiraParentKey) {
+                        return t.parent?.key === selectedJiraParentKey;
+                      }
+                      return true;
+                    });
+
+                    return (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        <div className="bg-gray-100 px-4 py-2.5 flex justify-between items-center border-b border-gray-200 text-xs font-semibold text-gray-600">
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              className="rounded text-primary-orange focus:ring-orange-border"
+                              checked={filteredTickets.length > 0 && selectedTicketKeys.length === filteredTickets.length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedTicketKeys(filteredTickets.map((t) => t.key));
+                                } else {
+                                  setSelectedTicketKeys([]);
+                                }
+                              }}
+                            />
+                            <span>Select All ({selectedTicketKeys.length}/{filteredTickets.length})</span>
+                          </div>
+                          <span>
+                            Showing {filteredTickets.length} of {jiraTickets.length} Issues
+                            {selectedJiraParentKey ? ` (Filtered by Parent: ${selectedJiraParentKey})` : ''}
+                          </span>
+                        </div>
+
+                        <div className="max-h-80 overflow-y-auto divide-y divide-gray-200">
+                          {filteredTickets.length === 0 ? (
+                            <div className="p-8 text-center text-gray-500 text-sm">
+                              {loadingJiraTickets ? (
+                                <div className="flex flex-col items-center">
+                                  <RefreshCw className="w-6 h-6 animate-spin text-primary-orange mb-2" />
+                                  Fetching Jira tickets & parents...
+                                </div>
+                              ) : (
+                                'No tickets match the selected project/parent filter. Select a project and click "Fetch Tickets".'
+                              )}
+                            </div>
+                          ) : (
+                            filteredTickets.map((ticket) => {
+                              const isSelected = selectedTicketKeys.includes(ticket.key);
+                              return (
+                                <div
+                                  key={ticket.key}
+                                  className={`p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-orange-50/60 transition-colors cursor-pointer ${
+                                    isSelected ? 'bg-orange-50/80 border-l-4 border-primary-orange' : ''
+                                  }`}
+                                  onClick={() => {
+                                    if (isSelected) {
+                                      setSelectedTicketKeys(selectedTicketKeys.filter((k) => k !== ticket.key));
+                                    } else {
+                                      setSelectedTicketKeys([...selectedTicketKeys, ticket.key]);
+                                    }
+                                  }}
+                                >
+                                  <div className="flex items-start space-x-3 flex-1 min-w-0">
+                                    <input
+                                      type="checkbox"
+                                      className="mt-1 rounded text-primary-orange focus:ring-orange-border"
+                                      checked={isSelected}
+                                      onChange={() => {}}
+                                    />
+                                    <div className="min-w-0 space-y-1">
+                                      <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                                        <span className="px-2 py-0.5 bg-orange-100 text-orange-900 text-xs font-mono font-bold rounded">
+                                          {ticket.key}
+                                        </span>
+                                        {ticket.parent && (
+                                          <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-medium rounded border border-purple-200">
+                                            Parent: [{ticket.parent.key}] {ticket.parent.summary}
+                                          </span>
+                                        )}
+                                        <span className="text-xs font-medium text-gray-500">
+                                          Assignee: <strong className="text-gray-800">{ticket.assignee}</strong>
+                                          {ticket.assigneeEmail ? ` (${ticket.assigneeEmail})` : ''}
+                                        </span>
+                                      </div>
+
+                                      <p className="text-sm font-semibold text-gray-900 truncate">
+                                        {ticket.summary}
+                                      </p>
+
+                                      {ticket.description && (
+                                        <p className="text-xs text-gray-500 line-clamp-1">
+                                          {ticket.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2 flex-shrink-0 text-xs self-start md:self-center">
+                                    <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200 font-medium">
+                                      {ticket.issueType}
+                                    </span>
+                                    <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded border border-amber-200 font-medium">
+                                      {ticket.priority}
+                                    </span>
+                                    <span className={`px-2.5 py-1 font-semibold rounded-full text-xs ${
+                                      ticket.status === 'Done' || ticket.status === 'Resolved' || ticket.statusCategory === 'Done'
+                                        ? 'bg-green-100 text-green-800 border border-green-200'
+                                        : 'bg-blue-50 text-blue-800 border border-blue-200'
+                                    }`}>
+                                      {ticket.status}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-between items-center">
+              <button
+                type="button"
+                onClick={() => setIsJiraModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-100"
+              >
+                Close
+              </button>
+
+
             </div>
           </div>
         </div>
