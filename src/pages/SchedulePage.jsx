@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import * as XLSX from 'xlsx-js-style';
 import ExcelJS from 'exceljs';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, visibleCount = 4, isOptionDisabledFn, optionClassFn, titleFn }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -1045,6 +1047,100 @@ const SchedulePage = () => {
     }
   };
 
+  const handleViewSchedulePDF = () => {
+    const selectedPlanId = parseInt(formData.plan_id);
+    if (!selectedPlanId) return;
+
+    const planMeetings = meetings.filter(m => m.plan_id === selectedPlanId);
+    if (planMeetings.length === 0) return;
+
+    const selectedPlan = plans.find(p => p.id === selectedPlanId);
+    const projectName = projects.find(p => p.id === parseInt(formData.project_id))?.name || 'Unknown Project';
+
+    const sortedMeetings = [...planMeetings].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+
+    const doc = new jsPDF('landscape');
+    
+    doc.setFontSize(16);
+    doc.text(`Meeting Schedule: ${projectName} - ${selectedPlan?.application_name || ''}`, 14, 20);
+
+    let currentY = 30;
+    
+    sortedMeetings.forEach((meeting, index) => {
+        let agenda = [];
+        try {
+            agenda = JSON.parse(meeting.description || '[]');
+        } catch(e) {
+            agenda = [];
+        }
+
+        const dateObj = new Date(meeting.scheduled_at);
+        const dateStr = dateObj.toLocaleDateString();
+
+        const tableData = [];
+
+        if (agenda && agenda.length > 0) {
+            agenda.forEach(item => {
+                tableData.push([
+                    item.time_slot || '',
+                    item.topic || '',
+                    (item.duration ? `${item.duration} mins` : ''),
+                    item.giver || '',
+                    item.receiver || '',
+                    meeting.meeting_link || ''
+                ]);
+            });
+        } else {
+            tableData.push([
+                dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                meeting.title || '',
+                '',
+                '',
+                '',
+                meeting.meeting_link || ''
+            ]);
+        }
+
+        // Handle page overflow for text manually just in case
+        // We need at least 45 units for the title, table header, and first row
+        if (currentY > doc.internal.pageSize.getHeight() - 45) {
+            doc.addPage();
+            currentY = 20;
+        }
+
+        let windowTime = "";
+        if (agenda && agenda.length > 0) {
+            const startStr = agenda[0].time_slot?.split(' - ')[0] || '';
+            const endStr = agenda[agenda.length - 1].time_slot?.split(' - ')[1] || '';
+            if (startStr && endStr) {
+                windowTime = `(Session Window: ${startStr} - ${endStr})`;
+            }
+        }
+
+        doc.setFontSize(12);
+        doc.setTextColor(50, 50, 50);
+        doc.text(`Day ${index + 1}: ${dateStr} - ${meeting.title || ''} ${windowTime}`, 14, currentY);
+        currentY += 5;
+
+        autoTable(doc, {
+            startY: currentY,
+            head: [['Time Slot', 'Topic', 'Duration', 'Giver(s)', 'Receiver(s)', 'Meeting Link']],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [208, 74, 2] },
+            styles: { fontSize: 10, cellPadding: 3, overflow: 'linebreak' },
+            columnStyles: {
+                5: { cellWidth: 50 }
+            }
+        });
+
+        currentY = doc.lastAutoTable.finalY + 15;
+    });
+
+    const pdfBlobUrl = doc.output('bloburl');
+    window.open(pdfBlobUrl, '_blank');
+  };
+
   const handleDownloadTemplate = async () => {
     if (!formData.plan_id || !formData.project_id) {
       setSchedulePopup({ message: 'Please select a Project and a Plan first.', type: 'error' });
@@ -1122,6 +1218,16 @@ const SchedulePage = () => {
           return { ...t, clean_day: day };
         });
 
+      const getExcelColName = (colNum) => {
+        let name = '';
+        while (colNum > 0) {
+          let mod = (colNum - 1) % 26;
+          name = String.fromCharCode(65 + mod) + name;
+          colNum = Math.floor((colNum - mod) / 26);
+        }
+        return name;
+      };
+
       const wb = new ExcelJS.Workbook();
       wb.creator = 'KT Manager';
       wb.created = new Date();
@@ -1131,83 +1237,97 @@ const SchedulePage = () => {
       // SHEET 1: Stakeholders Dropdown Sheet
       // ==========================================
       const ws1 = wb.addWorksheet('Sheet1', { views: [{ showGridLines: true }] });
-      ws1.columns = [
+      
+      const uniqueDays = Array.from(new Set(cleanedTopics.map(t => t.clean_day)));
+      const dayTopicsMap = {};
+      cleanedTopics.forEach((t, i) => {
+        if (!dayTopicsMap[t.clean_day]) dayTopicsMap[t.clean_day] = [];
+        dayTopicsMap[t.clean_day].push(i);
+      });
+
+      const ws1Columns = [
         { header: 'Name', key: 'name', width: 28 },
-        { header: 'Knowledge Giver', key: 'giver', width: 24 },
-        { header: 'Knowledge Receiver', key: 'receiver', width: 24 },
-        { header: '_GiverAccum', key: 'giverAccum', width: 10, hidden: true },
-        { header: '_ReceiverAccum', key: 'receiverAccum', width: 10, hidden: true }
+        { header: 'Type', key: 'type', width: 24 }
       ];
 
+      cleanedTopics.forEach((t, i) => {
+        ws1Columns.push({ header: t.topic_name || `Topic ${i+1}`, key: `topic_${i}`, width: 20 });
+      });
+
+      uniqueDays.forEach((day, idx) => {
+        ws1Columns.push({ header: `_GiverAccum_${day}`, key: `giver_accum_${idx}`, width: 10, hidden: true });
+        ws1Columns.push({ header: `_ReceiverAccum_${day}`, key: `receiver_accum_${idx}`, width: 10, hidden: true });
+      });
+
+      ws1.columns = ws1Columns;
+
       const headerRow1 = ws1.getRow(1);
-      headerRow1.height = 26;
-      headerRow1.eachCell((cell, colNumber) => {
-        if (colNumber <= 3) {
-          cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD04A02' } };
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.border = {
-            top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-            bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-            left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-            right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
-          };
-        }
+      headerRow1.height = 45;
+      headerRow1.eachCell((cell) => {
+        cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD04A02' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+        };
       });
 
       let rIdx = 2;
-      // Add Knowledge Givers rows (default: 'No')
-      giversList.forEach(giver => {
-        const row = ws1.addRow({
-          name: giver.name || 'Unknown Giver',
-          giver: 'No',
-          receiver: ''
-        });
-        const giverCell = row.getCell(2);
-        giverCell.dataValidation = {
-          type: 'list',
-          allowBlank: true,
-          formulae: ['"Yes,No"']
+      const allStakeholders = [
+        ...(Array.isArray(giversList) ? giversList : []).map(g => ({ ...g, stype: 'Knowledge Giver' })),
+        ...(Array.isArray(receiversList) ? receiversList : []).map(r => ({ ...r, stype: 'Knowledge Receiver' }))
+      ];
+
+      allStakeholders.forEach(st => {
+        const rowData = {
+          name: st.name || 'Unknown',
+          type: st.stype
         };
-        if (rIdx === 2) {
-          row.getCell(4).value = { formula: 'IF(B2="Yes", A2, "")' };
-          row.getCell(5).value = { formula: 'IF(C2="Yes", A2, "")' };
-        } else {
-          row.getCell(4).value = { formula: `IF(B${rIdx}="Yes", IF(D${rIdx-1}="", A${rIdx}, D${rIdx-1} & ", " & A${rIdx}), D${rIdx-1})` };
-          row.getCell(5).value = { formula: `IF(C${rIdx}="Yes", IF(E${rIdx-1}="", A${rIdx}, E${rIdx-1} & ", " & A${rIdx}), E${rIdx-1})` };
-        }
+        cleanedTopics.forEach((t, i) => {
+           rowData[`topic_${i}`] = 'No';
+        });
+        
+        const row = ws1.addRow(rowData);
+        
+        cleanedTopics.forEach((t, i) => {
+           const colIndex = 3 + i;
+           const cell = row.getCell(colIndex);
+           cell.dataValidation = {
+             type: 'list',
+             allowBlank: true,
+             formulae: ['"Yes,No"']
+           };
+        });
+
+        uniqueDays.forEach((day, idx) => {
+           const giverColIdx = 3 + cleanedTopics.length + (2 * idx);
+           const receiverColIdx = giverColIdx + 1;
+           const topicLetters = dayTopicsMap[day].map(topicIndex => getExcelColName(3 + topicIndex));
+           const orCondition = topicLetters.length > 1 ? `OR(${topicLetters.map(letter => `${letter}${rIdx}="Yes"`).join(',')})` : `${topicLetters[0]}${rIdx}="Yes"`;
+           
+           if (rIdx === 2) {
+             row.getCell(giverColIdx).value = { formula: `IF(AND($B2="Knowledge Giver", ${orCondition}), $A2, "")` };
+             row.getCell(receiverColIdx).value = { formula: `IF(AND($B2="Knowledge Receiver", ${orCondition}), $A2, "")` };
+           } else {
+             const prevGiverCell = `${getExcelColName(giverColIdx)}${rIdx - 1}`;
+             const prevReceiverCell = `${getExcelColName(receiverColIdx)}${rIdx - 1}`;
+             row.getCell(giverColIdx).value = { formula: `IF(AND($B${rIdx}="Knowledge Giver", ${orCondition}), IF(${prevGiverCell}="", $A${rIdx}, ${prevGiverCell} & ", " & $A${rIdx}), ${prevGiverCell})` };
+             row.getCell(receiverColIdx).value = { formula: `IF(AND($B${rIdx}="Knowledge Receiver", ${orCondition}), IF(${prevReceiverCell}="", $A${rIdx}, ${prevReceiverCell} & ", " & $A${rIdx}), ${prevReceiverCell})` };
+           }
+        });
+
         rIdx++;
       });
-
-      // Add Knowledge Receivers rows (default: 'No')
-      receiversList.forEach(receiver => {
-        const row = ws1.addRow({
-          name: receiver.name || 'Unknown Receiver',
-          giver: '',
-          receiver: 'No'
-        });
-        const receiverCell = row.getCell(3);
-        receiverCell.dataValidation = {
-          type: 'list',
-          allowBlank: true,
-          formulae: ['"Yes,No"']
-        };
-        if (rIdx === 2) {
-          row.getCell(4).value = { formula: 'IF(B2="Yes", A2, "")' };
-          row.getCell(5).value = { formula: 'IF(C2="Yes", A2, "")' };
-        } else {
-          row.getCell(4).value = { formula: `IF(B${rIdx}="Yes", IF(D${rIdx-1}="", A${rIdx}, D${rIdx-1} & ", " & A${rIdx}), D${rIdx-1})` };
-          row.getCell(5).value = { formula: `IF(C${rIdx}="Yes", IF(E${rIdx-1}="", A${rIdx}, E${rIdx-1} & ", " & A${rIdx}), E${rIdx-1})` };
-        }
-        rIdx++;
-      });
-
+      
       const lastRowSheet1 = Math.max(rIdx - 1, 2);
 
       for (let r = 2; r <= lastRowSheet1; r++) {
         const row = ws1.getRow(r);
         row.height = 22;
-        for (let col = 1; col <= 3; col++) {
+        for (let col = 1; col <= ws1Columns.length; col++) {
           const cell = row.getCell(col);
           cell.font = { name: 'Calibri', size: 11 };
           cell.alignment = {
@@ -1233,8 +1353,7 @@ const SchedulePage = () => {
         { width: 18 }, // Duration
         { width: 28 }, // Knowledge Giver
         { width: 28 }, // Knowledge Receiver
-        { width: 18 }, // Start Date
-        { width: 30 }  // Meeting Link
+        { width: 18 }  // Start Date
       ];
       if (isSudMandatory) ws2Columns.push({ width: 25 }); // SUD Document
       if (isFinalAssessmentMandatory) ws2Columns.push({ width: 25 }); // Final Assessment
@@ -1244,11 +1363,10 @@ const SchedulePage = () => {
       const tableHeaders = [
         "Day / Section",
         "Topic / Sub-topic Name",
-        "Duration (Hours)",
+        "Duration (minutes)",
         "Knowledge Giver",
         "Knowledge Receiver",
-        "Start Date",
-        "Meeting Link"
+        "Start Date"
       ];
       if (isSudMandatory) tableHeaders.push("SUD Document");
       if (isFinalAssessmentMandatory) tableHeaders.push("Final Assessment");
@@ -1271,14 +1389,32 @@ const SchedulePage = () => {
         row.getCell(1).alignment = { vertical: 'middle', horizontal: 'center' };
       });
 
-      // Row 5: Instruction
-      const instructionRow = ws2.getRow(5);
+      // Row 5: Meeting Link Option
+      const linkOptionRow = ws2.getRow(5);
+      linkOptionRow.getCell(2).value = 'Meeting Link Option:';
+      linkOptionRow.getCell(3).value = 'Single Link for All Days';
+      linkOptionRow.getCell(3).dataValidation = {
+        type: 'list',
+        allowBlank: false,
+        formulae: ['"Single Link for All Days,Different Link for Each Day"']
+      };
+      linkOptionRow.height = 24;
+      ws2.mergeCells(5, 3, 5, 4);
+      linkOptionRow.getCell(2).font = { name: 'Calibri', size: 12, bold: true };
+      linkOptionRow.getCell(2).alignment = { vertical: 'middle', horizontal: 'right' };
+      linkOptionRow.getCell(3).font = { name: 'Calibri', size: 12, bold: true, color: { argb: 'FF0000FF' } };
+      linkOptionRow.getCell(3).alignment = { vertical: 'middle', horizontal: 'left' };
+
+      // Row 6: Instruction
+      const instructionRow = ws2.getRow(6);
       instructionRow.getCell(1).value = `Note: To edit Knowledge Giver/Receiver directly, copy the cell and 'Paste as Values' first, or type a new name to overwrite.\nStart Date Format: DD-MM-YYYY HH:MM (e.g., 25-10-2026 14:30)`;
       instructionRow.height = 32;
-      ws2.mergeCells(5, 1, 5, tableHeaders.length);
+      ws2.mergeCells(6, 1, 6, tableHeaders.length);
       instructionRow.getCell(1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF555555' } };
       instructionRow.getCell(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-      const headerRow2 = ws2.getRow(6);
+
+      // Row 7: Header
+      const headerRow2 = ws2.getRow(7);
       headerRow2.height = 26;
       tableHeaders.forEach((h, colIdx) => {
         const cell = headerRow2.getCell(colIdx + 1);
@@ -1294,28 +1430,38 @@ const SchedulePage = () => {
         };
       });
 
-      let currentRowIndex = 7;
-      let startDayRow = 7;
+      let currentRowIndex = 8;
+      let startDayRow = 8;
       let currentDay = cleanedTopics[0]?.clean_day;
 
       cleanedTopics.forEach((t, idx) => {
         const row = ws2.getRow(currentRowIndex);
         row.height = 22;
 
+        const dayIdx = uniqueDays.indexOf(t.clean_day);
+        const giverAccumLetter = getExcelColName(3 + cleanedTopics.length + (2 * dayIdx));
+        const receiverAccumLetter = getExcelColName(3 + cleanedTopics.length + (2 * dayIdx) + 1);
+
+        const giverFormula = `Sheet1!$${giverAccumLetter}$${lastRowSheet1}`;
+        const receiverFormula = `Sheet1!$${receiverAccumLetter}$${lastRowSheet1}`;
+
         row.getCell(1).value = t.clean_day;
         row.getCell(2).value = t.topic_name;
-        row.getCell(3).value = t.estimated_duration_hours || 'N/A';
-        row.getCell(4).value = { formula: `Sheet1!$D$${lastRowSheet1}` };
-        row.getCell(5).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+        let durationMinutes = 'N/A';
+        if (t.estimated_duration_hours !== undefined && t.estimated_duration_hours !== null && !isNaN(t.estimated_duration_hours)) {
+          durationMinutes = parseFloat(t.estimated_duration_hours) * 60;
+        }
+        row.getCell(3).value = durationMinutes;
+        row.getCell(4).value = { formula: giverFormula };
+        row.getCell(5).value = { formula: receiverFormula };
         row.getCell(6).value = '';
-        row.getCell(7).value = '';
-        let colIdx = 8;
+        let colIdx = 7;
         if (isSudMandatory) {
-          row.getCell(colIdx).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+          row.getCell(colIdx).value = { formula: receiverFormula };
           colIdx++;
         }
         if (isFinalAssessmentMandatory) {
-          row.getCell(colIdx).value = { formula: `Sheet1!$E$${lastRowSheet1}` };
+          row.getCell(colIdx).value = { formula: receiverFormula };
           colIdx++;
         }
 
@@ -1346,9 +1492,6 @@ const SchedulePage = () => {
               
               ws2.mergeCells(startDayRow, 5, currentRowIndex - 1, 5);
               ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-              
-              ws2.mergeCells(startDayRow, 7, currentRowIndex - 1, 7);
-              ws2.getCell(startDayRow, 7).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
             }
             startDayRow = currentRowIndex;
             currentDay = t.clean_day;
@@ -1365,24 +1508,21 @@ const SchedulePage = () => {
             
             ws2.mergeCells(startDayRow, 5, currentRowIndex, 5);
             ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-            
-            ws2.mergeCells(startDayRow, 7, currentRowIndex, 7);
-            ws2.getCell(startDayRow, 7).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
           }
         }
         currentRowIndex++;
       });
 
       // Merge Start Date column (column 6) for all data rows
-      if (currentRowIndex > 7) {
-        ws2.mergeCells(7, 6, currentRowIndex - 1, 6);
-        const startDateCell = ws2.getCell(7, 6);
+      if (currentRowIndex > 8) {
+        ws2.mergeCells(8, 6, currentRowIndex - 1, 6);
+        const startDateCell = ws2.getCell(8, 6);
         startDateCell.alignment = { vertical: 'middle', horizontal: 'center' };
         
         if (isFinalAssessmentMandatory) {
           const faIdx = tableHeaders.indexOf("Final Assessment") + 1;
-          ws2.mergeCells(7, faIdx, currentRowIndex - 1, faIdx);
-          const faCell = ws2.getCell(7, faIdx);
+          ws2.mergeCells(8, faIdx, currentRowIndex - 1, faIdx);
+          const faCell = ws2.getCell(8, faIdx);
           faCell.alignment = { vertical: 'middle', horizontal: 'center' };
         }
       }
@@ -1577,7 +1717,15 @@ const SchedulePage = () => {
               </button>
             )}
           </nav>
-          <div className="pb-2">
+          <div className="pb-2 flex gap-3 items-center">
+            <button
+              onClick={handleViewSchedulePDF}
+              disabled={!formData.plan_id || !meetings.some(m => m.plan_id === parseInt(formData.plan_id))}
+              className={`inline-flex items-center gap-2 px-4 py-2 border rounded-md transition-colors shadow-sm text-sm ${(!formData.plan_id || !meetings.some(m => m.plan_id === parseInt(formData.plan_id))) ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-primary-orange border-primary-orange hover:bg-orange-50'}`}
+            >
+              <Eye size={16} />
+              View
+            </button>
             <button
               onClick={handleDownloadTemplate}
               disabled={isUploadingExcel}
