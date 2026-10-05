@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx-js-style';
 import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
 import { getProjects, createProject, getProjectById, updateProject, uploadProjectTemplate } from '../api/projects';
 import Loader from '../components/Loader';
-import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit, Download } from 'lucide-react';
+import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit, Download, Calendar, Video, Info, Layers, Tag } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
@@ -142,26 +142,158 @@ const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, han
   );
 };
 
-const ProjectCard = ({ project, onClick, isLoading }) => (
-  <div 
-    onClick={isLoading ? null : onClick}
-    className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md hover:border-primary-orange transition-all flex flex-col justify-center items-center h-40 p-6 relative group ${isLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'}`}
-  >
-    {isLoading ? (
-      <RefreshCw size={32} className="text-primary-orange animate-spin mb-3 flex-shrink-0" />
-    ) : (
-      <FolderOpen size={32} className="text-gray-400 group-hover:text-primary-orange mb-3 transition-colors flex-shrink-0" />
-    )}
-    <h3 className="text-lg font-bold text-gray-800 text-center">{project.name}</h3>
-    <p className="text-xs text-gray-500 mt-2">{project.plan_count || 0} Plans</p>
-  </div>
-);
+const ProjectCard = ({ project, onClick, isLoading }) => {
+  const cfg = project?.config || {};
+  return (
+    <div 
+      onClick={isLoading ? null : onClick}
+      className={`bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary-orange transition-all flex flex-col justify-between p-5 relative group min-h-[180px] ${isLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'}`}
+    >
+      <div>
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-10 h-10 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center text-primary-orange flex-shrink-0 group-hover:scale-105 transition-transform">
+              {isLoading ? <RefreshCw size={20} className="animate-spin" /> : <FolderOpen size={20} />}
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-800 group-hover:text-primary-orange transition-colors line-clamp-1">{project.name}</h3>
+              <p className="text-[11px] text-gray-400">Created: {project.created_at ? new Date(project.created_at).toLocaleDateString() : 'N/A'}</p>
+            </div>
+          </div>
+          {cfg.platform && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border flex items-center flex-shrink-0 ${cfg.platform === 'Microsoft Teams' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+              <Video size={10} className="mr-1" />
+              {cfg.platform}
+            </span>
+          )}
+        </div>
+
+        {cfg.description && (
+          <p className="text-xs text-gray-600 line-clamp-2 mt-2 mb-2 leading-relaxed">
+            {cfg.description}
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-1 mb-2">
+          {cfg.reasonForKt && (
+            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium line-clamp-1">
+              {cfg.reasonForKt}
+            </span>
+          )}
+          {cfg.techStack && (
+            <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono line-clamp-1 max-w-[150px]">
+              {cfg.techStack}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500 mt-2">
+        <span className="flex items-center font-medium text-gray-700">
+          <Calendar size={13} className="mr-1 text-primary-orange" />
+          {cfg.startDate && cfg.endDate ? `${cfg.startDate} - ${cfg.endDate}` : `${project.plan_count || 0} Plans`}
+        </span>
+        <div className="flex items-center space-x-1.5">
+          {cfg.expectedSessions ? (
+            <span className="bg-orange-50 text-primary-orange font-semibold px-2 py-0.5 rounded border border-orange-200 text-[11px]">
+              {cfg.expectedSessions} Sessions
+            </span>
+          ) : (
+            <span className="text-gray-400 text-xs">{project.plan_count || 0} Plans</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditMode, editTarget }) => {
   const { showToast } = useToast();
+  
+  const standardReasons = [
+    'Team Transition / Handover',
+    'New Joiner / Team Onboarding',
+    'Outgoing SME Handover',
+    'Client / BAU Support Handover',
+    'Technology Modernization',
+    'Cross-skilling / Upskilling'
+  ];
+  const initialReason = initialData?.reasonForKt || initialData?.reason_for_kt || initialData?.kt_reason || '';
+  const isCustomInitial = initialReason && !standardReasons.includes(initialReason);
+
   const [projectName, setProjectName] = useState(initialData?.name || '');
+  const [description, setDescription] = useState(initialData?.description || '');
+  const [reasonForKt, setReasonForKt] = useState(isCustomInitial ? 'Other' : (initialReason || ''));
+  const [customReason, setCustomReason] = useState(isCustomInitial ? initialReason : '');
+  const [scopes, setScopes] = useState(initialData?.scopes || '');
+  const [expectedSessions, setExpectedSessions] = useState(initialData?.expectedSessions || initialData?.expected_sessions || '');
+  const [startDate, setStartDate] = useState(initialData?.startDate || initialData?.start_date || '');
+  const [endDate, setEndDate] = useState(initialData?.endDate || initialData?.end_date || '');
+  const [frequency, setFrequency] = useState(initialData?.frequency || initialData?.session_frequency || '');
+  const [platform, setPlatform] = useState(initialData?.platform || 'Google Meet');
+  const [techStack, setTechStack] = useState(initialData?.techStack || initialData?.tech_stack || '');
+
   const [tracks, setTracks] = useState(initialData?.tracks || []);
   const [localEditTarget, setLocalEditTarget] = useState(editTarget || null);
+
+  const getProjectPayload = () => {
+    const finalReason = reasonForKt === 'Other' ? (customReason.trim() || 'Other') : reasonForKt;
+    return {
+      name: projectName.trim(),
+      description: description.trim(),
+      reasonForKt: finalReason,
+      scopes: scopes.trim(),
+      expectedSessions: expectedSessions ? parseInt(expectedSessions, 10) : 0,
+      startDate: startDate || '',
+      endDate: endDate || '',
+      frequency: frequency || '',
+      platform: platform || 'Google Meet',
+      techStack: techStack.trim(),
+      tracks
+    };
+  };
+
+  const handleSave = () => {
+    if (!projectName.trim()) {
+      showToast("Please enter a Project Name", 'error');
+      return;
+    }
+    if (!description.trim()) {
+      showToast("Please enter a Project Description", 'error');
+      return;
+    }
+    const finalReason = reasonForKt === 'Other' ? customReason.trim() : reasonForKt;
+    if (!finalReason) {
+      showToast("Please select or specify the Reason for KT", 'error');
+      return;
+    }
+    if (!scopes.trim()) {
+      showToast("Please specify the Project Scopes", 'error');
+      return;
+    }
+    if (!expectedSessions || parseInt(expectedSessions, 10) <= 0) {
+      showToast("Please enter a valid Expected Number of Sessions (min 1)", 'error');
+      return;
+    }
+    if (!startDate) {
+      showToast("Please select the Start Date", 'error');
+      return;
+    }
+    if (!endDate) {
+      showToast("Please select the End Date", 'error');
+      return;
+    }
+    if (new Date(endDate) < new Date(startDate)) {
+      showToast("End Date cannot be earlier than Start Date", 'error');
+      return;
+    }
+    if (!platform) {
+      showToast("Please select a Platform Integration", 'error');
+      return;
+    }
+
+    onSave(getProjectPayload());
+  };
 
   const handleAddTrack = () => {
     setLocalEditTarget(null);
@@ -283,31 +415,198 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
   return (
     <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
       <div className="flex justify-between items-center pb-4 border-b border-light-border">
-        <h3 className="text-xl font-bold text-primary-text">Add New Project</h3>
+        <div>
+          <h3 className="text-xl font-bold text-primary-text">{isEditMode ? 'Edit Project Configuration' : 'Add New Project'}</h3>
+          <p className="text-xs text-secondary-text mt-0.5">Define project parameters, scopes, timeline, and track configurations.</p>
+        </div>
         <button type="button" onClick={onCancel} className="text-secondary-text hover:text-red-500">
           <X size={20} />
         </button>
       </div>
       
       <div className="space-y-6">
-        <div>
-          <label className="block text-sm font-semibold text-primary-text mb-1">Project Name</label>
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              disabled={isEditMode}
-              className={`w-full lg:w-1/2 px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-primary-orange focus:border-primary-orange text-sm ${isEditMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-            />
-            <button 
-              type="button"
-              onClick={handleAddTrack}
-              className="px-3 py-2 bg-input-background border border-light-border text-primary-text text-sm rounded-md font-medium hover:bg-gray-100 whitespace-nowrap"
-            >
-              Track +
-            </button>
+        {/* Delivery Manager Inputs Card */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs space-y-5">
+          <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+            <Info size={18} className="text-primary-orange" />
+            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Delivery Manager Inputs</h4>
           </div>
+
+          {/* Row 1: Project Name & Reason for KT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Project Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                disabled={isEditMode}
+                placeholder="e.g. Core Banking Platform Modernization"
+                className={`w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange ${isEditMode ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Reason for KT <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={reasonForKt}
+                onChange={(e) => setReasonForKt(e.target.value)}
+                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange bg-white font-medium"
+              >
+                <option value="">-- Select Reason for KT --</option>
+                {standardReasons.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+                <option value="Other">Other (Custom Reason)</option>
+              </select>
+              {reasonForKt === 'Other' && (
+                <input
+                  type="text"
+                  placeholder="Specify custom Reason for KT..."
+                  className="mt-2 w-full px-3 py-1.5 border border-light-border rounded-lg text-sm shadow-2xs"
+                  value={customReason}
+                  onChange={(e) => setCustomReason(e.target.value)}
+                />
+              )}
+            </div>
+          </div>
+
+          {/* Row 2: Project Description */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+              Project Description <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Provide an overview of the project, architecture background, and target objectives..."
+              className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange leading-relaxed"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          {/* Row 3: Scopes */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+              Scopes <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Specify in-scope deliverables, systems to cover, and clear out-of-scope boundaries..."
+              className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange leading-relaxed"
+              value={scopes}
+              onChange={(e) => setScopes(e.target.value)}
+            />
+          </div>
+
+          {/* Row 4: Sessions, Timeline & Frequency */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Expected No of Sessions <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                placeholder="e.g. 8"
+                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange font-medium"
+                value={expectedSessions}
+                onChange={(e) => setExpectedSessions(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Start Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                End Date <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                min={startDate || undefined}
+                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Frequency of Sessions <span className="text-gray-400 font-normal lowercase">(optional)</span>
+              </label>
+              <select
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value)}
+                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange bg-white"
+              >
+                <option value="">-- Select Frequency --</option>
+                <option value="Daily">Daily</option>
+                <option value="Alternate Days">Alternate Days</option>
+                <option value="Twice a Week">Twice a Week</option>
+                <option value="Weekly">Weekly</option>
+                <option value="Custom">Custom / As Needed</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Row 5: Platform Integration & Tech Stack */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Platform Integration <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange bg-white font-medium"
+              >
+                <option value="Google Meet">Google Meet</option>
+                <option value="Microsoft Teams">Microsoft Teams</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                Tech & Stack Details <span className="text-gray-400 font-normal lowercase">(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. React, Node.js, Python, PostgreSQL, AWS, Docker"
+                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange"
+                value={techStack}
+                onChange={(e) => setTechStack(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Tracks & Modules Configuration Header */}
+        <div className="flex justify-between items-center pt-2">
+          <div>
+            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Tracks & Modules Configuration</h4>
+            <p className="text-xs text-gray-500">Configure tracks, modules, assessment entry/exit criteria, and SUD documentation rules.</p>
+          </div>
+          <button 
+            type="button"
+            onClick={handleAddTrack}
+            className="flex items-center px-3.5 py-1.5 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
+          >
+            <Plus size={14} className="mr-1" /> Add Track
+          </button>
         </div>
 
         <div className="space-y-6">
@@ -348,8 +647,8 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                     <button
                       type="button"
                       onClick={() => {
-                        if (!projectName) { showToast("Please enter a Project Name first.", 'error'); return; }
-                        onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: null });
+                        if (!projectName.trim()) { showToast("Please enter a Project Name first.", 'error'); return; }
+                        onGeneratePlan({ projectData: getProjectPayload(), projectName: projectName.trim(), track, module: null });
                       }}
                       className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
                     >
@@ -381,8 +680,8 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                         <button
                           type="button"
                           onClick={() => {
-                            if (!projectName) { showToast("Please enter a Project Name first.", 'error'); return; }
-                            onGeneratePlan({ projectData: { name: projectName, tracks }, projectName, track, module: mod });
+                            if (!projectName.trim()) { showToast("Please enter a Project Name first.", 'error'); return; }
+                            onGeneratePlan({ projectData: getProjectPayload(), projectName: projectName.trim(), track, module: mod });
                           }}
                           className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange ml-2"
                         >
@@ -447,10 +746,10 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
       <div className="flex justify-end pt-4 border-t border-light-border">
         <button
           type="button"
-          onClick={() => onSave({ name: projectName, tracks })}
-          className="px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
+          onClick={handleSave}
+          className="px-5 py-2.5 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange transition-colors"
         >
-          {isEditMode ? 'Update Project' : 'Add'}
+          {isEditMode ? 'Update Project' : 'Create Project'}
         </button>
       </div>
     </div>
@@ -1059,20 +1358,111 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
         <div className="px-6 py-5 border-b border-light-border bg-gray-50 flex items-center justify-between">
           <div className="flex items-center">
             <List className="mr-3 text-primary-orange" size={24} />
-            <h3 className="text-xl font-bold text-primary-text">
-              Project Details: {projectData.name}
-            </h3>
+            <div>
+              <h3 className="text-xl font-bold text-primary-text">
+                Project Details: {projectData.name}
+              </h3>
+              <p className="text-xs text-secondary-text mt-0.5">
+                Created: {projectData.created_at ? new Date(projectData.created_at).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>
           </div>
           {canGenerate && (
-            <button
-              onClick={() => onEditProject(projectData)}
-              className="flex items-center px-3 py-1.5 bg-button-orange text-white text-sm font-semibold rounded shadow-sm hover:bg-hover-orange"
-            >
-              <Plus size={16} className="mr-1" /> Add Track
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => onEditProject(null, null)}
+                className="flex items-center px-3 py-1.5 bg-white border border-light-border text-gray-700 text-xs font-semibold rounded shadow-sm hover:bg-gray-50 transition-colors"
+                title="Edit Project Details"
+              >
+                <Edit size={14} className="mr-1.5 text-primary-orange" /> Edit Project
+              </button>
+              <button
+                onClick={() => onEditProject(projectData)}
+                className="flex items-center px-3 py-1.5 bg-button-orange text-white text-xs font-semibold rounded shadow-sm hover:bg-hover-orange transition-colors"
+              >
+                <Plus size={15} className="mr-1" /> Add Track
+              </button>
+            </div>
           )}
         </div>
-        <div className="p-6">
+        <div className="p-6 space-y-6">
+          {/* Delivery Manager Project Metadata Overview */}
+          {(projectData.config?.description || projectData.config?.scopes || projectData.config?.startDate) && (
+            <div className="bg-gradient-to-r from-orange-50/70 via-amber-50/40 to-white border border-orange-100 rounded-xl p-5 space-y-4 shadow-2xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-orange-100/80 pb-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">Project Parameters:</span>
+                  {projectData.config?.platform && (
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border flex items-center ${projectData.config.platform === 'Microsoft Teams' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                      <Video size={12} className="mr-1.5" />
+                      {projectData.config.platform}
+                    </span>
+                  )}
+                  {projectData.config?.reasonForKt && (
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                      Reason: {projectData.config.reasonForKt}
+                    </span>
+                  )}
+                  {projectData.config?.expectedSessions ? (
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-200">
+                      {projectData.config.expectedSessions} Sessions Expected
+                    </span>
+                  ) : null}
+                  {projectData.config?.frequency && (
+                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">
+                      Freq: {projectData.config.frequency}
+                    </span>
+                  )}
+                </div>
+
+                {(projectData.config?.startDate || projectData.config?.endDate) && (
+                  <div className="flex items-center text-xs font-semibold text-gray-700 bg-white px-3 py-1 rounded-lg border border-gray-200 shadow-2xs">
+                    <Calendar size={13} className="mr-1.5 text-primary-orange" />
+                    <span>{projectData.config.startDate || 'N/A'} &rarr; {projectData.config.endDate || 'N/A'}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Description & Scopes */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                {projectData.config?.description && (
+                  <div>
+                    <h5 className="font-bold text-gray-700 mb-1 flex items-center">
+                      <Info size={13} className="mr-1.5 text-primary-orange" /> Project Description:
+                    </h5>
+                    <p className="text-gray-600 bg-white p-3 rounded-lg border border-orange-100/70 leading-relaxed shadow-2xs">
+                      {projectData.config.description}
+                    </p>
+                  </div>
+                )}
+                {projectData.config?.scopes && (
+                  <div>
+                    <h5 className="font-bold text-gray-700 mb-1 flex items-center">
+                      <Layers size={13} className="mr-1.5 text-primary-orange" /> Scopes & Boundaries:
+                    </h5>
+                    <p className="text-gray-600 bg-white p-3 rounded-lg border border-orange-100/70 leading-relaxed whitespace-pre-line shadow-2xs">
+                      {projectData.config.scopes}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {projectData.config?.techStack && (
+                <div className="pt-2 border-t border-orange-100/80 flex items-center gap-2">
+                  <Tag size={13} className="text-primary-orange flex-shrink-0" />
+                  <span className="text-xs font-semibold text-gray-700">Tech Stack:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {projectData.config.techStack.split(',').map((tech, idx) => (
+                      <span key={idx} className="text-[11px] bg-white px-2 py-0.5 rounded border border-gray-200 text-gray-700 font-mono font-medium">
+                        {tech.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-8">
             {projectData.config?.tracks?.map((track) => {
               const trackPlans = (projectData.plans || []).filter(p => {
@@ -1734,9 +2124,11 @@ const PlanPage = () => {
       moduleId: module ? module.id : null
     };
 
+    const prefilledScope = configToFilter?.scopes || configToFilter?.description || '';
     setDocFormData(prev => ({ 
       ...prev, 
       application_name: contextName,
+      scope_description: prev.scope_description || prefilledScope,
       project_config: filteredProjectData,
       project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
@@ -1744,6 +2136,7 @@ const PlanPage = () => {
     setFormData(prev => ({ 
       ...prev, 
       application_name: contextName,
+      scope_description: prev.scope_description || prefilledScope,
       project_config: filteredProjectData,
       project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
@@ -2376,7 +2769,7 @@ const PlanPage = () => {
           onCancel={() => setIsEditingProject(false)} 
           onSave={handleUpdateProject} 
           onGeneratePlan={handleGeneratePlan} 
-          initialData={{ name: projectToView.name, tracks: projectToView.config?.tracks || [] }} 
+          initialData={{ ...(projectToView.config || {}), name: projectToView.name }} 
           isEditMode={true} 
           editTarget={editTarget}
         />
