@@ -17,29 +17,41 @@ const checkboxConfig = [
       {
         title: 'Entry Criteria',
         items: [
-          { id: 'kt_doc', label: 'Project KT Document Ready' },
+          { id: 'kt_doc', label: 'KT Plan Ready' },
           { id: 'stakeholder_map', label: 'Stakeholder Mapping Ready' }
         ]
       },
       {
         title: 'Exit Criteria',
         items: [
-          { 
-            id: 'rkt', 
-            label: 'Reverse KT',
-            subItems: [
-              { id: 'upload_sud', label: 'By uploading SUD' }
-            ]
-          },
-          { id: 'sud_mandatory', label: 'SUD Mandatory' },
-          { id: 'assessment', label: 'Assessment' }
+          { id: 'project_kt_doc_ready', label: 'Project KT Document Ready' },
+          { id: 'sud_mandatory', label: 'SUD Mandatory' }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'reverse_kt',
+    label: 'Reverse KT',
+    groups: [
+      {
+        title: 'Entry Criteria',
+        items: [
+          { id: 'ka_completed', label: 'Knowledge Acquisition Completed' },
+          { id: 'rkt_project_kt_doc', label: 'Project KT Document Ready' }
+        ]
+      },
+      {
+        title: 'Exit Criteria',
+        items: [
+          { id: 'rkt_assessment', label: 'Assessment Passed (≥80%)' }
         ]
       }
     ]
   },
   { 
     id: 'shadow_resourcing', 
-    label: 'Shadow Resourcing', 
+    label: 'Shadow Support', 
     groups: [
       {
         title: 'Entry Criteria',
@@ -51,21 +63,19 @@ const checkboxConfig = [
       {
         title: 'Exit Criteria',
         items: [
-          { id: 'ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' },
-          { id: 'weeks_shadow', label: 'Required weeks for shadow resourcing', hasInput: true, inputLabel: 'e.g. 2 weeks' }
+          { id: 'ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' }
         ]
       }
     ]
   },
   { 
     id: 'lead_resourcing', 
-    label: 'Lead Resourcing',
+    label: 'Lead Support',
     groups: [
       {
         title: 'Entry Criteria',
         items: [
-          { id: 'lr_ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' },
-          { id: 'lr_weeks_shadow', label: 'Required weeks for shadow resourcing', hasInput: true, inputLabel: 'e.g. 2 weeks' }
+          { id: 'lr_ticket_resolving', label: 'Need to be involved in ticket resolving', hasInput: true, inputLabel: 'e.g. 5 tickets' }
         ]
       }
     ]
@@ -194,13 +204,7 @@ const ProjectCard = ({ project, onClick, isLoading }) => {
           {cfg.startDate && cfg.endDate ? `${cfg.startDate} - ${cfg.endDate}` : `${project.plan_count || 0} Plans`}
         </span>
         <div className="flex items-center space-x-1.5">
-          {cfg.expectedSessions ? (
-            <span className="bg-orange-50 text-primary-orange font-semibold px-2 py-0.5 rounded border border-orange-200 text-[11px]">
-              {cfg.expectedSessions} Sessions
-            </span>
-          ) : (
-            <span className="text-gray-400 text-xs">{project.plan_count || 0} Plans</span>
-          )}
+          <span className="text-gray-400 text-xs">{project.plan_count || 0} Plans</span>
         </div>
       </div>
     </div>
@@ -225,13 +229,41 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
   const [description, setDescription] = useState(initialData?.description || '');
   const [reasonForKt, setReasonForKt] = useState(isCustomInitial ? 'Other' : (initialReason || ''));
   const [customReason, setCustomReason] = useState(isCustomInitial ? initialReason : '');
-  const [scopes, setScopes] = useState(initialData?.scopes || '');
-  const [expectedSessions, setExpectedSessions] = useState(initialData?.expectedSessions || initialData?.expected_sessions || '');
   const [startDate, setStartDate] = useState(initialData?.startDate || initialData?.start_date || '');
   const [endDate, setEndDate] = useState(initialData?.endDate || initialData?.end_date || '');
-  const [frequency, setFrequency] = useState(initialData?.frequency || initialData?.session_frequency || '');
   const [platform, setPlatform] = useState(initialData?.platform || 'Google Meet');
   const [techStack, setTechStack] = useState(initialData?.techStack || initialData?.tech_stack || '');
+
+  const [phaseSelected, setPhaseSelected] = useState(initialData?.phaseSelected || {
+    ka: true,
+    reverse_kt: true,
+    shadow_resourcing: true,
+    lead_resourcing: true
+  });
+  const [phaseDurations, setPhaseDurations] = useState(initialData?.phaseDurations || {
+    ka: 0,
+    reverse_kt: 0,
+    shadow_resourcing: 0,
+    lead_resourcing: 0
+  });
+
+  useEffect(() => {
+    if (!startDate) return;
+    const totalDays = 
+      (phaseSelected.ka ? (parseInt(phaseDurations.ka)||0) : 0) +
+      (phaseSelected.reverse_kt ? (parseInt(phaseDurations.reverse_kt)||0) : 0) +
+      (phaseSelected.shadow_resourcing ? (parseInt(phaseDurations.shadow_resourcing)||0) : 0) +
+      (phaseSelected.lead_resourcing ? (parseInt(phaseDurations.lead_resourcing)||0) : 0);
+      
+    if (totalDays > 0) {
+      const start = new Date(startDate);
+      start.setDate(start.getDate() + totalDays - 1);
+      const yyyy = start.getFullYear();
+      const mm = String(start.getMonth() + 1).padStart(2, '0');
+      const dd = String(start.getDate()).padStart(2, '0');
+      setEndDate(`${yyyy}-${mm}-${dd}`);
+    }
+  }, [startDate, phaseSelected, phaseDurations]);
 
   const [tracks, setTracks] = useState(initialData?.tracks || []);
   const [localEditTarget, setLocalEditTarget] = useState(editTarget || null);
@@ -242,11 +274,10 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
       name: projectName.trim(),
       description: description.trim(),
       reasonForKt: finalReason,
-      scopes: scopes.trim(),
-      expectedSessions: expectedSessions ? parseInt(expectedSessions, 10) : 0,
       startDate: startDate || '',
       endDate: endDate || '',
-      frequency: frequency || '',
+      phaseSelected,
+      phaseDurations,
       platform: platform || 'Google Meet',
       techStack: techStack.trim(),
       tracks
@@ -265,14 +296,6 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
     const finalReason = reasonForKt === 'Other' ? customReason.trim() : reasonForKt;
     if (!finalReason) {
       showToast("Please select or specify the Reason for KT", 'error');
-      return;
-    }
-    if (!scopes.trim()) {
-      showToast("Please specify the Project Scopes", 'error');
-      return;
-    }
-    if (!expectedSessions || parseInt(expectedSessions, 10) <= 0) {
-      showToast("Please enter a valid Expected Number of Sessions (min 1)", 'error');
       return;
     }
     if (!startDate) {
@@ -299,7 +322,8 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
     setLocalEditTarget(null);
     setTracks([...tracks, { 
       id: Date.now(), 
-      name: `Track ${tracks.length + 1}`, 
+      name: `Track ${tracks.length + 1}`,
+      scopes: '',
       modules: [],
       options: { ka: true },
       inputs: {},
@@ -309,6 +333,10 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
 
   const handleTrackNameChange = (trackId, val) => {
     setTracks(tracks.map(t => t.id === trackId ? { ...t, name: val } : t));
+  };
+
+  const handleTrackScopesChange = (trackId, val) => {
+    setTracks(tracks.map(t => t.id === trackId ? { ...t, scopes: val } : t));
   };
 
   const handleAddModule = (trackId) => {
@@ -412,6 +440,24 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
     }));
   };
 
+  const handleEndDateChange = (e) => {
+    const newEnd = e.target.value;
+    setEndDate(newEnd);
+    if (startDate && newEnd) {
+      const start = new Date(startDate);
+      const end = new Date(newEnd);
+      if (end >= start) {
+        const diff = Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+        const ka = Math.round(diff * 0.7);
+        const rkt = Math.round(diff * 0.1);
+        const ss = Math.round(diff * 0.1);
+        const ls = diff - ka - rkt - ss;
+        
+        setPhaseDurations({ ka, reverse_kt: rkt, shadow_resourcing: ss, lead_resourcing: ls });
+      }
+    }
+  };
+
   return (
     <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 space-y-6">
       <div className="flex justify-between items-center pb-4 border-b border-light-border">
@@ -489,36 +535,8 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
             />
           </div>
 
-          {/* Row 3: Scopes */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-              Scopes <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              rows={2}
-              placeholder="Specify in-scope deliverables, systems to cover, and clear out-of-scope boundaries..."
-              className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange leading-relaxed"
-              value={scopes}
-              onChange={(e) => setScopes(e.target.value)}
-            />
-          </div>
-
-          {/* Row 4: Sessions, Timeline & Frequency */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                Expected No of Sessions <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                placeholder="e.g. 8"
-                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange font-medium"
-                value={expectedSessions}
-                onChange={(e) => setExpectedSessions(e.target.value)}
-              />
-            </div>
-
+          {/* Row 4: Timeline */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
                 Start Date <span className="text-red-500">*</span>
@@ -540,26 +558,117 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                 min={startDate || undefined}
                 className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={handleEndDateChange}
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                Frequency of Sessions <span className="text-gray-400 font-normal lowercase">(optional)</span>
-              </label>
-              <select
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value)}
-                className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange bg-white"
-              >
-                <option value="">-- Select Frequency --</option>
-                <option value="Daily">Daily</option>
-                <option value="Alternate Days">Alternate Days</option>
-                <option value="Twice a Week">Twice a Week</option>
-                <option value="Weekly">Weekly</option>
-                <option value="Custom">Custom / As Needed</option>
-              </select>
+          {/* Phase Configuration */}
+          <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm space-y-4">
+            <div className="flex items-center space-x-2 border-b border-gray-100 pb-2">
+              <Clock size={16} className="text-primary-orange" />
+              <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Phase Configuration</h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* KA */}
+              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                <div className="flex items-center space-x-2">
+                  <input type="checkbox" checked={true} disabled className="h-4 w-4 text-primary-orange rounded border-light-border" />
+                  <label className="text-sm font-semibold text-gray-700">Knowledge Acquisition</label>
+                </div>
+                <div className="flex items-center space-x-2 mt-2">
+                  <input 
+                    type="number" 
+                    min="0"
+                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange"
+                    value={phaseDurations.ka}
+                    onChange={(e) => setPhaseDurations({...phaseDurations, ka: e.target.value})}
+                  />
+                  <span className="text-xs text-gray-500">days</span>
+                </div>
+              </div>
+              
+              {/* RKT */}
+              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="checkbox" 
+                    checked={phaseSelected.reverse_kt} 
+                    onChange={(e) => setPhaseSelected({...phaseSelected, reverse_kt: e.target.checked})}
+                    className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange" 
+                  />
+                  <label className="text-sm font-semibold text-gray-700">Reverse KT</label>
+                </div>
+                <div className="flex items-center space-x-2 mt-2">
+                  <input 
+                    type="number" 
+                    min="0"
+                    disabled={!phaseSelected.reverse_kt}
+                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange disabled:opacity-50"
+                    value={phaseDurations.reverse_kt}
+                    onChange={(e) => setPhaseDurations({...phaseDurations, reverse_kt: e.target.value})}
+                  />
+                  <span className="text-xs text-gray-500">days</span>
+                </div>
+              </div>
+
+              {/* SS */}
+              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="checkbox" 
+                    checked={phaseSelected.shadow_resourcing} 
+                    onChange={(e) => setPhaseSelected({...phaseSelected, shadow_resourcing: e.target.checked})}
+                    className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange" 
+                  />
+                  <label className="text-sm font-semibold text-gray-700">Shadow Support</label>
+                </div>
+                <div className="flex items-center space-x-2 mt-2">
+                  <input 
+                    type="number" 
+                    min="0"
+                    disabled={!phaseSelected.shadow_resourcing}
+                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange disabled:opacity-50"
+                    value={phaseDurations.shadow_resourcing}
+                    onChange={(e) => setPhaseDurations({...phaseDurations, shadow_resourcing: e.target.value})}
+                  />
+                  <span className="text-xs text-gray-500">days</span>
+                </div>
+              </div>
+
+              {/* LS */}
+              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
+                <div className="flex items-center space-x-2">
+                  <input 
+                    type="checkbox" 
+                    checked={phaseSelected.lead_resourcing} 
+                    onChange={(e) => setPhaseSelected({...phaseSelected, lead_resourcing: e.target.checked})}
+                    className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange" 
+                  />
+                  <label className="text-sm font-semibold text-gray-700">Lead Support</label>
+                </div>
+                <div className="flex items-center space-x-2 mt-2">
+                  <input 
+                    type="number" 
+                    min="0"
+                    disabled={!phaseSelected.lead_resourcing}
+                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange disabled:opacity-50"
+                    value={phaseDurations.lead_resourcing}
+                    onChange={(e) => setPhaseDurations({...phaseDurations, lead_resourcing: e.target.value})}
+                  />
+                  <span className="text-xs text-gray-500">days</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-orange-50 border border-orange-100 p-3 rounded-lg flex items-center justify-between mt-4">
+              <span className="text-sm font-medium text-gray-700">Total Duration:</span>
+              <span className="text-lg font-bold text-primary-orange">
+                { (phaseSelected.ka ? (parseInt(phaseDurations.ka)||0) : 0) +
+                  (phaseSelected.reverse_kt ? (parseInt(phaseDurations.reverse_kt)||0) : 0) +
+                  (phaseSelected.shadow_resourcing ? (parseInt(phaseDurations.shadow_resourcing)||0) : 0) +
+                  (phaseSelected.lead_resourcing ? (parseInt(phaseDurations.lead_resourcing)||0) : 0) } days
+              </span>
             </div>
           </div>
 
@@ -620,42 +729,57 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
               >
                 <X size={16} />
               </button>
-              <div className="flex flex-wrap items-center gap-2 pr-6">
-                <input
-                  type="text"
-                  className="px-3 py-1.5 border border-light-border rounded-md text-sm font-medium w-full sm:w-auto min-w-[200px]"
-                  value={track.name}
-                  onChange={(e) => handleTrackNameChange(track.id, e.target.value)}
-                  placeholder="Track Name"
-                />
-                <button 
-                  type="button" 
-                  onClick={() => handleAddModule(track.id)} 
-                  className="px-3 py-1.5 text-xs border border-light-border bg-input-background rounded hover:bg-gray-100 font-medium"
-                >
-                  Module +
-                </button>
-                {track.modules.length === 0 && (
-                  <>
-                    <button 
-                      type="button" 
-                      onClick={() => toggleConfig(track.id)} 
-                      className={`px-3 py-1.5 text-xs border rounded font-medium transition-colors ${track.showConfig ? 'bg-primary-orange border-primary-orange text-white' : 'border-light-border bg-input-background hover:bg-gray-100 text-primary-text'}`}
-                    >
-                      Configuration {track.showConfig ? '-' : '+'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!projectName.trim()) { showToast("Please enter a Project Name first.", 'error'); return; }
-                        onGeneratePlan({ projectData: getProjectPayload(), projectName: projectName.trim(), track, module: null });
-                      }}
-                      className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
-                    >
-                      Add Plan +
-                    </button>
-                  </>
-                )}
+              <div className="flex flex-col gap-2 pr-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    className="px-3 py-1.5 border border-light-border rounded-md text-sm font-medium w-full sm:w-auto min-w-[200px]"
+                    value={track.name}
+                    onChange={(e) => handleTrackNameChange(track.id, e.target.value)}
+                    placeholder="Track Name"
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => handleAddModule(track.id)} 
+                    className="px-3 py-1.5 text-xs border border-light-border bg-input-background rounded hover:bg-gray-100 font-medium"
+                  >
+                    Module +
+                  </button>
+                  {track.modules.length === 0 && (
+                    <>
+                      <button 
+                        type="button" 
+                        onClick={() => toggleConfig(track.id)} 
+                        className={`px-3 py-1.5 text-xs border rounded font-medium transition-colors ${track.showConfig ? 'bg-primary-orange border-primary-orange text-white' : 'border-light-border bg-input-background hover:bg-gray-100 text-primary-text'}`}
+                      >
+                        Configuration {track.showConfig ? '-' : '+'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!projectName.trim()) { showToast("Please enter a Project Name first.", 'error'); return; }
+                          if (!track.scopes?.trim()) { showToast("Please specify the Track Scopes first.", 'error'); return; }
+                          onGeneratePlan({ projectData: getProjectPayload(), projectName: projectName.trim(), track, module: null });
+                        }}
+                        className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange"
+                      >
+                        Add Plan +
+                      </button>
+                    </>
+                  )}
+                </div>
+                <div className="w-full mt-2">
+                  <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
+                    Track Scopes
+                  </label>
+                  <textarea
+                    className="px-3 py-1.5 border border-light-border rounded-md text-sm w-full"
+                    rows={2}
+                    value={track.scopes || ''}
+                    onChange={(e) => handleTrackScopesChange(track.id, e.target.value)}
+                    placeholder="Specify in-scope deliverables and boundaries for this track..."
+                  />
+                </div>
               </div>
               
               {track.modules.length > 0 && (
@@ -1387,7 +1511,7 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
         </div>
         <div className="p-6 space-y-6">
           {/* Delivery Manager Project Metadata Overview */}
-          {(projectData.config?.description || projectData.config?.scopes || projectData.config?.startDate) && (
+          {(projectData.config?.description || projectData.config?.startDate) && (
             <div className="bg-gradient-to-r from-orange-50/70 via-amber-50/40 to-white border border-orange-100 rounded-xl p-5 space-y-4 shadow-2xs">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-orange-100/80 pb-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -1408,11 +1532,6 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                       {projectData.config.expectedSessions} Sessions Expected
                     </span>
                   ) : null}
-                  {projectData.config?.frequency && (
-                    <span className="text-xs font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-200">
-                      Freq: {projectData.config.frequency}
-                    </span>
-                  )}
                 </div>
 
                 {(projectData.config?.startDate || projectData.config?.endDate) && (
@@ -1432,16 +1551,6 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                     </h5>
                     <p className="text-gray-600 bg-white p-3 rounded-lg border border-orange-100/70 leading-relaxed shadow-2xs">
                       {projectData.config.description}
-                    </p>
-                  </div>
-                )}
-                {projectData.config?.scopes && (
-                  <div>
-                    <h5 className="font-bold text-gray-700 mb-1 flex items-center">
-                      <Layers size={13} className="mr-1.5 text-primary-orange" /> Scopes & Boundaries:
-                    </h5>
-                    <p className="text-gray-600 bg-white p-3 rounded-lg border border-orange-100/70 leading-relaxed whitespace-pre-line shadow-2xs">
-                      {projectData.config.scopes}
                     </p>
                   </div>
                 )}
@@ -1474,10 +1583,17 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
               return (
               <div key={track.id} className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-light-border">
                 <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-                  <h4 className="text-lg font-bold text-gray-800 flex items-center">
-                    <span className="bg-primary-orange/10 text-primary-orange px-2 py-0.5 rounded text-sm mr-2 border border-primary-orange/20">Track</span>
-                    {track.name}
-                  </h4>
+                  <div className="flex flex-col">
+                    <h4 className="text-lg font-bold text-gray-800 flex items-center">
+                      <span className="bg-primary-orange/10 text-primary-orange px-2 py-0.5 rounded text-sm mr-2 border border-primary-orange/20">Track</span>
+                      {track.name}
+                    </h4>
+                    {track.scopes && (
+                      <p className="text-xs text-gray-600 mt-1">
+                        <span className="font-semibold text-gray-700">Scopes:</span> {track.scopes}
+                      </p>
+                    )}
+                  </div>
                   <div className="flex items-center space-x-2">
                     {canGenerate && (
                       <>
@@ -1665,38 +1781,44 @@ const PlanPage = () => {
   const handleDownloadProjectTemplate = () => {
     const wsData = [
       [
-        "Project Name", "Track Name", "Module Name", 
-        "Knowledge Acquisition", "", "", "", "", "", 
-        "Shadow Resourcing", "", "", "", "", "",
-        "Lead Resourcing", "", "", ""
+        "Project Name", "Track Name", "Track Scope", "Module Name", 
+        "Knowledge Acquisition", "", "", "", 
+        "Reverse KT", "", "",
+        "Shadow Support", "", "", "", "", "",
+        "Lead Support", "", "", ""
       ],
       [
-        "", "", "", 
-        "Entry Criteria", "", "Exit Criteria", "", "", "", 
+        "", "", "", "", 
+        "Entry Criteria", "", "Exit Criteria", "", 
+        "Entry Criteria", "", "Exit Criteria",
         "Entry Criteria", "", "Exit Criteria", "", "", "",
         "Entry Criteria", "", "", ""
       ],
       [
-        "", "", "", 
-        "Project KT Document Ready (Y/N)", "Stakeholder Mapping Ready (Y/N)", "Reverse KT (Y/N)", "By uploading SUD (Y/N)", "SUD Mandatory (Y/N)", "Assessment (Y/N)", 
-        "Assessment (80% Above) (Y/N)", "SUD Document Uploaded (Y/N)", "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for shadow resourcing (Y/N)", "Weeks (e.g. 2 weeks)",
-        "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for lead resourcing (Y/N)", "Weeks (e.g. 2 weeks)"
+        "", "", "", "", 
+        "KT Plan Ready (Y/N)", "Stakeholder Mapping Ready (Y/N)", "Project KT Document Ready (Y/N)", "SUD Mandatory (Y/N)", 
+        "Knowledge Acquisition Completed (Y/N)", "Project KT Document Ready (Y/N)", "Assessment Passed (≥80%) (Y/N)", 
+        "Assessment (80% Above) (Y/N)", "SUD Document Uploaded (Y/N)", "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for shadow support (Y/N)", "Weeks (e.g. 2 weeks)",
+        "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for lead support (Y/N)", "Weeks (e.g. 2 weeks)"
       ],
       [
-        "Demo Project", "Track 1 - Frontend", "Module 1 - React",
-        "Y", "Y", "Y", "Y", "Y", "Y",
+        "Demo Project", "Track 1 - Frontend", "Frontend scope...", "Module 1 - React",
+        "Y", "Y", "Y", "Y", 
+        "Y", "Y", "Y", 
         "Y", "Y", "Y", "5 tickets", "Y", "2 weeks",
         "Y", "5 tickets", "Y", "2 weeks"
       ],
       [
-        "Demo Project", "Track 1 - Frontend", "Module 2 - Angular",
-        "Y", "Y", "Y", "", "Y", "Y",
+        "Demo Project", "Track 1 - Frontend", "Frontend scope...", "Module 2 - Angular",
+        "Y", "Y", "Y", "Y", 
+        "Y", "Y", "Y", 
         "Y", "Y", "Y", "3 tickets", "Y", "1 weeks",
         "Y", "3 tickets", "Y", "1 weeks"
       ],
       [
-        "Demo Project", "Track 2 - Backend", "",
-        "Y", "Y", "", "", "", "Y",
+        "Demo Project", "Track 2 - Backend", "Backend scope...", "",
+        "Y", "Y", "Y", "Y", 
+        "Y", "Y", "Y", 
         "Y", "Y", "Y", "10 tickets", "Y", "3 weeks",
         "Y", "10 tickets", "Y", "3 weeks"
       ]
@@ -1709,20 +1831,26 @@ const PlanPage = () => {
       { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } },
       { s: { r: 0, c: 1 }, e: { r: 2, c: 1 } },
       { s: { r: 0, c: 2 }, e: { r: 2, c: 2 } },
+      { s: { r: 0, c: 3 }, e: { r: 2, c: 3 } },
       
       // KA
-      { s: { r: 0, c: 3 }, e: { r: 0, c: 8 } },
-      { s: { r: 1, c: 3 }, e: { r: 1, c: 4 } },
-      { s: { r: 1, c: 5 }, e: { r: 1, c: 8 } },
+      { s: { r: 0, c: 4 }, e: { r: 0, c: 7 } },
+      { s: { r: 1, c: 4 }, e: { r: 1, c: 5 } },
+      { s: { r: 1, c: 6 }, e: { r: 1, c: 7 } },
       
-      // SR
-      { s: { r: 0, c: 9 }, e: { r: 0, c: 14 } },
-      { s: { r: 1, c: 9 }, e: { r: 1, c: 10 } },
-      { s: { r: 1, c: 11 }, e: { r: 1, c: 14 } },
+      // Reverse KT
+      { s: { r: 0, c: 8 }, e: { r: 0, c: 10 } },
+      { s: { r: 1, c: 8 }, e: { r: 1, c: 9 } },
+      { s: { r: 1, c: 10 }, e: { r: 1, c: 10 } },
       
-      // LR
-      { s: { r: 0, c: 15 }, e: { r: 0, c: 18 } },
-      { s: { r: 1, c: 15 }, e: { r: 1, c: 18 } }
+      // Shadow Support
+      { s: { r: 0, c: 11 }, e: { r: 0, c: 16 } },
+      { s: { r: 1, c: 11 }, e: { r: 1, c: 12 } },
+      { s: { r: 1, c: 13 }, e: { r: 1, c: 16 } },
+      
+      // Lead Support
+      { s: { r: 0, c: 17 }, e: { r: 0, c: 20 } },
+      { s: { r: 1, c: 17 }, e: { r: 1, c: 20 } }
     ];
     
     const getStyle = (r, c) => {
@@ -1733,14 +1861,18 @@ const PlanPage = () => {
       let fontColor = "000000";
       let bold = true;
 
-      if (c <= 2) { 
+      if (c <= 3) { 
         bg = "607D8B"; 
         fontColor = "FFFFFF";
-      } else if (c <= 8) { 
+      } else if (c <= 7) { 
         if (isMainHeader) { bg = "1976D2"; fontColor = "FFFFFF"; }
         else if (isGroupHeader) { bg = "64B5F6"; fontColor = "FFFFFF"; }
         else { bg = "BBDEFB"; fontColor = "000000"; }
-      } else if (c <= 14) { 
+      } else if (c <= 10) {
+        if (isMainHeader) { bg = "8E24AA"; fontColor = "FFFFFF"; }
+        else if (isGroupHeader) { bg = "BA68C8"; fontColor = "FFFFFF"; }
+        else { bg = "E1BEE7"; fontColor = "000000"; }
+      } else if (c <= 16) { 
         if (isMainHeader) { bg = "F57C00"; fontColor = "FFFFFF"; }
         else if (isGroupHeader) { bg = "FFB74D"; fontColor = "FFFFFF"; }
         else { bg = "FFE0B2"; fontColor = "000000"; }
@@ -1825,12 +1957,14 @@ const PlanPage = () => {
           
           const tName = row[1];
           if (!tName) continue;
+          const tScope = row[2] || "";
           
           let track = projectsMap[pName].tracks.find(t => t.name === tName);
           if (!track) {
             track = {
               id: Date.now() + Math.random(),
               name: tName,
+              scopes: tScope,
               modules: [],
               options: {},
               inputs: {},
@@ -1839,32 +1973,37 @@ const PlanPage = () => {
             projectsMap[pName].tracks.push(track);
           }
           
-          const mName = row[2];
+          const mName = row[3];
           const parseBool = (val) => val && val.toString().trim().toUpperCase() === 'Y';
           
           const options = {
-            ka: parseBool(row[3]) || parseBool(row[4]) || parseBool(row[5]) || parseBool(row[6]) || parseBool(row[7]) || parseBool(row[8]),
-            kt_doc: parseBool(row[3]),
-            stakeholder_map: parseBool(row[4]),
-            rkt: parseBool(row[5]),
-            upload_sud: parseBool(row[6]),
+            ka: parseBool(row[4]) || parseBool(row[5]) || parseBool(row[6]) || parseBool(row[7]),
+            kt_doc: parseBool(row[4]),
+            stakeholder_map: parseBool(row[5]),
+            project_kt_doc_ready: parseBool(row[6]),
             sud_mandatory: parseBool(row[7]),
-            assessment: parseBool(row[8]),
-            shadow_resourcing: parseBool(row[9]) || parseBool(row[10]) || parseBool(row[11]) || parseBool(row[13]),
-            assessment_80: parseBool(row[9]),
-            sud_doc_upload: parseBool(row[10]),
-            ticket_resolving: parseBool(row[11]),
-            weeks_shadow: parseBool(row[13]),
-            lead_resourcing: parseBool(row[15]) || parseBool(row[17]),
-            lr_ticket_resolving: parseBool(row[15]),
-            lr_weeks_shadow: parseBool(row[17])
+
+            reverse_kt: parseBool(row[8]) || parseBool(row[9]) || parseBool(row[10]),
+            ka_completed: parseBool(row[8]),
+            rkt_project_kt_doc: parseBool(row[9]),
+            rkt_assessment: parseBool(row[10]),
+
+            shadow_resourcing: parseBool(row[11]) || parseBool(row[12]) || parseBool(row[13]) || parseBool(row[15]),
+            assessment_80: parseBool(row[11]),
+            sud_doc_upload: parseBool(row[12]),
+            ticket_resolving: parseBool(row[13]),
+            weeks_shadow: parseBool(row[15]),
+            
+            lead_resourcing: parseBool(row[17]) || parseBool(row[19]),
+            lr_ticket_resolving: parseBool(row[17]),
+            lr_weeks_shadow: parseBool(row[19])
           };
           
           const inputs = {};
-          if (row[12]) inputs.ticket_resolving = row[12].toString();
-          if (row[14]) inputs.weeks_shadow = row[14].toString();
-          if (row[16]) inputs.lr_ticket_resolving = row[16].toString();
-          if (row[18]) inputs.lr_weeks_shadow = row[18].toString();
+          if (row[14]) inputs.ticket_resolving = row[14].toString();
+          if (row[16]) inputs.weeks_shadow = row[16].toString();
+          if (row[18]) inputs.lr_ticket_resolving = row[18].toString();
+          if (row[20]) inputs.lr_weeks_shadow = row[20].toString();
           
           if (mName && mName.toString().trim() !== "" && mName !== "Module 1 (Optional)") {
             track.modules.push({
@@ -2124,11 +2263,11 @@ const PlanPage = () => {
       moduleId: module ? module.id : null
     };
 
-    const prefilledScope = configToFilter?.scopes || configToFilter?.description || '';
+    const prefilledScope = track?.scopes || module?.scopes || configToFilter?.description || '';
     setDocFormData(prev => ({ 
       ...prev, 
       application_name: contextName,
-      scope_description: prev.scope_description || prefilledScope,
+      scope_description: prefilledScope,
       project_config: filteredProjectData,
       project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
@@ -2136,7 +2275,7 @@ const PlanPage = () => {
     setFormData(prev => ({ 
       ...prev, 
       application_name: contextName,
-      scope_description: prev.scope_description || prefilledScope,
+      scope_description: prefilledScope,
       project_config: filteredProjectData,
       project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
@@ -2528,14 +2667,14 @@ const PlanPage = () => {
             <ChevronLeft size={16} className="mr-1" /> Back to {projectToView ? 'Project Details' : isAddingProject ? 'Add Project' : 'Projects'}
           </button>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-            {/* Card 1: Generate Plan with AI */}
+            {/* Card 1: Generate Tentative KT plan with AI */}
             <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between border-l-4 border-l-primary-orange h-full w-full max-w-4xl mx-auto">
               <div className="flex-1 flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-semibold text-primary-text flex items-center">
                       <Play className="mr-2 text-primary-orange" size={20} />
-                      Generate Plan with AI
+                      Generate Tentative KT plan with AI
                     </h3>
                   </div>
                   <form onSubmit={handleGenerate} className="flex-1 flex flex-col justify-between space-y-4">
