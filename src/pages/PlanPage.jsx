@@ -10,8 +10,8 @@ import { useOperations } from '../context/OperationsContext';
 import { useToast } from '../context/ToastContext';
 
 const checkboxConfig = [
-  { 
-    id: 'ka', 
+  {
+    id: 'ka',
     label: 'Knowledge Acquisition',
     groups: [
       {
@@ -49,9 +49,9 @@ const checkboxConfig = [
       }
     ]
   },
-  { 
-    id: 'shadow_resourcing', 
-    label: 'Shadow Support', 
+  {
+    id: 'shadow_resourcing',
+    label: 'Shadow Support',
     groups: [
       {
         title: 'Entry Criteria',
@@ -68,8 +68,8 @@ const checkboxConfig = [
       }
     ]
   },
-  { 
-    id: 'lead_resourcing', 
+  {
+    id: 'lead_resourcing',
     label: 'Lead Support',
     groups: [
       {
@@ -82,48 +82,145 @@ const checkboxConfig = [
   }
 ];
 
-const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, handleInputChange, level = 0 }) => {
+const getNodeTotalDays = (node) => {
+  if (!node) return 0;
+  const opts = node.options || {};
+  const durs = node.durations || {};
+  let total = 0;
+  if (opts.ka) total += parseInt(durs.ka) || 0;
+  if (opts.reverse_kt) total += parseInt(durs.reverse_kt) || 0;
+  if (opts.shadow_resourcing) total += parseInt(durs.shadow_resourcing) || 0;
+  if (opts.lead_resourcing) total += parseInt(durs.lead_resourcing) || 0;
+  return total;
+};
+
+const calculateDurationsFromDates = (startStr, endStr, options = null) => {
+  const result = { ka: 0, reverse_kt: 0, shadow_resourcing: 0, lead_resourcing: 0 };
+  if (!startStr || !endStr) return result;
+
+  const start = new Date(startStr);
+  const end = new Date(endStr);
+  if (end < start) return result;
+
+  const totalDays = Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+  if (totalDays === 0) return result;
+
+  // Determine which phases are selected
+  const has_ka = options ? Boolean(options.ka) : true;
+  const has_rkt = options ? Boolean(options.reverse_kt) : true;
+  const has_ss = options ? Boolean(options.shadow_resourcing) : true;
+  const has_ls = options ? Boolean(options.lead_resourcing) : true;
+
+  const selectedPhases = [];
+  if (has_ka) selectedPhases.push('ka');
+  if (has_rkt) selectedPhases.push('reverse_kt');
+  if (has_ss) selectedPhases.push('shadow_resourcing');
+  if (has_ls) selectedPhases.push('lead_resourcing');
+
+  const numPhases = selectedPhases.length;
+  if (numPhases === 0) return result;
+
+  if (has_ka) {
+    if (numPhases === 1) {
+      result.ka = totalDays;
+      return result;
+    }
+
+    // Knowledge Acquisition is always 70%
+    // 4 phases: 70:10:10:10
+    // 3 phases: 70:15:15
+    // 2 phases: 70:30
+    const kaRatio = 0.70;
+
+    result.ka = Math.round(totalDays * kaRatio);
+    const remainingDays = totalDays - result.ka;
+    const otherPhases = selectedPhases.filter(p => p !== 'ka');
+    const otherCount = otherPhases.length;
+
+    otherPhases.forEach((p, idx) => {
+      let share = Math.floor(remainingDays / otherCount);
+      if (idx < remainingDays % otherCount) {
+        share += 1;
+      }
+      result[p] = share;
+    });
+  } else {
+    // If KA is not selected, distribute evenly among selected phases
+    selectedPhases.forEach((p, idx) => {
+      let share = Math.floor(totalDays / numPhases);
+      if (idx < totalDays % numPhases) {
+        share += 1;
+      }
+      result[p] = share;
+    });
+  }
+
+  return result;
+};
+
+const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, handleInputChange, handleDurationChange, level = 0 }) => {
   const nodeId = moduleId ? `${trackId}-${moduleId}` : trackId;
+  const isChecked = Boolean(node.options && node.options[item.id]);
+
   return (
     <div className={`flex flex-col space-y-2 ${level > 0 ? 'mt-2 border-l-2 border-gray-200 ml-2 py-1 pl-5' : 'p-4 bg-white border border-gray-200 rounded-lg shadow-sm transition-all duration-200'}`}>
-      <div className="flex items-center space-x-3">
-        <input
-          type="checkbox"
-          id={`chk-${nodeId}-${item.id}`}
-          checked={node.options[item.id] || false}
-          onChange={() => handleCheckboxChange(trackId, item.id, moduleId)}
-          className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange"
-        />
-        <label htmlFor={`chk-${nodeId}-${item.id}`} className={`text-sm cursor-pointer ${level > 0 ? 'text-secondary-text' : 'text-primary-text'}`}>
-          {item.label}
-        </label>
-        {item.hasInput && node.options[item.id] && (
+      <div className={`flex items-center ${level === 0 ? 'justify-between pb-2 border-b border-gray-100 flex-wrap gap-2' : 'space-x-3'}`}>
+        <div className="flex items-center space-x-2.5">
+          <input
+            type="checkbox"
+            id={`chk-${nodeId}-${item.id}`}
+            checked={isChecked}
+            onChange={() => handleCheckboxChange(trackId, item.id, moduleId)}
+            className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange"
+          />
+          <label htmlFor={`chk-${nodeId}-${item.id}`} className={`text-sm cursor-pointer ${level > 0 ? 'text-secondary-text' : 'font-bold text-gray-800'}`}>
+            {item.label}
+          </label>
+        </div>
+
+        {level === 0 && (
+          <div className="flex items-center space-x-1.5 bg-gray-50 px-2 py-0.5 rounded border border-gray-200">
+            <input
+              type="number"
+              min="0"
+              disabled={!isChecked}
+              className="w-14 px-1.5 py-0.5 text-xs text-center border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange disabled:opacity-40 disabled:bg-gray-100 font-semibold text-gray-800"
+              placeholder="0"
+              value={isChecked ? (node.durations?.[item.id] ?? '') : 0}
+              onChange={(e) => handleDurationChange && handleDurationChange(trackId, item.id, e.target.value, moduleId)}
+            />
+            <span className="text-[11px] font-medium text-gray-500">days</span>
+          </div>
+        )}
+
+        {item.hasInput && isChecked && level > 0 && (
           <input
             type="text"
             className={`w-16 px-2 py-1 text-xs border border-light-border rounded ml-2`}
             placeholder={item.inputLabel || ''}
-            value={node.inputs[item.id] || ''}
+            value={(node.inputs && node.inputs[item.id]) || ''}
             onChange={(e) => handleInputChange(trackId, item.id, e.target.value, moduleId)}
           />
         )}
       </div>
-      
-      {item.groups && node.options[item.id] && (
-        <div className="space-y-4 mt-3 pt-2 border-t border-gray-100">
+
+      {item.groups && isChecked && (
+        <div className="space-y-4 mt-2">
           {item.groups.map((group, idx) => (
-            <div key={idx} className="bg-gray-50/50 p-3 rounded-md border border-gray-100">
+            <div key={idx} className="bg-gray-50/50 p-2.5 rounded-md border border-gray-100">
               <h5 className="text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wider">{group.title}</h5>
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {group.items.map((sub) => (
-                  <CheckboxNode 
-                    key={sub.id} 
-                    item={sub} 
-                    node={node} 
+                  <CheckboxNode
+                    key={sub.id}
+                    item={sub}
+                    node={node}
                     trackId={trackId}
                     moduleId={moduleId}
-                    handleCheckboxChange={handleCheckboxChange} 
-                    handleInputChange={handleInputChange} 
-                    level={level + 1} 
+                    handleCheckboxChange={handleCheckboxChange}
+                    handleInputChange={handleInputChange}
+                    handleDurationChange={handleDurationChange}
+                    level={level + 1}
                   />
                 ))}
               </div>
@@ -132,18 +229,19 @@ const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, han
         </div>
       )}
 
-      {item.subItems && node.options[item.id] && (
-        <div className="space-y-3 mt-2">
+      {item.subItems && isChecked && (
+        <div className="space-y-2.5 mt-2">
           {item.subItems.map((sub) => (
-            <CheckboxNode 
-              key={sub.id} 
-              item={sub} 
-              node={node} 
+            <CheckboxNode
+              key={sub.id}
+              item={sub}
+              node={node}
               trackId={trackId}
               moduleId={moduleId}
-              handleCheckboxChange={handleCheckboxChange} 
-              handleInputChange={handleInputChange} 
-              level={level + 1} 
+              handleCheckboxChange={handleCheckboxChange}
+              handleInputChange={handleInputChange}
+              handleDurationChange={handleDurationChange}
+              level={level + 1}
             />
           ))}
         </div>
@@ -155,7 +253,7 @@ const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, han
 const ProjectCard = ({ project, onClick, isLoading }) => {
   const cfg = project?.config || {};
   return (
-    <div 
+    <div
       onClick={isLoading ? null : onClick}
       className={`bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md hover:border-primary-orange transition-all flex flex-col justify-between p-5 relative group min-h-[180px] ${isLoading ? 'cursor-wait opacity-75' : 'cursor-pointer'}`}
     >
@@ -213,7 +311,7 @@ const ProjectCard = ({ project, onClick, isLoading }) => {
 
 const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditMode, editTarget }) => {
   const { showToast } = useToast();
-  
+
   const standardReasons = [
     'Team Transition / Handover',
     'New Joiner / Team Onboarding',
@@ -234,50 +332,52 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
   const [platform, setPlatform] = useState(initialData?.platform || 'Google Meet');
   const [techStack, setTechStack] = useState(initialData?.techStack || initialData?.tech_stack || '');
 
-  const [phaseSelected, setPhaseSelected] = useState(initialData?.phaseSelected || {
-    ka: true,
-    reverse_kt: true,
-    shadow_resourcing: true,
-    lead_resourcing: true
-  });
-  const [phaseDurations, setPhaseDurations] = useState(initialData?.phaseDurations || {
-    ka: 0,
-    reverse_kt: 0,
-    shadow_resourcing: 0,
-    lead_resourcing: 0
-  });
-
-  useEffect(() => {
-    if (!startDate) return;
-    const totalDays = 
-      (phaseSelected.ka ? (parseInt(phaseDurations.ka)||0) : 0) +
-      (phaseSelected.reverse_kt ? (parseInt(phaseDurations.reverse_kt)||0) : 0) +
-      (phaseSelected.shadow_resourcing ? (parseInt(phaseDurations.shadow_resourcing)||0) : 0) +
-      (phaseSelected.lead_resourcing ? (parseInt(phaseDurations.lead_resourcing)||0) : 0);
-      
-    if (totalDays > 0) {
-      const start = new Date(startDate);
-      start.setDate(start.getDate() + totalDays - 1);
-      const yyyy = start.getFullYear();
-      const mm = String(start.getMonth() + 1).padStart(2, '0');
-      const dd = String(start.getDate()).padStart(2, '0');
-      setEndDate(`${yyyy}-${mm}-${dd}`);
+  const [tracks, setTracks] = useState(() => {
+    const defaultDurs = calculateDurationsFromDates(
+      initialData?.startDate || initialData?.start_date,
+      initialData?.endDate || initialData?.end_date
+    );
+    if (initialData?.tracks && initialData.tracks.length > 0) {
+      return initialData.tracks.map(t => ({
+        ...t,
+        durations: t.durations || initialData.phaseDurations || { ...defaultDurs },
+        options: t.options || {
+          ka: true,
+          reverse_kt: true,
+          shadow_resourcing: true,
+          lead_resourcing: true
+        }
+      }));
     }
-  }, [startDate, phaseSelected, phaseDurations]);
-
-  const [tracks, setTracks] = useState(initialData?.tracks || []);
+    return [];
+  });
   const [localEditTarget, setLocalEditTarget] = useState(editTarget || null);
 
   const getProjectPayload = () => {
     const finalReason = reasonForKt === 'Other' ? (customReason.trim() || 'Other') : reasonForKt;
+    const firstTrack = tracks[0];
+    const derivedSelected = firstTrack?.options ? {
+      ka: Boolean(firstTrack.options.ka),
+      reverse_kt: Boolean(firstTrack.options.reverse_kt),
+      shadow_resourcing: Boolean(firstTrack.options.shadow_resourcing),
+      lead_resourcing: Boolean(firstTrack.options.lead_resourcing)
+    } : { ka: true, reverse_kt: true, shadow_resourcing: true, lead_resourcing: true };
+
+    const derivedDurations = firstTrack?.durations || {
+      ka: 0,
+      reverse_kt: 0,
+      shadow_resourcing: 0,
+      lead_resourcing: 0
+    };
+
     return {
       name: projectName.trim(),
       description: description.trim(),
       reasonForKt: finalReason,
       startDate: startDate || '',
       endDate: endDate || '',
-      phaseSelected,
-      phaseDurations,
+      phaseSelected: derivedSelected,
+      phaseDurations: derivedDurations,
       platform: platform || 'Google Meet',
       techStack: techStack.trim(),
       tracks
@@ -320,12 +420,19 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
 
   const handleAddTrack = () => {
     setLocalEditTarget(null);
-    setTracks([...tracks, { 
-      id: Date.now(), 
+    const defaultDurs = calculateDurationsFromDates(startDate, endDate);
+    setTracks([...tracks, {
+      id: Date.now(),
       name: `Track ${tracks.length + 1}`,
       scopes: '',
       modules: [],
-      options: { ka: true },
+      options: {
+        ka: true,
+        reverse_kt: true,
+        shadow_resourcing: true,
+        lead_resourcing: true
+      },
+      durations: { ...defaultDurs },
       inputs: {},
       showConfig: true
     }]);
@@ -341,17 +448,24 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
 
   const handleAddModule = (trackId) => {
     setLocalEditTarget(prev => prev ? { trackId: prev.trackId, moduleId: null } : null);
+    const defaultDurs = calculateDurationsFromDates(startDate, endDate);
     setTracks(tracks.map(t => {
       if (t.id === trackId) {
-        return { 
-          ...t, 
-          modules: [...t.modules, { 
-            id: Date.now(), 
-            name: '', 
-            options: { ka: true }, 
-            inputs: {}, 
-            showConfig: true 
-          }] 
+        return {
+          ...t,
+          modules: [...t.modules, {
+            id: Date.now(),
+            name: '',
+            options: {
+              ka: true,
+              reverse_kt: true,
+              shadow_resourcing: true,
+              lead_resourcing: true
+            },
+            durations: { ...defaultDurs },
+            inputs: {},
+            showConfig: true
+          }]
         };
       }
       return t;
@@ -393,31 +507,91 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
   };
 
   const handleCheckboxChange = (trackId, optionId, moduleId = null) => {
-    setTracks(tracks.map(t => {
-      if (t.id === trackId) {
-        if (moduleId) {
+    const isPhaseToggle = ['ka', 'reverse_kt', 'shadow_resourcing', 'lead_resourcing'].includes(optionId);
+
+    setTracks(prevTracks => {
+      const updated = prevTracks.map(t => {
+        if (t.id === trackId) {
+          if (moduleId) {
+            return {
+              ...t,
+              modules: t.modules.map(m => {
+                if (m.id === moduleId) {
+                  const newOptions = { ...m.options, [optionId]: !m.options[optionId] };
+                  if (optionId === 'upload_sud' && newOptions['upload_sud']) {
+                    newOptions['sud_mandatory'] = true;
+                  }
+                  let newDurations = m.durations;
+                  if (isPhaseToggle && startDate && endDate) {
+                    newDurations = calculateDurationsFromDates(startDate, endDate, newOptions);
+                  } else if (isPhaseToggle && !newOptions[optionId]) {
+                    newDurations = { ...(m.durations || {}), [optionId]: 0 };
+                  }
+                  return { ...m, options: newOptions, durations: newDurations };
+                }
+                return m;
+              })
+            };
+          }
+          const newOptions = { ...t.options, [optionId]: !t.options[optionId] };
+          if (optionId === 'upload_sud' && newOptions['upload_sud']) {
+            newOptions['sud_mandatory'] = true;
+          }
+          let newDurations = t.durations;
+          if (isPhaseToggle && startDate && endDate) {
+            newDurations = calculateDurationsFromDates(startDate, endDate, newOptions);
+          } else if (isPhaseToggle && !newOptions[optionId]) {
+            newDurations = { ...(t.durations || {}), [optionId]: 0 };
+          }
+          return { ...t, options: newOptions, durations: newDurations };
+        }
+        return t;
+      });
+
+      return updated;
+    });
+  };
+
+  const handleDurationChange = (trackId, phaseId, val, moduleId = null) => {
+    setTracks(prevTracks => {
+      const updated = prevTracks.map(t => {
+        if (t.id === trackId) {
+          if (moduleId) {
+            return {
+              ...t,
+              modules: t.modules.map(m => {
+                if (m.id === moduleId) {
+                  return {
+                    ...m,
+                    durations: { ...(m.durations || {}), [phaseId]: val }
+                  };
+                }
+                return m;
+              })
+            };
+          }
           return {
             ...t,
-            modules: t.modules.map(m => {
-              if (m.id === moduleId) {
-                const newOptions = { ...m.options, [optionId]: !m.options[optionId] };
-                if (optionId === 'upload_sud' && newOptions['upload_sud']) {
-                  newOptions['sud_mandatory'] = true;
-                }
-                return { ...m, options: newOptions };
-              }
-              return m;
-            })
+            durations: { ...(t.durations || {}), [phaseId]: val }
           };
         }
-        const newOptions = { ...t.options, [optionId]: !t.options[optionId] };
-        if (optionId === 'upload_sud' && newOptions['upload_sud']) {
-          newOptions['sud_mandatory'] = true;
+        return t;
+      });
+
+      if (!moduleId && updated.length > 0 && updated[0].id === trackId && startDate) {
+        const totalDays = getNodeTotalDays(updated[0]);
+        if (totalDays > 0) {
+          const start = new Date(startDate);
+          start.setDate(start.getDate() + totalDays - 1);
+          const yyyy = start.getFullYear();
+          const mm = String(start.getMonth() + 1).padStart(2, '0');
+          const dd = String(start.getDate()).padStart(2, '0');
+          setEndDate(`${yyyy}-${mm}-${dd}`);
         }
-        return { ...t, options: newOptions };
       }
-      return t;
-    }));
+
+      return updated;
+    });
   };
 
   const handleInputChange = (trackId, optionId, val, moduleId = null) => {
@@ -440,21 +614,41 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
     }));
   };
 
+  const handleStartDateChange = (e) => {
+    const newStart = e.target.value;
+    setStartDate(newStart);
+    if (newStart && endDate) {
+      setTracks(prevTracks => prevTracks.map(t => {
+        const computed = calculateDurationsFromDates(newStart, endDate, t.options);
+        const updatedModules = (t.modules || []).map(m => ({
+          ...m,
+          durations: calculateDurationsFromDates(newStart, endDate, m.options)
+        }));
+        return {
+          ...t,
+          durations: { ...computed },
+          modules: updatedModules
+        };
+      }));
+    }
+  };
+
   const handleEndDateChange = (e) => {
     const newEnd = e.target.value;
     setEndDate(newEnd);
     if (startDate && newEnd) {
-      const start = new Date(startDate);
-      const end = new Date(newEnd);
-      if (end >= start) {
-        const diff = Math.max(0, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
-        const ka = Math.round(diff * 0.7);
-        const rkt = Math.round(diff * 0.1);
-        const ss = Math.round(diff * 0.1);
-        const ls = diff - ka - rkt - ss;
-        
-        setPhaseDurations({ ka, reverse_kt: rkt, shadow_resourcing: ss, lead_resourcing: ls });
-      }
+      setTracks(prevTracks => prevTracks.map(t => {
+        const computed = calculateDurationsFromDates(startDate, newEnd, t.options);
+        const updatedModules = (t.modules || []).map(m => ({
+          ...m,
+          durations: calculateDurationsFromDates(startDate, newEnd, m.options)
+        }));
+        return {
+          ...t,
+          durations: { ...computed },
+          modules: updatedModules
+        };
+      }));
     }
   };
 
@@ -469,7 +663,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
           <X size={20} />
         </button>
       </div>
-      
+
       <div className="space-y-6">
         {/* Delivery Manager Inputs Card */}
         <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs space-y-5">
@@ -539,19 +733,19 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                Start Date <span className="text-red-500">*</span>
+                Planned KT Start Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={handleStartDateChange}
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">
-                End Date <span className="text-red-500">*</span>
+                Planned KT End Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
@@ -560,115 +754,6 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                 value={endDate}
                 onChange={handleEndDateChange}
               />
-            </div>
-          </div>
-
-          {/* Phase Configuration */}
-          <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm space-y-4">
-            <div className="flex items-center space-x-2 border-b border-gray-100 pb-2">
-              <Clock size={16} className="text-primary-orange" />
-              <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Phase Configuration</h4>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* KA */}
-              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" checked={true} disabled className="h-4 w-4 text-primary-orange rounded border-light-border" />
-                  <label className="text-sm font-semibold text-gray-700">Knowledge Acquisition</label>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <input 
-                    type="number" 
-                    min="0"
-                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange"
-                    value={phaseDurations.ka}
-                    onChange={(e) => setPhaseDurations({...phaseDurations, ka: e.target.value})}
-                  />
-                  <span className="text-xs text-gray-500">days</span>
-                </div>
-              </div>
-              
-              {/* RKT */}
-              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
-                <div className="flex items-center space-x-2">
-                  <input 
-                    type="checkbox" 
-                    checked={phaseSelected.reverse_kt} 
-                    onChange={(e) => setPhaseSelected({...phaseSelected, reverse_kt: e.target.checked})}
-                    className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange" 
-                  />
-                  <label className="text-sm font-semibold text-gray-700">Reverse KT</label>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <input 
-                    type="number" 
-                    min="0"
-                    disabled={!phaseSelected.reverse_kt}
-                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange disabled:opacity-50"
-                    value={phaseDurations.reverse_kt}
-                    onChange={(e) => setPhaseDurations({...phaseDurations, reverse_kt: e.target.value})}
-                  />
-                  <span className="text-xs text-gray-500">days</span>
-                </div>
-              </div>
-
-              {/* SS */}
-              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
-                <div className="flex items-center space-x-2">
-                  <input 
-                    type="checkbox" 
-                    checked={phaseSelected.shadow_resourcing} 
-                    onChange={(e) => setPhaseSelected({...phaseSelected, shadow_resourcing: e.target.checked})}
-                    className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange" 
-                  />
-                  <label className="text-sm font-semibold text-gray-700">Shadow Support</label>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <input 
-                    type="number" 
-                    min="0"
-                    disabled={!phaseSelected.shadow_resourcing}
-                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange disabled:opacity-50"
-                    value={phaseDurations.shadow_resourcing}
-                    onChange={(e) => setPhaseDurations({...phaseDurations, shadow_resourcing: e.target.value})}
-                  />
-                  <span className="text-xs text-gray-500">days</span>
-                </div>
-              </div>
-
-              {/* LS */}
-              <div className="flex flex-col space-y-2 p-3 border border-gray-100 rounded-lg bg-gray-50/50">
-                <div className="flex items-center space-x-2">
-                  <input 
-                    type="checkbox" 
-                    checked={phaseSelected.lead_resourcing} 
-                    onChange={(e) => setPhaseSelected({...phaseSelected, lead_resourcing: e.target.checked})}
-                    className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange" 
-                  />
-                  <label className="text-sm font-semibold text-gray-700">Lead Support</label>
-                </div>
-                <div className="flex items-center space-x-2 mt-2">
-                  <input 
-                    type="number" 
-                    min="0"
-                    disabled={!phaseSelected.lead_resourcing}
-                    className="w-20 px-2 py-1 text-sm border border-light-border rounded focus:ring-primary-orange focus:border-primary-orange disabled:opacity-50"
-                    value={phaseDurations.lead_resourcing}
-                    onChange={(e) => setPhaseDurations({...phaseDurations, lead_resourcing: e.target.value})}
-                  />
-                  <span className="text-xs text-gray-500">days</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-orange-50 border border-orange-100 p-3 rounded-lg flex items-center justify-between mt-4">
-              <span className="text-sm font-medium text-gray-700">Total Duration:</span>
-              <span className="text-lg font-bold text-primary-orange">
-                { (phaseSelected.ka ? (parseInt(phaseDurations.ka)||0) : 0) +
-                  (phaseSelected.reverse_kt ? (parseInt(phaseDurations.reverse_kt)||0) : 0) +
-                  (phaseSelected.shadow_resourcing ? (parseInt(phaseDurations.shadow_resourcing)||0) : 0) +
-                  (phaseSelected.lead_resourcing ? (parseInt(phaseDurations.lead_resourcing)||0) : 0) } days
-              </span>
             </div>
           </div>
 
@@ -709,7 +794,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
             <h4 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Tracks & Modules Configuration</h4>
             <p className="text-xs text-gray-500">Configure tracks, modules, assessment entry/exit criteria, and SUD documentation rules.</p>
           </div>
-          <button 
+          <button
             type="button"
             onClick={handleAddTrack}
             className="flex items-center px-3.5 py-1.5 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-lg shadow-sm transition-colors"
@@ -721,8 +806,8 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
         <div className="space-y-6">
           {tracks.filter(t => localEditTarget?.trackId ? t.id === localEditTarget.trackId : true).map((track) => (
             <div key={track.id} className="p-4 border border-light-border rounded-lg shadow-sm space-y-4 relative">
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => localEditTarget ? onCancel() : handleRemoveTrack(track.id)}
                 className="absolute top-2 right-2 text-secondary-text hover:text-red-500 p-1"
                 title={localEditTarget ? "Close Edit" : "Remove Track"}
@@ -738,18 +823,18 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                     onChange={(e) => handleTrackNameChange(track.id, e.target.value)}
                     placeholder="Track Name"
                   />
-                  <button 
-                    type="button" 
-                    onClick={() => handleAddModule(track.id)} 
+                  <button
+                    type="button"
+                    onClick={() => handleAddModule(track.id)}
                     className="px-3 py-1.5 text-xs border border-light-border bg-input-background rounded hover:bg-gray-100 font-medium"
                   >
                     Module +
                   </button>
                   {track.modules.length === 0 && (
                     <>
-                      <button 
-                        type="button" 
-                        onClick={() => toggleConfig(track.id)} 
+                      <button
+                        type="button"
+                        onClick={() => toggleConfig(track.id)}
                         className={`px-3 py-1.5 text-xs border rounded font-medium transition-colors ${track.showConfig ? 'bg-primary-orange border-primary-orange text-white' : 'border-light-border bg-input-background hover:bg-gray-100 text-primary-text'}`}
                       >
                         Configuration {track.showConfig ? '-' : '+'}
@@ -781,7 +866,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                   />
                 </div>
               </div>
-              
+
               {track.modules.length > 0 && (
                 <div className="pl-4 space-y-2 border-l-2 border-gray-200 ml-2 mt-3">
                   {track.modules.filter(m => localEditTarget?.moduleId ? m.id === localEditTarget.moduleId : true).map((mod) => (
@@ -794,9 +879,9 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                           onChange={(e) => handleModuleChange(track.id, mod.id, e.target.value)}
                           placeholder="Module Name"
                         />
-                        <button 
-                          type="button" 
-                          onClick={() => toggleConfig(track.id, mod.id)} 
+                        <button
+                          type="button"
+                          onClick={() => toggleConfig(track.id, mod.id)}
                           className={`px-3 py-1.5 text-xs border rounded font-medium transition-colors ${mod.showConfig ? 'bg-primary-orange border-primary-orange text-white' : 'border-light-border bg-input-background hover:bg-gray-100 text-primary-text'}`}
                         >
                           Configuration {mod.showConfig ? '-' : '+'}
@@ -811,7 +896,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                         >
                           Add Plan +
                         </button>
-                        <button 
+                        <button
                           type="button"
                           onClick={() => handleRemoveModule(track.id, mod.id)}
                           className="text-secondary-text hover:text-red-500 p-1 ml-auto"
@@ -820,20 +905,29 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                           <X size={14} />
                         </button>
                       </div>
-                      
+
                       {mod.showConfig && (
                         <div className="mt-2 p-4 bg-gray-50 rounded-md border border-gray-200">
-                          <h4 className="text-sm font-semibold mb-3 text-primary-text">Module Requirements</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div>
+                              <h4 className="text-sm font-semibold text-primary-text">Module Requirements & Phase Configuration</h4>
+                              <p className="text-xs text-gray-500">Configure phase selection, duration, and assessment criteria.</p>
+                            </div>
+                            <span className="text-xs font-semibold px-2.5 py-1 bg-orange-100 text-primary-orange rounded-md">
+                              Total Duration: {getNodeTotalDays(mod)} days
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
                             {checkboxConfig.map((item) => (
-                              <CheckboxNode 
-                                key={item.id} 
-                                item={item} 
-                                node={mod} 
+                              <CheckboxNode
+                                key={item.id}
+                                item={item}
+                                node={mod}
                                 trackId={track.id}
                                 moduleId={mod.id}
-                                handleCheckboxChange={handleCheckboxChange} 
-                                handleInputChange={handleInputChange} 
+                                handleCheckboxChange={handleCheckboxChange}
+                                handleInputChange={handleInputChange}
+                                handleDurationChange={handleDurationChange}
                               />
                             ))}
                           </div>
@@ -846,17 +940,26 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
 
               {track.modules.length === 0 && track.showConfig && (
                 <div className="mt-4 p-4 bg-gray-50 rounded-md border border-gray-200">
-                  <h4 className="text-sm font-semibold mb-3 text-primary-text">Track Requirements</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary-text">Track Requirements & Phase Configuration</h4>
+                      <p className="text-xs text-gray-500">Configure phase selection, duration, and assessment criteria.</p>
+                    </div>
+                    <span className="text-xs font-semibold px-2.5 py-1 bg-orange-100 text-primary-orange rounded-md">
+                      Total Duration: {getNodeTotalDays(track)} days
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
                     {checkboxConfig.map((item) => (
-                      <CheckboxNode 
-                        key={item.id} 
-                        item={item} 
+                      <CheckboxNode
+                        key={item.id}
+                        item={item}
                         node={track}
                         trackId={track.id}
                         moduleId={null}
-                        handleCheckboxChange={handleCheckboxChange} 
-                        handleInputChange={handleInputChange} 
+                        handleCheckboxChange={handleCheckboxChange}
+                        handleInputChange={handleInputChange}
+                        handleDurationChange={handleDurationChange}
                       />
                     ))}
                   </div>
@@ -866,7 +969,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
           ))}
         </div>
       </div>
-      
+
       <div className="flex justify-end pt-4 border-t border-light-border">
         <button
           type="button"
@@ -963,9 +1066,9 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
     try {
       await onPlanUpdate(plan.id, editedContent);
       setIsEditing(false);
-      
+
       if (showTopicsView) {
-         fetchTopics();
+        fetchTopics();
       }
       showToast('Plan updated successfully', 'success');
     } catch (err) {
@@ -978,7 +1081,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
   const handleAddTopic = async (e) => {
     e.preventDefault();
     if (!newTopicName.trim()) return;
-    
+
     try {
       await addPlanTopic(plan.id, {
         day_label: newDayLabel.trim(),
@@ -1027,7 +1130,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
 
   return (
     <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div 
+      <div
         className="px-6 py-4 border-b border-light-border bg-light-background flex justify-between items-center cursor-pointer hover:bg-input-background transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
@@ -1168,7 +1271,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                   />
                 </div>
               ) : (
-                <div 
+                <div
                   className="prose prose-sm max-w-none text-secondary-text whitespace-pre-wrap"
                   dangerouslySetInnerHTML={parseMarkdown(fullPlanContent || plan?.generated_content || '')}
                 />
@@ -1185,7 +1288,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                       disabled={loadingTopics}
                       className="inline-flex items-center px-2.5 py-1 text-xs font-medium text-primary-orange border border-primary-orange rounded hover:bg-orange-50 disabled:opacity-50"
                     >
-                      <RefreshCw size={14} className={`mr-1 ${loadingTopics ? 'animate-spin' : ''}`} /> 
+                      <RefreshCw size={14} className={`mr-1 ${loadingTopics ? 'animate-spin' : ''}`} />
                       {loadingTopics ? 'Syncing...' : 'Resync Topics'}
                     </button>
                   )}
@@ -1214,7 +1317,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                       {(() => {
                         const rowSpans = [];
                         for (let i = 0; i < topics.length; i++) {
-                          if (i === 0 || topics[i].day_label !== topics[i-1].day_label) {
+                          if (i === 0 || topics[i].day_label !== topics[i - 1].day_label) {
                             let span = 1;
                             for (let j = i + 1; j < topics.length; j++) {
                               if (topics[j].day_label === topics[i].day_label) {
@@ -1234,8 +1337,8 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                           return (
                             <tr key={t.id} className="hover:bg-light-background">
                               {rSpan > 0 && (
-                                <td 
-                                  rowSpan={rSpan} 
+                                <td
+                                  rowSpan={rSpan}
                                   className="px-4 py-2.5 text-gray-700 whitespace-nowrap font-semibold align-middle border-r border-gray-100"
                                 >
                                   {t.day_label || 'General'}
@@ -1352,18 +1455,18 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
   const hasGeneratedPlan = (track, module) => {
     if (!projectData.plans || projectData.plans.length === 0) return false;
     return projectData.plans.some(p => {
-       if (p.project_config && p.project_config._meta) {
-          if (module) return p.project_config._meta.moduleId === module.id;
-          return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
-       }
-       if (module) return p.application_name.includes(module.name);
-       return p.application_name.includes(track.name);
+      if (p.project_config && p.project_config._meta) {
+        if (module) return p.project_config._meta.moduleId === module.id;
+        return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
+      }
+      if (module) return p.application_name.includes(module.name);
+      return p.application_name.includes(track.name);
     });
   };
 
-  const renderConfigOptions = (options, inputs) => {
+  const renderConfigOptions = (options, inputs, durations = {}) => {
     if (!options || Object.keys(options).length === 0) return null;
-    
+
     const selectedRootItems = checkboxConfig.filter(root => {
       let isSelected = false;
       const search = (nodes) => {
@@ -1399,8 +1502,15 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
 
           return (
             <div key={root.id} className="bg-white p-3 rounded border border-gray-200 shadow-sm">
-              <h6 className="font-bold text-gray-800 text-sm mb-2">{root.label}</h6>
-              
+              <div className="flex items-center justify-between mb-2">
+                <h6 className="font-bold text-gray-800 text-sm">{root.label}</h6>
+                {durations && durations[root.id] && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-orange-50 text-primary-orange border border-orange-200">
+                    {durations[root.id]} days
+                  </span>
+                )}
+              </div>
+
               {activeGroups.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-3 border-l-2 border-primary-orange/30 ml-1">
                   {activeGroups.map((group, idx) => (
@@ -1408,23 +1518,23 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                       <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block mb-1">{group.title}</span>
                       <ul className="list-disc ml-4 text-xs space-y-1 text-secondary-text">
                         {group.items.map(item => {
-                           return (
-                             <React.Fragment key={item.id}>
-                               {options[item.id] && (
-                                 <li>
-                                   <span className="font-medium text-gray-700">{item.label}</span>
-                                   {item.hasInput && inputs && inputs[item.id] && (
-                                     <span className="ml-1 text-primary-orange">({inputs[item.id]})</span>
-                                   )}
-                                 </li>
-                               )}
-                               {item.subItems && item.subItems.filter(sub => options[sub.id]).map(sub => (
-                                 <li key={sub.id} className="text-gray-500 ml-4 list-circle">
-                                   {sub.label}
-                                 </li>
-                               ))}
-                             </React.Fragment>
-                           );
+                          return (
+                            <React.Fragment key={item.id}>
+                              {options[item.id] && (
+                                <li>
+                                  <span className="font-medium text-gray-700">{item.label}</span>
+                                  {item.hasInput && inputs && inputs[item.id] && (
+                                    <span className="ml-1 text-primary-orange">({inputs[item.id]})</span>
+                                  )}
+                                </li>
+                              )}
+                              {item.subItems && item.subItems.filter(sub => options[sub.id]).map(sub => (
+                                <li key={sub.id} className="text-gray-500 ml-4 list-circle">
+                                  {sub.label}
+                                </li>
+                              ))}
+                            </React.Fragment>
+                          );
                         })}
                       </ul>
                     </div>
@@ -1441,27 +1551,27 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
   };
 
   const getContextName = (track, module) => {
-    return module 
-      ? `${projectData.name} - ${track.name} - ${module.name}`
-      : `${projectData.name} - ${track.name}`;
+    return module
+      ? (module.name || track?.name || '')
+      : (track?.name || '');
   };
 
   const matchedPlanIds = new Set();
   projectData.config?.tracks?.forEach(track => {
     const trackPlans = (projectData.plans || []).filter(p => {
-       if (p.project_config && p.project_config._meta) {
-          return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
-       }
-       return p.application_name.includes(track.name);
+      if (p.project_config && p.project_config._meta) {
+        return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
+      }
+      return p.application_name.includes(track.name);
     });
     trackPlans.forEach(p => matchedPlanIds.add(p.id));
 
     track.modules?.forEach(mod => {
       const modulePlans = (projectData.plans || []).filter(p => {
-         if (p.project_config && p.project_config._meta) {
-            return p.project_config._meta.moduleId === mod.id;
-         }
-         return p.application_name.includes(mod.name);
+        if (p.project_config && p.project_config._meta) {
+          return p.project_config._meta.moduleId === mod.id;
+        }
+        return p.application_name.includes(mod.name);
       });
       modulePlans.forEach(p => matchedPlanIds.add(p.id));
     });
@@ -1471,7 +1581,7 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
 
   return (
     <div className="space-y-6 mt-6">
-      <button 
+      <button
         onClick={onClose}
         className="flex items-center text-sm font-medium text-secondary-text hover:text-primary-orange transition-colors"
       >
@@ -1575,163 +1685,179 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
           <div className="space-y-8">
             {projectData.config?.tracks?.map((track) => {
               const trackPlans = (projectData.plans || []).filter(p => {
-                 if (p.project_config && p.project_config._meta) {
-                    return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
-                 }
-                 return p.application_name.includes(track.name);
+                if (p.project_config && p.project_config._meta) {
+                  return p.project_config._meta.trackId === track.id && !p.project_config._meta.moduleId;
+                }
+                return p.application_name.includes(track.name);
               });
               return (
-              <div key={track.id} className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-light-border">
-                <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
-                  <div className="flex flex-col">
-                    <h4 className="text-lg font-bold text-gray-800 flex items-center">
-                      <span className="bg-primary-orange/10 text-primary-orange px-2 py-0.5 rounded text-sm mr-2 border border-primary-orange/20">Track</span>
-                      {track.name}
-                    </h4>
-                    {track.scopes && (
-                      <p className="text-xs text-gray-600 mt-1">
-                        <span className="font-semibold text-gray-700">Scopes:</span> {track.scopes}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {canGenerate && (
-                      <>
+                <div key={track.id} className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-light-border">
+                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                    <div className="flex flex-col">
+                      <h4 className="text-lg font-bold text-gray-800 flex items-center">
+                        <span className="bg-primary-orange/10 text-primary-orange px-2 py-0.5 rounded text-sm mr-2 border border-primary-orange/20">Track</span>
+                        {track.name}
+                      </h4>
+                      {track.scopes && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          <span className="font-semibold text-gray-700">Scopes:</span> {track.scopes}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      {canGenerate && (
+                        <>
+                          <button
+                            onClick={() => onEditProject(track.id)}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
+                            title="Edit Track"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          <button
+                            onClick={() => onDeleteTrack && onDeleteTrack(track.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors mr-2"
+                            title="Delete Track"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                      {canGenerate && (!track.modules || track.modules.length === 0) && !hasGeneratedPlan(track, null) && (
                         <button
-                          onClick={() => onEditProject(track.id)}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
-                          title="Edit Track"
+                          onClick={() => {
+                            onGeneratePlan({ projectData, projectName: projectData.name, track, module: null });
+                          }}
+                          className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange shadow-sm"
                         >
-                          <Edit size={16} />
+                          Add Plan +
                         </button>
-                        <button
-                          onClick={() => onDeleteTrack && onDeleteTrack(track.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors mr-2"
-                          title="Delete Track"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </>
-                    )}
-                    {canGenerate && (!track.modules || track.modules.length === 0) && !hasGeneratedPlan(track, null) && (
-                      <button
-                        onClick={() => {
-                          onGeneratePlan({ projectData, projectName: projectData.name, track, module: null });
-                        }}
-                        className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange shadow-sm"
-                      >
-                        Add Plan +
-                      </button>
-                    )}
-                  </div>
-                </div>
-                
-                {track.options && Object.keys(track.options).length > 0 && (
-                  <div className="mb-4 bg-gray-50 p-3 rounded border border-light-border">
-                    <h5 className="text-sm font-semibold text-gray-700 mb-2">Track Configuration:</h5>
-                    {renderConfigOptions(track.options, track.inputs)}
-                  </div>
-                )}
-
-                {trackPlans.length > 0 && (
-                  <div className="mb-4 pt-4 border-t border-gray-100">
-                    <h5 className="text-sm font-semibold text-primary-orange mb-3">Generated Plans for Track:</h5>
-                    <div className="space-y-4">
-                      {trackPlans.map(p => {
-                         const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
-                         return (
-                             <PlanCard 
-                               key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
-                               handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
-                               onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
-                               projectNameFallback={projectData?.name}
-                             />
-                         );
-                      })}
+                      )}
                     </div>
                   </div>
-                )}
-                
-                {track.modules?.length > 0 && (
-                  <div className="ml-4 space-y-4 border-l-2 border-orange-200 pl-4">
-                    {track.modules.map(mod => {
-                      const modulePlans = (projectData.plans || []).filter(p => {
-                         if (p.project_config && p.project_config._meta) {
-                            return p.project_config._meta.moduleId === mod.id;
-                         }
-                         return p.application_name.includes(mod.name);
-                      });
-                      return (
-                      <div key={mod.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100 shadow-sm">
-                        <div className="flex justify-between items-center mb-2">
-                          <h5 className="font-semibold text-gray-800 flex items-center">
-                            <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-xs mr-2 border border-orange-200">Module</span>
-                            {mod.name}
-                          </h5>
-                          <div className="flex items-center space-x-2">
-                            {canGenerate && (
-                              <>
-                                <button
-                                  onClick={() => onEditProject(track.id, mod.id)}
-                                  className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
-                                  title="Edit Module"
-                                >
-                                  <Edit size={14} />
-                                </button>
-                                <button
-                                  onClick={() => onDeleteModule && onDeleteModule(track.id, mod.id)}
-                                  className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors mr-2"
-                                  title="Delete Module"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </>
-                            )}
-                            {canGenerate && !hasGeneratedPlan(track, mod) && (
-                              <button
-                                onClick={() => {
-                                  onGeneratePlan({ projectData, projectName: projectData.name, track, module: mod });
-                                }}
-                                className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange shadow-sm"
-                              >
-                                Add Plan +
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {mod.options && Object.keys(mod.options).length > 0 ? (
-                          <div className="mt-2">
-                             <h6 className="text-xs font-semibold text-gray-500 mb-1">Module Configuration:</h6>
-                             {renderConfigOptions(mod.options, mod.inputs)}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-gray-400 italic">No configuration selected.</p>
-                        )}
-                        
-                        {modulePlans.length > 0 && (
-                           <div className="mt-4 border-t border-gray-200 pt-3">
-                             <h6 className="text-xs font-semibold text-gray-600 mb-2">Generated Plans for Module:</h6>
-                             <div className="space-y-3">
-                               {modulePlans.map(p => {
-                                  const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
-                                  return (
-                                    <PlanCard 
-                                      key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
-                                      handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
-                                      onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
-                                    />
-                                  );
-                               })}
-                             </div>
-                           </div>
+
+                  {track.options && Object.keys(track.options).length > 0 && (
+                    <div className="mb-4 bg-gray-50 p-3 rounded border border-light-border">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold text-gray-700">Track Configuration:</h5>
+                        {track.durations && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-orange-100 text-primary-orange">
+                            Total Duration: {getNodeTotalDays(track)} days
+                          </span>
                         )}
                       </div>
-                    )})}
-                  </div>
-                )}
-              </div>
-            )})}
-            
+                      {renderConfigOptions(track.options, track.inputs, track.durations)}
+                    </div>
+                  )}
+
+                  {trackPlans.length > 0 && (
+                    <div className="mb-4 pt-4 border-t border-gray-100">
+                      <h5 className="text-sm font-semibold text-primary-orange mb-3">Generated Plans for Track:</h5>
+                      <div className="space-y-4">
+                        {trackPlans.map(p => {
+                          const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
+                          return (
+                            <PlanCard
+                              key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick}
+                              handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders}
+                              onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true}
+                              projectNameFallback={projectData?.name}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {track.modules?.length > 0 && (
+                    <div className="ml-4 space-y-4 border-l-2 border-orange-200 pl-4">
+                      {track.modules.map(mod => {
+                        const modulePlans = (projectData.plans || []).filter(p => {
+                          if (p.project_config && p.project_config._meta) {
+                            return p.project_config._meta.moduleId === mod.id;
+                          }
+                          return p.application_name.includes(mod.name);
+                        });
+                        return (
+                          <div key={mod.id} className="bg-gray-50 p-3 rounded-lg border border-gray-100 shadow-sm">
+                            <div className="flex justify-between items-center mb-2">
+                              <h5 className="font-semibold text-gray-800 flex items-center">
+                                <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-xs mr-2 border border-orange-200">Module</span>
+                                {mod.name}
+                              </h5>
+                              <div className="flex items-center space-x-2">
+                                {canGenerate && (
+                                  <>
+                                    <button
+                                      onClick={() => onEditProject(track.id, mod.id)}
+                                      className="p-1.5 text-gray-400 hover:text-blue-600 rounded hover:bg-blue-50 transition-colors"
+                                      title="Edit Module"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button
+                                      onClick={() => onDeleteModule && onDeleteModule(track.id, mod.id)}
+                                      className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50 transition-colors mr-2"
+                                      title="Delete Module"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
+                                {canGenerate && !hasGeneratedPlan(track, mod) && (
+                                  <button
+                                    onClick={() => {
+                                      onGeneratePlan({ projectData, projectName: projectData.name, track, module: mod });
+                                    }}
+                                    className="px-2 py-1 bg-button-orange text-white text-xs font-semibold rounded hover:bg-hover-orange shadow-sm"
+                                  >
+                                    Add Plan +
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {mod.options && Object.keys(mod.options).length > 0 ? (
+                              <div className="mt-2">
+                                <div className="flex items-center justify-between mb-1">
+                                  <h6 className="text-xs font-semibold text-gray-500">Module Configuration:</h6>
+                                  {mod.durations && (
+                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-orange-100 text-primary-orange">
+                                      Total: {getNodeTotalDays(mod)} days
+                                    </span>
+                                  )}
+                                </div>
+                                {renderConfigOptions(mod.options, mod.inputs, mod.durations)}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-gray-400 italic">No configuration selected.</p>
+                            )}
+
+                            {modulePlans.length > 0 && (
+                              <div className="mt-4 border-t border-gray-200 pt-3">
+                                <h6 className="text-xs font-semibold text-gray-600 mb-2">Generated Plans for Module:</h6>
+                                <div className="space-y-3">
+                                  {modulePlans.map(p => {
+                                    const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
+                                    return (
+                                      <PlanCard
+                                        key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick}
+                                        handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders}
+                                        onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
             {(projectData.plans || []).length === 0 ? (
               <div className="mt-8 border-t border-gray-200 pt-6">
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
@@ -1744,14 +1870,14 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
                 <h4 className="text-xl font-bold text-gray-800 mb-6">Other Generated Plans</h4>
                 <div className="space-y-4">
                   {unmatchedPlans.map(p => {
-                     const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
-                     return (
-                       <PlanCard 
-                         key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick} 
-                         handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders} 
-                         onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true} 
-                       />
-                     );
+                    const fullPlan = allPlans ? allPlans.find(x => String(x.id) === String(p.id)) : null;
+                    return (
+                      <PlanCard
+                        key={p.id} plan={fullPlan || p} canApprove={canApprove} handleApproveClick={handleApproveClick}
+                        handleCloseClick={handleCloseClick} parseMarkdown={parseMarkdown} stakeholders={stakeholders}
+                        onAssignManager={handleAssignManager} onPlanUpdate={handlePlanUpdate} hideProjectDetailsBtn={true}
+                      />
+                    );
                   })}
                 </div>
               </div>
@@ -1781,90 +1907,90 @@ const PlanPage = () => {
   const handleDownloadProjectTemplate = () => {
     const wsData = [
       [
-        "Project Name", "Track Name", "Track Scope", "Module Name", 
-        "Knowledge Acquisition", "", "", "", 
+        "Project Name", "Track Name", "Track Scope", "Module Name",
+        "Knowledge Acquisition", "", "", "",
         "Reverse KT", "", "",
         "Shadow Support", "", "", "", "", "",
         "Lead Support", "", "", ""
       ],
       [
-        "", "", "", "", 
-        "Entry Criteria", "", "Exit Criteria", "", 
+        "", "", "", "",
+        "Entry Criteria", "", "Exit Criteria", "",
         "Entry Criteria", "", "Exit Criteria",
         "Entry Criteria", "", "Exit Criteria", "", "", "",
         "Entry Criteria", "", "", ""
       ],
       [
-        "", "", "", "", 
-        "KT Plan Ready (Y/N)", "Stakeholder Mapping Ready (Y/N)", "Project KT Document Ready (Y/N)", "SUD Mandatory (Y/N)", 
-        "Knowledge Acquisition Completed (Y/N)", "Project KT Document Ready (Y/N)", "Assessment Passed (≥80%) (Y/N)", 
+        "", "", "", "",
+        "KT Plan Ready (Y/N)", "Stakeholder Mapping Ready (Y/N)", "Project KT Document Ready (Y/N)", "SUD Mandatory (Y/N)",
+        "Knowledge Acquisition Completed (Y/N)", "Project KT Document Ready (Y/N)", "Assessment Passed (≥80%) (Y/N)",
         "Assessment (80% Above) (Y/N)", "SUD Document Uploaded (Y/N)", "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for shadow support (Y/N)", "Weeks (e.g. 2 weeks)",
         "Need to be involved in ticket resolving (Y/N)", "Tickets (e.g. 5 tickets)", "Required weeks for lead support (Y/N)", "Weeks (e.g. 2 weeks)"
       ],
       [
         "Demo Project", "Track 1 - Frontend", "Frontend scope...", "Module 1 - React",
-        "Y", "Y", "Y", "Y", 
-        "Y", "Y", "Y", 
+        "Y", "Y", "Y", "Y",
+        "Y", "Y", "Y",
         "Y", "Y", "Y", "5 tickets", "Y", "2 weeks",
         "Y", "5 tickets", "Y", "2 weeks"
       ],
       [
         "Demo Project", "Track 1 - Frontend", "Frontend scope...", "Module 2 - Angular",
-        "Y", "Y", "Y", "Y", 
-        "Y", "Y", "Y", 
+        "Y", "Y", "Y", "Y",
+        "Y", "Y", "Y",
         "Y", "Y", "Y", "3 tickets", "Y", "1 weeks",
         "Y", "3 tickets", "Y", "1 weeks"
       ],
       [
         "Demo Project", "Track 2 - Backend", "Backend scope...", "",
-        "Y", "Y", "Y", "Y", 
-        "Y", "Y", "Y", 
+        "Y", "Y", "Y", "Y",
+        "Y", "Y", "Y",
         "Y", "Y", "Y", "10 tickets", "Y", "3 weeks",
         "Y", "10 tickets", "Y", "3 weeks"
       ]
     ];
-    
+
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
+
     ws['!merges'] = [
       // General Info
       { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } },
       { s: { r: 0, c: 1 }, e: { r: 2, c: 1 } },
       { s: { r: 0, c: 2 }, e: { r: 2, c: 2 } },
       { s: { r: 0, c: 3 }, e: { r: 2, c: 3 } },
-      
+
       // KA
       { s: { r: 0, c: 4 }, e: { r: 0, c: 7 } },
       { s: { r: 1, c: 4 }, e: { r: 1, c: 5 } },
       { s: { r: 1, c: 6 }, e: { r: 1, c: 7 } },
-      
+
       // Reverse KT
       { s: { r: 0, c: 8 }, e: { r: 0, c: 10 } },
       { s: { r: 1, c: 8 }, e: { r: 1, c: 9 } },
       { s: { r: 1, c: 10 }, e: { r: 1, c: 10 } },
-      
+
       // Shadow Support
       { s: { r: 0, c: 11 }, e: { r: 0, c: 16 } },
       { s: { r: 1, c: 11 }, e: { r: 1, c: 12 } },
       { s: { r: 1, c: 13 }, e: { r: 1, c: 16 } },
-      
+
       // Lead Support
       { s: { r: 0, c: 17 }, e: { r: 0, c: 20 } },
       { s: { r: 1, c: 17 }, e: { r: 1, c: 20 } }
     ];
-    
+
     const getStyle = (r, c) => {
       const isMainHeader = r === 0;
       const isGroupHeader = r === 1;
-      
+
       let bg = "FFFFFF";
       let fontColor = "000000";
       let bold = true;
 
-      if (c <= 3) { 
-        bg = "607D8B"; 
+      if (c <= 3) {
+        bg = "607D8B";
         fontColor = "FFFFFF";
-      } else if (c <= 7) { 
+      } else if (c <= 7) {
         if (isMainHeader) { bg = "1976D2"; fontColor = "FFFFFF"; }
         else if (isGroupHeader) { bg = "64B5F6"; fontColor = "FFFFFF"; }
         else { bg = "BBDEFB"; fontColor = "000000"; }
@@ -1872,11 +1998,11 @@ const PlanPage = () => {
         if (isMainHeader) { bg = "8E24AA"; fontColor = "FFFFFF"; }
         else if (isGroupHeader) { bg = "BA68C8"; fontColor = "FFFFFF"; }
         else { bg = "E1BEE7"; fontColor = "000000"; }
-      } else if (c <= 16) { 
+      } else if (c <= 16) {
         if (isMainHeader) { bg = "F57C00"; fontColor = "FFFFFF"; }
         else if (isGroupHeader) { bg = "FFB74D"; fontColor = "FFFFFF"; }
         else { bg = "FFE0B2"; fontColor = "000000"; }
-      } else { 
+      } else {
         if (isMainHeader) { bg = "388E3C"; fontColor = "FFFFFF"; }
         else if (isGroupHeader) { bg = "81C784"; fontColor = "FFFFFF"; }
         else { bg = "C8E6C9"; fontColor = "000000"; }
@@ -1894,17 +2020,17 @@ const PlanPage = () => {
         }
       };
     };
-    
+
     for (let r = 0; r <= 2; r++) {
       for (let c = 0; c < wsData[0].length; c++) {
         const cellRef = XLSX.utils.encode_cell({ r, c });
-        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: "" }; 
+        if (!ws[cellRef]) ws[cellRef] = { t: 's', v: "" };
         ws[cellRef].s = getStyle(r, c);
       }
     }
-    
+
     ws['!cols'] = Array(wsData[0].length).fill({ wch: 18 });
-    
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
     XLSX.writeFile(wb, "Project_Template.xlsx");
@@ -1922,7 +2048,7 @@ const PlanPage = () => {
     const file = uploadModalConfig.file;
     setUploadModalConfig(null);
     setIsUploadingTemplate(true);
-    
+
     try {
       const formData = new FormData();
       formData.append('file', file);
@@ -1930,7 +2056,7 @@ const PlanPage = () => {
     } catch (err) {
       console.error("Failed to upload template to S3:", err);
     }
-    
+
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
@@ -1939,7 +2065,7 @@ const PlanPage = () => {
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
         const aoaData = XLSX.utils.sheet_to_json(ws, { header: 1 });
-        
+
         if (aoaData.length <= 1) {
           showToast("Template is empty", "error");
           setIsUploadingTemplate(false);
@@ -1950,15 +2076,15 @@ const PlanPage = () => {
         for (let i = 1; i < aoaData.length; i++) {
           const row = aoaData[i];
           if (!row || row.length === 0) continue;
-          
+
           const pName = row[0];
           if (!pName || pName === "Demo Project" || pName === "Project Name") continue;
           if (!projectsMap[pName]) projectsMap[pName] = { name: pName, tracks: [] };
-          
+
           const tName = row[1];
           if (!tName) continue;
           const tScope = row[2] || "";
-          
+
           let track = projectsMap[pName].tracks.find(t => t.name === tName);
           if (!track) {
             track = {
@@ -1972,10 +2098,10 @@ const PlanPage = () => {
             };
             projectsMap[pName].tracks.push(track);
           }
-          
+
           const mName = row[3];
           const parseBool = (val) => val && val.toString().trim().toUpperCase() === 'Y';
-          
+
           const options = {
             ka: parseBool(row[4]) || parseBool(row[5]) || parseBool(row[6]) || parseBool(row[7]),
             kt_doc: parseBool(row[4]),
@@ -1993,18 +2119,18 @@ const PlanPage = () => {
             sud_doc_upload: parseBool(row[12]),
             ticket_resolving: parseBool(row[13]),
             weeks_shadow: parseBool(row[15]),
-            
+
             lead_resourcing: parseBool(row[17]) || parseBool(row[19]),
             lr_ticket_resolving: parseBool(row[17]),
             lr_weeks_shadow: parseBool(row[19])
           };
-          
+
           const inputs = {};
           if (row[14]) inputs.ticket_resolving = row[14].toString();
           if (row[16]) inputs.weeks_shadow = row[16].toString();
           if (row[18]) inputs.lr_ticket_resolving = row[18].toString();
           if (row[20]) inputs.lr_weeks_shadow = row[20].toString();
-          
+
           if (mName && mName.toString().trim() !== "" && mName !== "Module 1 (Optional)") {
             track.modules.push({
               id: Date.now() + Math.random(),
@@ -2018,7 +2144,7 @@ const PlanPage = () => {
             track.inputs = inputs;
           }
         }
-        
+
         const projectNames = Object.keys(projectsMap);
         const chunkSize = 3;
         for (let i = 0; i < projectNames.length; i += chunkSize) {
@@ -2035,7 +2161,7 @@ const PlanPage = () => {
             }
           }));
         }
-        
+
         fetchProjects();
         setIsUploadingTemplate(false);
       } catch (err) {
@@ -2053,7 +2179,7 @@ const PlanPage = () => {
   const executeDelete = async () => {
     if (!deleteModalConfig || !projectToView) return;
     const { type, trackId, moduleId } = deleteModalConfig;
-    
+
     if (type === 'track') {
       const updatedConfig = { ...projectToView.config };
       updatedConfig.tracks = updatedConfig.tracks.filter(t => t.id !== trackId);
@@ -2062,9 +2188,9 @@ const PlanPage = () => {
         await updateProject(projectToView.id, updatedConfig);
         setProjectToView(updatedProject);
         fetchProjects();
-        if(typeof showToast === 'function') showToast('Track deleted successfully', 'success');
+        if (typeof showToast === 'function') showToast('Track deleted successfully', 'success');
       } catch (err) {
-        if(typeof showToast === 'function') showToast("Error deleting track: " + err.message, 'error');
+        if (typeof showToast === 'function') showToast("Error deleting track: " + err.message, 'error');
         else showToast("Error deleting track: " + err.message, 'error');
       }
     } else if (type === 'module') {
@@ -2077,9 +2203,9 @@ const PlanPage = () => {
           await updateProject(projectToView.id, updatedConfig);
           setProjectToView(updatedProject);
           fetchProjects();
-          if(typeof showToast === 'function') showToast('Module deleted successfully', 'success');
+          if (typeof showToast === 'function') showToast('Module deleted successfully', 'success');
         } catch (err) {
-          if(typeof showToast === 'function') showToast("Error deleting module: " + err.message, 'error');
+          if (typeof showToast === 'function') showToast("Error deleting module: " + err.message, 'error');
           else showToast("Error deleting module: " + err.message, 'error');
         }
       }
@@ -2105,7 +2231,8 @@ const PlanPage = () => {
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [showGenerateForms, setShowGenerateForms] = useState(false);
-  
+  const [generatingContext, setGeneratingContext] = useState(null);
+
   const [projectToView, setProjectToView] = useState(null);
   const [planToView, setPlanToView] = useState(null);
 
@@ -2149,7 +2276,7 @@ const PlanPage = () => {
         else if (isEditingProject) setIsEditingProject(false);
         else if (isAddingProject) { setIsAddingProject(false); sessionStorage.removeItem('isAddingProject'); }
         else if (projectToView) { setProjectToView(null); sessionStorage.removeItem('savedProjectToViewId'); }
-        
+
         setHistoryLevel(targetLevel);
       }
     };
@@ -2217,8 +2344,8 @@ const PlanPage = () => {
           if (t.inputs && t.inputs[k]) filteredInputs[k] = t.inputs[k];
         }
       });
-      
-      const newModules = t.modules.map(m => {
+
+      const newModules = (t.modules || []).map(m => {
         const mOpts = {};
         const mInps = {};
         Object.keys(m.options || {}).forEach(k => {
@@ -2227,9 +2354,9 @@ const PlanPage = () => {
             if (m.inputs && m.inputs[k]) mInps[k] = m.inputs[k];
           }
         });
-        return { ...m, options: mOpts, inputs: mInps };
+        return { ...m, options: mOpts, inputs: mInps, durations: m.durations };
       });
-      return { ...t, options: filteredOptions, inputs: filteredInputs, modules: newModules };
+      return { ...t, options: filteredOptions, inputs: filteredInputs, durations: t.durations, modules: newModules };
     });
     return newData;
   };
@@ -2252,10 +2379,16 @@ const PlanPage = () => {
 
     const configToFilter = finalProjectData.config || finalProjectData;
     setProjectConfig(configToFilter);
-    
-    const contextName = module 
-      ? `${projectName} - ${track.name} - ${module.name}`
-      : `${projectName} - ${track.name}`;
+
+    const contextName = module
+      ? (module.name || track?.name || '')
+      : (track?.name || '');
+
+    setGeneratingContext({
+      isModule: !!module,
+      trackName: track?.name,
+      moduleName: module?.name
+    });
 
     const filteredProjectData = filterCheckedOptions(configToFilter);
     filteredProjectData._meta = {
@@ -2264,16 +2397,16 @@ const PlanPage = () => {
     };
 
     const prefilledScope = track?.scopes || module?.scopes || configToFilter?.description || '';
-    setDocFormData(prev => ({ 
-      ...prev, 
+    setDocFormData(prev => ({
+      ...prev,
       application_name: contextName,
       scope_description: prefilledScope,
       project_config: filteredProjectData,
       project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
-    
-    setFormData(prev => ({ 
-      ...prev, 
+
+    setFormData(prev => ({
+      ...prev,
       application_name: contextName,
       scope_description: prefilledScope,
       project_config: filteredProjectData,
@@ -2284,7 +2417,7 @@ const PlanPage = () => {
     setIsEditingProject(false);
     setShowGenerateForms(true);
   };
-  
+
   const handleViewPlan = async (partialPlan) => {
     let fullPlan = plans.find(p => p.id === partialPlan.id);
     if (!fullPlan) {
@@ -2292,7 +2425,7 @@ const PlanPage = () => {
         const { getPlan } = await import('../api/api');
         const res = await getPlan(partialPlan.id);
         if (res.data?.success) {
-           fullPlan = res.data.data;
+          fullPlan = res.data.data;
         }
       } catch (e) {
         console.error(e);
@@ -2322,7 +2455,7 @@ const PlanPage = () => {
       const res = await getProjects();
       const loadedProjects = Array.isArray(res.data?.data) ? res.data.data : [];
       setProjects(loadedProjects);
-      
+
       const savedId = sessionStorage.getItem('savedProjectToViewId');
       if (savedId) {
         try {
@@ -2351,7 +2484,7 @@ const PlanPage = () => {
       const res = await getPlans();
       const fetchedPlans = Array.isArray(res.data?.data) ? res.data.data : [];
       const statusOrder = { 'draft': 1, 'approved': 2, 'closed': 3 };
-      const sortedPlans = [...fetchedPlans].sort((a, b) => 
+      const sortedPlans = [...fetchedPlans].sort((a, b) =>
         (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99)
       );
       setPlans(sortedPlans);
@@ -2474,7 +2607,7 @@ const PlanPage = () => {
   const handleGenerateWithDoc = async (e) => {
     e.preventDefault();
     if (!docFormData.application_name || !docFormData.scope_description) {
-      showToast('Please fill out Plan Name and Scope Description or upload document(s) to auto-extract them.', 'error');
+      showToast(`Please fill out ${generatingContext?.isModule ? 'Module Name' : 'Track Name'} and Scope Description or upload document(s) to auto-extract them.`, 'error');
       return;
     }
     startOperation('create-plan-doc');
@@ -2506,7 +2639,7 @@ const PlanPage = () => {
 
   const handleRunWorkflow = async () => {
     if (!formData.application_name || !formData.scope_description) {
-      showToast('Please fill out App Name and Scope Description first', 'error');
+      showToast(`Please fill out ${generatingContext?.isModule ? 'Module Name' : 'Track Name'} and Scope Description first`, 'error');
       return;
     }
     setRunningWorkflow(true);
@@ -2526,7 +2659,7 @@ const PlanPage = () => {
       try {
         const res = await getProjectById(projectToView.id);
         setProjectToView(res.data.data);
-      } catch(err) { console.error(err); }
+      } catch (err) { console.error(err); }
     }
   };
 
@@ -2618,13 +2751,13 @@ const PlanPage = () => {
         <h2 className="text-2xl font-bold text-primary-text">Projects {/* Force reload */}</h2>
         {!isAddingProject && canGenerate && !showGenerateForms && !projectToView && !planToView && (
           <div className="flex space-x-3 items-center">
-            <button 
+            <button
               onClick={() => { setIsAddingProject(true); setProjectConfig(null); }}
               className="flex items-center px-4 py-2 bg-button-orange text-white text-sm font-semibold rounded-lg shadow-sm hover:bg-hover-orange"
             >
               <Plus size={16} className="mr-2" /> Add Project
             </button>
-            <button 
+            <button
               onClick={handleDownloadProjectTemplate}
               className="flex items-center px-4 py-2 bg-white border border-light-border text-primary-text text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-50"
             >
@@ -2641,21 +2774,21 @@ const PlanPage = () => {
 
       {planToView ? (
         <div className="space-y-4 mt-6">
-          <button 
+          <button
             onClick={() => setPlanToView(null)}
             className="flex items-center text-sm font-medium text-secondary-text hover:text-primary-orange transition-colors"
           >
             <ChevronLeft size={16} className="mr-1" /> Back to Projects
           </button>
-          <PlanCard 
-            plan={planToView} 
-            canApprove={canApprove} 
-            handleApproveClick={() => setPlanToApprove(planToView)} 
-            handleCloseClick={() => setPlanToClose(planToView)} 
-            parseMarkdown={parseMarkdown} 
-            stakeholders={stakeholders} 
-            onAssignManager={handleAssignManager} 
-            onPlanUpdate={handlePlanUpdate} 
+          <PlanCard
+            plan={planToView}
+            canApprove={canApprove}
+            handleApproveClick={() => setPlanToApprove(planToView)}
+            handleCloseClick={() => setPlanToClose(planToView)}
+            parseMarkdown={parseMarkdown}
+            stakeholders={stakeholders}
+            onAssignManager={handleAssignManager}
+            onPlanUpdate={handlePlanUpdate}
           />
         </div>
       ) : canGenerate && showGenerateForms ? (
@@ -2681,22 +2814,24 @@ const PlanPage = () => {
                     <div className="grid grid-cols-1 gap-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Plan Name</label>
+                          <label className="block text-sm font-medium text-gray-700">
+                            {generatingContext?.isModule ? 'Module Name' : 'Track Name'}
+                          </label>
                           <input
                             type="text" required
-                            placeholder="e.g. Payment Gateway Service"
+                            placeholder={generatingContext?.isModule ? "e.g. Ingestion Module" : "e.g. Data Pipeline"}
                             className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                             value={formData.application_name}
-                            onChange={(e) => setFormData({...formData, application_name: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, application_name: e.target.value })}
                           />
                         </div>
-                        
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Plan Type</label>
                           <CustomSelect
                             className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                             value={formData.plan_type}
-                            onChange={(e) => setFormData({...formData, plan_type: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, plan_type: e.target.value })}
                           >
                             <option value="KT">KT</option>
                             <option value="Reverse-KT">Reverse-KT</option>
@@ -2712,10 +2847,10 @@ const PlanPage = () => {
                           placeholder="Enter main topics or scope details"
                           className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                           value={formData.scope_description}
-                          onChange={(e) => setFormData({...formData, scope_description: e.target.value})}
+                          onChange={(e) => setFormData({ ...formData, scope_description: e.target.value })}
                         />
                       </div>
-                      
+
                       {formData.plan_type === 'Reverse-KT' && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
@@ -2724,12 +2859,12 @@ const PlanPage = () => {
                             placeholder="e.g. Test incident resolution or backend deployment"
                             className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm"
                             value={formData.reverse_kt_focus}
-                            onChange={(e) => setFormData({...formData, reverse_kt_focus: e.target.value})}
+                            onChange={(e) => setFormData({ ...formData, reverse_kt_focus: e.target.value })}
                           />
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="flex justify-end pt-4 mt-auto">
                       <button
                         type="submit"
@@ -2768,7 +2903,7 @@ const PlanPage = () => {
                         </span>
                       )}
                     </div>
-                    
+
                     {/* Upload Box & Extract Button Side-by-Side */}
                     <div className="flex items-center space-x-2">
                       <div className="relative flex-1 border-2 border-dashed border-orange-border rounded-lg p-2 hover:border-button-orange transition-colors bg-input-background/40">
@@ -2837,14 +2972,16 @@ const PlanPage = () => {
                 <form onSubmit={handleGenerateWithDoc} className="flex-1 flex flex-col justify-between space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Plan Name</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        {generatingContext?.isModule ? 'Module Name' : 'Track Name'}
+                      </label>
                       <input
                         type="text" required
                         disabled={!isDocExtracted || analyzingDoc}
-                        placeholder={isDocExtracted ? "Extracted Plan Name" : "Upload document(s) to unlock"}
+                        placeholder={isDocExtracted ? (generatingContext?.isModule ? "Extracted Module Name" : "Extracted Track Name") : "Upload document(s) to unlock"}
                         className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                         value={docFormData.application_name}
-                        onChange={(e) => setDocFormData({...docFormData, application_name: e.target.value})}
+                        onChange={(e) => setDocFormData({ ...docFormData, application_name: e.target.value })}
                       />
                     </div>
 
@@ -2854,7 +2991,7 @@ const PlanPage = () => {
                         disabled={!isDocExtracted || analyzingDoc}
                         className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                         value={docFormData.plan_type}
-                        onChange={(e) => setDocFormData({...docFormData, plan_type: e.target.value})}
+                        onChange={(e) => setDocFormData({ ...docFormData, plan_type: e.target.value })}
                       >
                         <option value="KT">KT</option>
                         <option value="Reverse-KT">Reverse-KT</option>
@@ -2870,7 +3007,7 @@ const PlanPage = () => {
                         placeholder={isDocExtracted ? "Main topic names extracted from document(s)" : "Upload document(s) to unlock & auto-fill"}
                         className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                         value={docFormData.scope_description}
-                        onChange={(e) => setDocFormData({...docFormData, scope_description: e.target.value})}
+                        onChange={(e) => setDocFormData({ ...docFormData, scope_description: e.target.value })}
                       />
                     </div>
 
@@ -2883,7 +3020,7 @@ const PlanPage = () => {
                           placeholder="e.g. Test incident resolution or backend deployment"
                           className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
                           value={docFormData.reverse_kt_focus}
-                          onChange={(e) => setDocFormData({...docFormData, reverse_kt_focus: e.target.value})}
+                          onChange={(e) => setDocFormData({ ...docFormData, reverse_kt_focus: e.target.value })}
                         />
                       </div>
                     )}
@@ -2904,24 +3041,24 @@ const PlanPage = () => {
           </div>
         </div>
       ) : isEditingProject && projectToView ? (
-        <AddProjectForm 
-          onCancel={() => setIsEditingProject(false)} 
-          onSave={handleUpdateProject} 
-          onGeneratePlan={handleGeneratePlan} 
-          initialData={{ ...(projectToView.config || {}), name: projectToView.name }} 
-          isEditMode={true} 
+        <AddProjectForm
+          onCancel={() => setIsEditingProject(false)}
+          onSave={handleUpdateProject}
+          onGeneratePlan={handleGeneratePlan}
+          initialData={{ ...(projectToView.config || {}), name: projectToView.name }}
+          isEditMode={true}
           editTarget={editTarget}
         />
       ) : projectToView ? (
-        <ProjectDetailsView 
-          projectData={projectToView} 
-          onClose={() => { 
-            setProjectToView(null); 
-            sessionStorage.removeItem('savedProjectToViewId'); 
+        <ProjectDetailsView
+          projectData={projectToView}
+          onClose={() => {
+            setProjectToView(null);
+            sessionStorage.removeItem('savedProjectToViewId');
             if (window.history.state?.view === 'project') {
               window.history.back();
             }
-          }} 
+          }}
           onGeneratePlan={handleGeneratePlan}
           canGenerate={canGenerate}
           onViewPlan={handleViewPlan}
@@ -2946,26 +3083,26 @@ const PlanPage = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {currentProjects.map((project) => (
-                <ProjectCard 
-                  key={project.id} 
-                  project={project}
-                  isLoading={loadingProjectId === project.id}
-                  onClick={async () => {
-                    setLoadingProjectId(project.id);
-                    try {
-                      const res = await getProjectById(project.id);
-                      setProjectToView(res.data.data);
-                    } catch (err) {
-                      console.error("Error fetching project details");
-                    } finally {
-                      setLoadingProjectId(null);
-                    }
-                  }}
-                />
-              ))}
+              <ProjectCard
+                key={project.id}
+                project={project}
+                isLoading={loadingProjectId === project.id}
+                onClick={async () => {
+                  setLoadingProjectId(project.id);
+                  try {
+                    const res = await getProjectById(project.id);
+                    setProjectToView(res.data.data);
+                  } catch (err) {
+                    console.error("Error fetching project details");
+                  } finally {
+                    setLoadingProjectId(null);
+                  }
+                }}
+              />
+            ))}
           </div>
           {projects.length === 0 && <p className="text-secondary-text text-center py-8">No projects created yet.</p>}
-          
+
           {totalPages > 1 && (
             <div className="flex items-center justify-between border-t border-light-border bg-light-background px-4 py-3 sm:px-6 rounded-xl shadow-sm mt-4">
               <div className="flex flex-1 justify-between sm:hidden">
@@ -3005,11 +3142,10 @@ const PlanPage = () => {
                       <button
                         key={i}
                         onClick={() => setCurrentPage(i + 1)}
-                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${
-                          currentPage === i + 1
-                            ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-orange'
-                            : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
-                        }`}
+                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20 focus:outline-offset-0 ${currentPage === i + 1
+                          ? 'z-10 bg-primary-orange text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-orange'
+                          : 'text-primary-text ring-1 ring-inset ring-gray-300 hover:bg-light-background'
+                          }`}
                       >
                         {i + 1}
                       </button>
@@ -3083,7 +3219,7 @@ const PlanPage = () => {
           </div>
         </div>
       )}
-      
+
       {showSaveProjectModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-light-background rounded-xl shadow-lg p-6 max-w-md w-full mx-4">
