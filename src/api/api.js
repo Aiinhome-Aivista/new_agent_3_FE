@@ -52,6 +52,8 @@ export const downloadStakeholdersTemplate = () => api.get('/stakeholders/templat
 
 // Plans
 export const generatePlan = (data) => api.post('/plans/generate', data);
+export const generateTentativePlan = (data) => api.post('/plans/generate-tentative', data);
+export const downloadTentativeDoc = (data) => api.post('/plans/download-tentative-doc', data, { responseType: 'blob' });
 export const extractPlanInfoFromDoc = (formData) => api.post('/plans/extract-from-doc', formData, {
   headers: { 'Content-Type': 'multipart/form-data' }
 });

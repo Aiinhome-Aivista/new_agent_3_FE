@@ -1,7 +1,7 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx-js-style';
-import { getPlans, generatePlan, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
+import { getPlans, generatePlan, generateTentativePlan, downloadTentativeDoc, extractPlanInfoFromDoc, approvePlan, closePlan, runFullWorkflow, getStakeholders, assignPlanManager, editPlan, getPlanTopicOptions, resyncPlanTopics, addPlanTopic, deletePlanTopic, linkPlanToProject } from '../api/api';
 import { getProjects, createProject, getProjectById, updateProject, uploadProjectTemplate } from '../api/projects';
 import Loader from '../components/Loader';
 import { FileText, CheckCircle, Play, X, ArrowRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, UserPlus, RefreshCw, Plus, Trash2, List, Upload, FileUp, FolderOpen, Clock, Edit, Download, Calendar, Video, Info, Layers, Tag } from 'lucide-react';
@@ -162,20 +162,40 @@ const CheckboxNode = ({ item, node, trackId, moduleId, handleCheckboxChange, han
   const nodeId = moduleId ? `${trackId}-${moduleId}` : trackId;
   const isChecked = Boolean(node.options && node.options[item.id]);
 
+  // Assessment (80% Above) under Shadow Support requires Reverse KT Exit Criteria 'Assessment Passed (≥80%)' to be checked
+  const isReverseKTAssessmentChecked = Boolean(node.options?.reverse_kt && node.options?.rkt_assessment);
+  const isDisabled = item.id === 'assessment_80' && !isReverseKTAssessmentChecked;
+  const effectiveChecked = isChecked && !isDisabled;
+
   return (
-    <div className={`flex flex-col space-y-2 ${level > 0 ? 'mt-2 border-l-2 border-gray-200 ml-2 py-1 pl-5' : 'p-4 bg-white border border-gray-200 rounded-lg shadow-sm transition-all duration-200'}`}>
+    <div className={`flex flex-col space-y-2 ${level > 0 ? 'mt-2 border-l-2 border-gray-200 ml-2 py-1 pl-5' : 'p-4 bg-white border border-gray-200 rounded-lg shadow-sm transition-all duration-200'} ${isDisabled ? 'opacity-60' : ''}`}>
       <div className={`flex items-center ${level === 0 ? 'justify-between pb-2 border-b border-gray-100 flex-wrap gap-2' : 'space-x-3'}`}>
         <div className="flex items-center space-x-2.5">
           <input
             type="checkbox"
             id={`chk-${nodeId}-${item.id}`}
-            checked={isChecked}
-            onChange={() => handleCheckboxChange(trackId, item.id, moduleId)}
-            className="h-4 w-4 text-primary-orange rounded border-light-border focus:ring-primary-orange"
+            checked={effectiveChecked}
+            disabled={isDisabled}
+            title={isDisabled ? "Requires Reverse KT 'Assessment Passed (≥80%)' to be checked" : undefined}
+            onChange={() => !isDisabled && handleCheckboxChange(trackId, item.id, moduleId)}
+            className={`h-4 w-4 rounded border-light-border focus:ring-primary-orange ${isDisabled ? 'cursor-not-allowed bg-gray-100 text-gray-400' : 'text-primary-orange cursor-pointer'
+              }`}
           />
-          <label htmlFor={`chk-${nodeId}-${item.id}`} className={`text-sm cursor-pointer ${level > 0 ? 'text-secondary-text' : 'font-bold text-gray-800'}`}>
-            {item.label}
-          </label>
+          <div className="flex flex-col">
+            <label
+              htmlFor={isDisabled ? undefined : `chk-${nodeId}-${item.id}`}
+              title={isDisabled ? "Requires Reverse KT 'Assessment Passed (≥80%)' to be checked" : undefined}
+              className={`text-sm ${isDisabled ? 'cursor-not-allowed text-gray-400 select-none' : 'cursor-pointer'
+                } ${level > 0 ? (isDisabled ? 'text-gray-400' : 'text-secondary-text') : 'font-bold text-gray-800'}`}
+            >
+              {item.label}
+            </label>
+            {isDisabled && (
+              <span className="text-[10px] text-gray-400 italic">
+                (Requires Reverse KT Assessment ≥80%)
+              </span>
+            )}
+          </div>
         </div>
 
         {level === 0 && (
@@ -338,16 +358,39 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
       initialData?.endDate || initialData?.end_date
     );
     if (initialData?.tracks && initialData.tracks.length > 0) {
-      return initialData.tracks.map(t => ({
-        ...t,
-        durations: t.durations || initialData.phaseDurations || { ...defaultDurs },
-        options: t.options || {
-          ka: true,
-          reverse_kt: true,
-          shadow_resourcing: true,
-          lead_resourcing: true
+      return initialData.tracks.map(t => {
+        const opts = {
+          ...(t.options || {
+            ka: true,
+            reverse_kt: true,
+            shadow_resourcing: true,
+            lead_resourcing: true
+          })
+        };
+        if (!opts.reverse_kt || !opts.rkt_assessment) {
+          opts.assessment_80 = false;
         }
-      }));
+        const modules = (t.modules || []).map(m => {
+          const mOpts = {
+            ...(m.options || {
+              ka: true,
+              reverse_kt: true,
+              shadow_resourcing: true,
+              lead_resourcing: true
+            })
+          };
+          if (!mOpts.reverse_kt || !mOpts.rkt_assessment) {
+            mOpts.assessment_80 = false;
+          }
+          return { ...m, options: mOpts };
+        });
+        return {
+          ...t,
+          durations: t.durations || initialData.phaseDurations || { ...defaultDurs },
+          options: opts,
+          modules
+        };
+      });
     }
     return [];
   });
@@ -370,6 +413,21 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
       lead_resourcing: 0
     };
 
+    const sanitizedTracks = tracks.map(t => {
+      const opts = { ...t.options };
+      if (!opts.reverse_kt || !opts.rkt_assessment) {
+        opts.assessment_80 = false;
+      }
+      const modules = (t.modules || []).map(m => {
+        const mOpts = { ...m.options };
+        if (!mOpts.reverse_kt || !mOpts.rkt_assessment) {
+          mOpts.assessment_80 = false;
+        }
+        return { ...m, options: mOpts };
+      });
+      return { ...t, options: opts, modules };
+    });
+
     return {
       name: projectName.trim(),
       description: description.trim(),
@@ -380,7 +438,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
       phaseDurations: derivedDurations,
       platform: platform || 'Google Meet',
       techStack: techStack.trim(),
-      tracks
+      tracks: sanitizedTracks
     };
   };
 
@@ -517,10 +575,21 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
               ...t,
               modules: t.modules.map(m => {
                 if (m.id === moduleId) {
+                  // Guard: assessment_80 cannot be selected if Reverse KT Assessment Exit Criteria is not met
+                  if (optionId === 'assessment_80' && (!m.options?.reverse_kt || !m.options?.rkt_assessment)) {
+                    return m;
+                  }
+
                   const newOptions = { ...m.options, [optionId]: !m.options[optionId] };
                   if (optionId === 'upload_sud' && newOptions['upload_sud']) {
                     newOptions['sud_mandatory'] = true;
                   }
+                  // Auto-uncheck assessment_80 if Reverse KT or its assessment exit criterion is unchecked
+                  if ((optionId === 'rkt_assessment' && !newOptions['rkt_assessment']) ||
+                    (optionId === 'reverse_kt' && !newOptions['reverse_kt'])) {
+                    newOptions['assessment_80'] = false;
+                  }
+
                   let newDurations = m.durations;
                   if (isPhaseToggle && startDate && endDate) {
                     newDurations = calculateDurationsFromDates(startDate, endDate, newOptions);
@@ -533,10 +602,22 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
               })
             };
           }
+
+          // Guard: assessment_80 cannot be selected if Reverse KT Assessment Exit Criteria is not met
+          if (optionId === 'assessment_80' && (!t.options?.reverse_kt || !t.options?.rkt_assessment)) {
+            return t;
+          }
+
           const newOptions = { ...t.options, [optionId]: !t.options[optionId] };
           if (optionId === 'upload_sud' && newOptions['upload_sud']) {
             newOptions['sud_mandatory'] = true;
           }
+          // Auto-uncheck assessment_80 if Reverse KT or its assessment exit criterion is unchecked
+          if ((optionId === 'rkt_assessment' && !newOptions['rkt_assessment']) ||
+            (optionId === 'reverse_kt' && !newOptions['reverse_kt'])) {
+            newOptions['assessment_80'] = false;
+          }
+
           let newDurations = t.durations;
           if (isPhaseToggle && startDate && endDate) {
             newDurations = calculateDurationsFromDates(startDate, endDate, newOptions);
@@ -2125,6 +2206,10 @@ const PlanPage = () => {
             lr_weeks_shadow: parseBool(row[19])
           };
 
+          if (!options.reverse_kt || !options.rkt_assessment) {
+            options.assessment_80 = false;
+          }
+
           const inputs = {};
           if (row[14]) inputs.ticket_resolving = row[14].toString();
           if (row[16]) inputs.weeks_shadow = row[16].toString();
@@ -2227,6 +2312,10 @@ const PlanPage = () => {
   const [runningWorkflow, setRunningWorkflow] = useState(false);
   const [workflowResult, setWorkflowResult] = useState(null);
   const [formData, setFormData] = useState({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
+  const [tentativePlan, setTentativePlan] = useState(null);
+  const [isGeneratingTentative, setIsGeneratingTentative] = useState(false);
+  const [isDownloadingTentative, setIsDownloadingTentative] = useState(false);
+  const [showTentativePreview, setShowTentativePreview] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState(() => sessionStorage.getItem('isAddingProject') === 'true');
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
@@ -2344,6 +2433,10 @@ const PlanPage = () => {
           if (t.inputs && t.inputs[k]) filteredInputs[k] = t.inputs[k];
         }
       });
+      if (!filteredOptions.reverse_kt || !filteredOptions.rkt_assessment) {
+        delete filteredOptions.assessment_80;
+        delete filteredInputs.assessment_80;
+      }
 
       const newModules = (t.modules || []).map(m => {
         const mOpts = {};
@@ -2354,6 +2447,10 @@ const PlanPage = () => {
             if (m.inputs && m.inputs[k]) mInps[k] = m.inputs[k];
           }
         });
+        if (!mOpts.reverse_kt || !mOpts.rkt_assessment) {
+          delete mOpts.assessment_80;
+          delete mInps.assessment_80;
+        }
         return { ...m, options: mOpts, inputs: mInps, durations: m.durations };
       });
       return { ...t, options: filteredOptions, inputs: filteredInputs, durations: t.durations, modules: newModules };
@@ -2402,7 +2499,9 @@ const PlanPage = () => {
       application_name: contextName,
       scope_description: prefilledScope,
       project_config: filteredProjectData,
-      project_id: finalProjectId || (projectToView ? projectToView.id : null)
+      project_id: finalProjectId || (projectToView ? projectToView.id : null),
+      plan_content: null,
+      is_full_plan: false
     }));
 
     setFormData(prev => ({
@@ -2413,6 +2512,8 @@ const PlanPage = () => {
       project_id: finalProjectId || (projectToView ? projectToView.id : null)
     }));
 
+    setTentativePlan(null);
+    setShowTentativePreview(false);
     setIsAddingProject(false);
     setIsEditingProject(false);
     setShowGenerateForms(true);
@@ -2549,6 +2650,62 @@ const PlanPage = () => {
     }
   };
 
+  const handleGenerateTentative = async (e) => {
+    e.preventDefault();
+    if (!formData.application_name || !formData.scope_description) {
+      showToast(`Please enter ${generatingContext?.isModule ? 'Module Name' : 'Track Name'} and Scope Description`, 'error');
+      return;
+    }
+    setIsGeneratingTentative(true);
+    try {
+      const res = await generateTentativePlan(formData);
+      if (res.data?.success && res.data?.data) {
+        setTentativePlan(res.data.data);
+        showToast('Tentative KT plan generated! You can now download the plan document.', 'success');
+      } else {
+        showToast(res.data?.message || 'Failed to generate tentative plan', 'error');
+      }
+    } catch (err) {
+      showToast('Error generating tentative plan: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setIsGeneratingTentative(false);
+    }
+  };
+
+  const handleDownloadTentativeDoc = async () => {
+    if (!tentativePlan?.generated_content) {
+      showToast('No tentative plan content available for download', 'error');
+      return;
+    }
+    setIsDownloadingTentative(true);
+    try {
+      const res = await downloadTentativeDoc({
+        content: tentativePlan.generated_content,
+        application_name: tentativePlan.application_name || formData.application_name || 'Track',
+        plan_type: tentativePlan.plan_type || formData.plan_type || 'KT'
+      });
+      const blob = new Blob([res.data], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const safeName = (tentativePlan.application_name || formData.application_name || 'Track')
+        .replace(/[^a-zA-Z0-9_\-]/g, '_')
+        .replace(/_+/g, '_');
+      link.setAttribute('download', `Tentative_${tentativePlan.plan_type || 'KT'}_Plan_${safeName}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      showToast('Plan document downloaded! Upload it into "Generate Plan with Document" on the right to set it into the project.', 'success');
+    } catch (err) {
+      showToast('Failed to download document: ' + (err.response?.data?.message || err.message), 'error');
+    } finally {
+      setIsDownloadingTentative(false);
+    }
+  };
+
   const analyzeFiles = async (filesToAnalyze) => {
     if (!filesToAnalyze || filesToAnalyze.length === 0) {
       showToast('Please select at least one document file to extract info.', 'error');
@@ -2562,12 +2719,20 @@ const PlanPage = () => {
       });
       const res = await extractPlanInfoFromDoc(uploadData);
       if (res.data?.success && res.data?.data) {
+        const extData = res.data.data;
         setDocFormData(prev => ({
           ...prev,
-          application_name: prev.application_name ? prev.application_name : (res.data.data.application_name || ''),
-          scope_description: res.data.data.scope_description || ''
+          application_name: prev.application_name ? prev.application_name : (extData.application_name || ''),
+          scope_description: extData.scope_description || '',
+          plan_content: extData.plan_content || null,
+          is_full_plan: !!extData.is_full_plan
         }));
         setIsDocExtracted(true);
+        if (extData.is_full_plan) {
+          showToast('Day-wise Plan Document detected! Ready to set into application.', 'success');
+        } else {
+          showToast('Document analyzed successfully', 'success');
+        }
       }
     } catch (err) {
       showToast('Error analyzing document(s): ' + (err.response?.data?.message || err.message), 'error');
@@ -2577,46 +2742,66 @@ const PlanPage = () => {
   };
 
   const handleDocFileChange = (e) => {
-    const newlySelected = Array.from(e.target.files || []);
-    if (newlySelected.length === 0) return;
-
-    const updatedList = [...selectedFiles];
-    newlySelected.forEach(file => {
-      if (!updatedList.some(f => f.name === file.name && f.size === file.size)) {
-        updatedList.push(file);
-      }
-    });
-
-    setSelectedFiles(updatedList);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFiles([file]);
+    setIsDocExtracted(false);
     e.target.value = null;
   };
 
-  const handleRemoveFile = (indexToRemove) => {
-    const updatedList = selectedFiles.filter((_, idx) => idx !== indexToRemove);
-    setSelectedFiles(updatedList);
-    if (updatedList.length === 0) {
-      setIsDocExtracted(false);
-      setDocFormData(prev => ({ ...prev, application_name: '', scope_description: '' }));
-    }
+  const handleRemoveFile = () => {
+    setSelectedFiles([]);
+    setIsDocExtracted(false);
+    setDocFormData(prev => ({ ...prev, plan_content: null, is_full_plan: false }));
   };
 
   const handleExtractFromDocs = () => {
-    analyzeFiles(selectedFiles);
+    if (selectedFiles.length > 0) {
+      analyzeFiles(selectedFiles);
+    }
   };
 
   const handleGenerateWithDoc = async (e) => {
-    e.preventDefault();
-    if (!docFormData.application_name || !docFormData.scope_description) {
-      showToast(`Please fill out ${generatingContext?.isModule ? 'Module Name' : 'Track Name'} and Scope Description or upload document(s) to auto-extract them.`, 'error');
+    if (e && e.preventDefault) e.preventDefault();
+    if (!selectedFiles || selectedFiles.length === 0) {
+      showToast('Please upload a Tentative KT Plan Document (.pdf, .docx)', 'error');
       return;
     }
     startOperation('create-plan-doc');
     try {
-      const targetProjId = docFormData.project_id || (projectToView ? projectToView.id : null);
-      const res = await generatePlan(docFormData);
-      setDocFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '' });
+      // 1. Extract content from the uploaded single document
+      const uploadData = new FormData();
+      uploadData.append('files', selectedFiles[0]);
+
+      const extRes = await extractPlanInfoFromDoc(uploadData);
+      if (!extRes.data?.success || !extRes.data?.data) {
+        throw new Error(extRes.data?.message || 'Failed to extract content from the document');
+      }
+
+      const extData = extRes.data.data;
+      const targetProjId = docFormData.project_id || formData.project_id || (projectToView ? projectToView.id : null);
+
+      const appName = docFormData.application_name || extData.application_name || formData.application_name || (generatingContext?.trackName || 'Track');
+      const scopeDesc = docFormData.scope_description || extData.scope_description || formData.scope_description || 'KT Plan';
+      const planType = docFormData.plan_type || formData.plan_type || 'KT';
+      const projConfig = docFormData.project_config || formData.project_config || projectConfig || null;
+
+      const payload = {
+        application_name: appName,
+        scope_description: scopeDesc,
+        plan_type: planType,
+        reverse_kt_focus: formData.reverse_kt_focus || '',
+        project_config: projConfig,
+        project_id: targetProjId,
+        plan_content: extData.plan_content || null,
+        is_full_plan: !!extData.is_full_plan
+      };
+
+      const res = await generatePlan(payload);
       setSelectedFiles([]);
       setIsDocExtracted(false);
+      setDocFormData({ application_name: '', scope_description: '', plan_type: 'KT', reverse_kt_focus: '', plan_content: null, is_full_plan: false });
+      setTentativePlan(null);
       setShowGenerateForms(false);
       fetchPlans();
       if (targetProjId) {
@@ -2630,8 +2815,9 @@ const PlanPage = () => {
         setPendingPlanId(res.data.data.id);
         setShowSaveProjectModal(true);
       }
+      showToast('Plan successfully set into your application!', 'success');
     } catch (err) {
-      showToast('Error generating plan from document: ' + (err.response?.data?.message || err.message), 'error');
+      showToast('Error setting plan from document: ' + (err.response?.data?.message || err.message), 'error');
     } finally {
       endOperation('create-plan-doc');
     }
@@ -2810,7 +2996,7 @@ const PlanPage = () => {
                       Generate Tentative KT plan with AI
                     </h3>
                   </div>
-                  <form onSubmit={handleGenerate} className="flex-1 flex flex-col justify-between space-y-4">
+                  <form onSubmit={handleGenerateTentative} className="flex-1 flex flex-col justify-between space-y-4">
                     <div className="grid grid-cols-1 gap-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -2865,15 +3051,85 @@ const PlanPage = () => {
                       )}
                     </div>
 
-                    <div className="flex justify-end pt-4 mt-auto">
-                      <button
-                        type="submit"
-                        disabled={activeOperations['create-plan']}
-                        className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50"
-                      >
-                        {activeOperations['create-plan'] ? 'Generating...' : 'Generate Plan'}
-                      </button>
-                    </div>
+                    {tentativePlan ? (
+                      <div className="mt-4 p-4 bg-orange-50/70 border border-orange-200 rounded-lg flex flex-col space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-2">
+                            <CheckCircle className="text-green-600 flex-shrink-0" size={18} />
+                            <div>
+                              <h4 className="text-sm font-semibold text-gray-800">Tentative KT Plan Generated</h4>
+                              <p className="text-xs text-gray-600">
+                                This tentative plan is <span className="font-semibold text-primary-orange">NOT yet set</span> in your application.
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setTentativePlan(null); setShowTentativePreview(false); }}
+                            className="text-xs text-gray-400 hover:text-gray-600 underline"
+                          >
+                            Reset / Edit
+                          </button>
+                        </div>
+
+                        <div className="bg-white p-3 rounded border border-orange-100 text-xs text-gray-600 flex items-center justify-between flex-wrap gap-2">
+                          <div className="truncate max-w-[220px]">
+                            <span className="font-semibold text-gray-800">File: </span>
+                            <span className="text-primary-orange font-medium">Tentative_{tentativePlan.plan_type || 'KT'}_Plan.docx</span>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowTentativePreview(!showTentativePreview)}
+                              className="px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded border border-gray-200 flex items-center"
+                            >
+                              {showTentativePreview ? <ChevronUp size={14} className="mr-1" /> : <ChevronDown size={14} className="mr-1" />}
+                              {showTentativePreview ? 'Hide Preview' : 'Preview Content'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDownloadTentativeDoc}
+                              disabled={isDownloadingTentative}
+                              className="px-3 py-1.5 text-xs font-semibold text-white bg-primary-orange hover:bg-hover-orange rounded shadow-sm flex items-center disabled:opacity-50"
+                            >
+                              {isDownloadingTentative ? <RefreshCw className="mr-1.5 animate-spin" size={14} /> : <Download size={14} className="mr-1.5" />}
+                              {isDownloadingTentative ? 'Downloading...' : 'Download Plan (.docx)'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {showTentativePreview && tentativePlan.generated_content && (
+                          <div className="mt-2 p-3 bg-white border border-gray-200 rounded-md max-h-56 overflow-y-auto text-xs text-gray-700 whitespace-pre-wrap font-mono">
+                            {tentativePlan.generated_content}
+                          </div>
+                        )}
+
+                        <div className="text-[11px] text-amber-900 bg-amber-50 p-2.5 rounded border border-amber-200 flex items-start space-x-2">
+                          <Info size={15} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                          <span>
+                            <strong>Next Step:</strong> Download this document (.docx), then upload it in <strong>"Generate Plan with Document"</strong> (on the right) to set the exact day-wise plan into your application.
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end pt-4 mt-auto">
+                        <button
+                          type="submit"
+                          disabled={isGeneratingTentative}
+                          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50"
+                        >
+                          {isGeneratingTentative ? (
+                            <>
+                              <RefreshCw className="mr-2 animate-spin" size={16} /> Generating Tentative Plan...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="mr-2" size={16} /> Generate Tentative Plan
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    )}
                   </form>
                 </div>
               </div>
@@ -2886,156 +3142,104 @@ const PlanPage = () => {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-primary-text flex items-center">
                       <FileUp className="mr-2 text-primary-orange" size={20} />
-                      Generate Plan with Document
+                      Generate Plan with Tentative KT Plan Document
                     </h3>
                     <span className="text-xs bg-input-background text-primary-orange px-2.5 py-1 rounded-full font-medium border border-input-background">
                       PDF / DOCX File
                     </span>
                   </div>
 
-                  {/* Document Upload Option */}
+                  {/* Document Upload Option (Single file only) */}
                   <div className="mb-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-gray-700">Document Upload (.pdf, .docx)</label>
-                      {selectedFiles.length > 0 && (
-                        <span className="text-xs text-primary-orange font-semibold bg-input-background px-2 py-0.5 rounded border border-input-background">
-                          {selectedFiles.length} {selectedFiles.length === 1 ? 'file' : 'files'} selected
-                        </span>
-                      )}
-                    </div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Document Upload (.pdf, .docx)
+                    </label>
 
-                    {/* Upload Box & Extract Button Side-by-Side */}
-                    <div className="flex items-center space-x-2">
-                      <div className="relative flex-1 border-2 border-dashed border-orange-border rounded-lg p-2 hover:border-button-orange transition-colors bg-input-background/40">
+                    {selectedFiles.length === 0 ? (
+                      <div className="relative border-2 border-dashed border-orange-border hover:border-button-orange rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all bg-orange-50/20 hover:bg-orange-50/40 group text-center min-h-[220px]">
                         <input
                           type="file"
                           accept=".pdf,.doc,.docx"
-                          multiple
                           onChange={handleDocFileChange}
-                          disabled={analyzingDoc}
+                          disabled={generatingDocPlan}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                         />
-                        <div className="flex items-center justify-between text-xs text-secondary-text">
-                          <span className="flex items-center font-medium text-hover-orange truncate pr-1">
-                            <Upload className="mr-1.5 text-primary-orange flex-shrink-0" size={15} />
-                            {selectedFiles.length === 0
-                              ? 'Click or drop PDF / Word file(s)...'
-                              : 'Click / drop to add more...'}
-                          </span>
+                        <div className="p-3.5 bg-orange-100/70 rounded-full text-primary-orange mb-3 group-hover:scale-110 transition-transform shadow-xs">
+                          <Upload size={26} />
                         </div>
+                        <p className="text-sm font-semibold text-gray-800">
+                          Click or drop your Tentative Plan Document here
+                        </p>
+                        <p className="text-xs text-secondary-text mt-1">
+                          Supports Word (.docx) or PDF (.pdf) • 1 file only
+                        </p>
+                        <p className="text-[11px] text-gray-400 mt-3 max-w-sm">
+                          Upload the downloaded tentative plan document to automatically set all day-wise sessions and topics directly into the application.
+                        </p>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={handleExtractFromDocs}
-                        disabled={selectedFiles.length === 0 || analyzingDoc}
-                        className="w-[115px] h-[38px] px-3 py-2 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-lg shadow-sm flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex-shrink-0"
-                      >
-                        {analyzingDoc ? (
-                          <>
-                            <RefreshCw className="mr-1 animate-spin" size={14} /> Extracting...
-                          </>
-                        ) : (
-                          <>
-                            <FileUp className="mr-1.5" size={14} /> Extract
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Selected files list */}
-                    {selectedFiles.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-light-background rounded-md border border-gray-100">
-                        {selectedFiles.map((file, idx) => (
-                          <div
-                            key={`${file.name}-${idx}`}
-                            className="inline-flex items-center bg-light-background border border-orange-border text-hover-orange text-xs px-2 py-1 rounded-md shadow-xs group"
-                          >
-                            <FileText size={12} className="mr-1 text-primary-orange flex-shrink-0" />
-                            <span className="max-w-[150px] truncate font-medium">{file.name}</span>
+                    ) : (
+                      <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-5 flex flex-col justify-between min-h-[220px]">
+                        <div>
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center space-x-3 truncate">
+                              <div className="p-3 bg-orange-100 rounded-lg text-primary-orange flex-shrink-0 shadow-xs">
+                                <FileText size={24} />
+                              </div>
+                              <div className="truncate">
+                                <p className="text-sm font-semibold text-gray-800 truncate max-w-sm" title={selectedFiles[0].name}>
+                                  {selectedFiles[0].name}
+                                </p>
+                                <p className="text-xs text-secondary-text mt-0.5">
+                                  {(selectedFiles[0].size / 1024).toFixed(1)} KB • Tentative Plan Document
+                                </p>
+                              </div>
+                            </div>
                             <button
                               type="button"
-                              onClick={() => handleRemoveFile(idx)}
-                              disabled={analyzingDoc}
-                              className="ml-1.5 text-secondary-text hover:text-red-500 p-0.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
+                              onClick={handleRemoveFile}
+                              disabled={generatingDocPlan}
+                              className="text-gray-400 hover:text-red-500 p-1.5 rounded-full hover:bg-red-50 transition-colors disabled:opacity-50"
                               title="Remove file"
                             >
-                              <X size={12} />
+                              <X size={18} />
                             </button>
                           </div>
-                        ))}
+
+                          <div className="mt-4 p-3 bg-white/90 rounded-lg border border-orange-100 text-xs text-gray-700 flex items-start space-x-2.5">
+                            <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-0.5" />
+                            <span>
+                              <strong>Tentative plan document attached.</strong> Clicking <strong>Generate Plan</strong> will process this document and set all day-wise topics directly into your application.
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 flex items-center justify-between text-xs text-gray-500 border-t border-orange-200/60 mt-3">
+                          <span>Target Track: <strong className="text-gray-700">{docFormData.application_name || formData.application_name || (generatingContext?.trackName || 'Track')}</strong></span>
+                          <span>Plan Type: <strong className="text-gray-700">{docFormData.plan_type || formData.plan_type || 'KT'}</strong></span>
+                        </div>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <form onSubmit={handleGenerateWithDoc} className="flex-1 flex flex-col justify-between space-y-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">
-                        {generatingContext?.isModule ? 'Module Name' : 'Track Name'}
-                      </label>
-                      <input
-                        type="text" required
-                        disabled={!isDocExtracted || analyzingDoc}
-                        placeholder={isDocExtracted ? (generatingContext?.isModule ? "Extracted Module Name" : "Extracted Track Name") : "Upload document(s) to unlock"}
-                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                        value={docFormData.application_name}
-                        onChange={(e) => setDocFormData({ ...docFormData, application_name: e.target.value })}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700">Plan Type</label>
-                      <CustomSelect
-                        disabled={!isDocExtracted || analyzingDoc}
-                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                        value={docFormData.plan_type}
-                        onChange={(e) => setDocFormData({ ...docFormData, plan_type: e.target.value })}
-                      >
-                        <option value="KT">KT</option>
-                        <option value="Reverse-KT">Reverse-KT</option>
-                      </CustomSelect>
-                    </div>
-
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">Scope Description</label>
-                      <textarea
-                        required
-                        rows={2}
-                        disabled={!isDocExtracted || analyzingDoc}
-                        placeholder={isDocExtracted ? "Main topic names extracted from document(s)" : "Upload document(s) to unlock & auto-fill"}
-                        className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                        value={docFormData.scope_description}
-                        onChange={(e) => setDocFormData({ ...docFormData, scope_description: e.target.value })}
-                      />
-                    </div>
-
-                    {docFormData.plan_type === 'Reverse-KT' && (
-                      <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Reverse KT Focus Area</label>
-                        <input
-                          type="text" required
-                          disabled={!isDocExtracted || analyzingDoc}
-                          placeholder="e.g. Test incident resolution or backend deployment"
-                          className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md shadow-sm focus:ring-orange-border focus:border-orange-border text-sm disabled:bg-input-background disabled:text-secondary-text disabled:cursor-not-allowed"
-                          value={docFormData.reverse_kt_focus}
-                          onChange={(e) => setDocFormData({ ...docFormData, reverse_kt_focus: e.target.value })}
-                        />
-                      </div>
+                <div className="flex justify-end pt-4 mt-auto">
+                  <button
+                    type="button"
+                    onClick={handleGenerateWithDoc}
+                    disabled={selectedFiles.length === 0 || generatingDocPlan}
+                    className="inline-flex items-center px-5 py-2.5 rounded-lg shadow-sm text-sm font-semibold text-white bg-button-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    {generatingDocPlan ? (
+                      <>
+                        <RefreshCw className="mr-2 animate-spin" size={16} /> Generating Plan into Application...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="mr-2" size={16} /> Generate Plan
+                      </>
                     )}
-                  </div>
-
-                  <div className="flex justify-end pt-4 mt-auto">
-                    <button
-                      type="submit"
-                      disabled={!isDocExtracted || generatingDocPlan || analyzingDoc}
-                      className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {generatingDocPlan ? 'Generating...' : 'Generate Plan'}
-                    </button>
-                  </div>
-                </form>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

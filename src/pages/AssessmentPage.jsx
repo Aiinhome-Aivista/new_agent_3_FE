@@ -688,7 +688,7 @@ const AssessmentPage = () => {
                     2. Final Assessment Deadline Window
                   </label>
                   <p className="text-[11px] text-secondary-text">
-                    Type any custom number of days manually (e.g. 15, 30, 45, 90, 180). Default is 90 days.
+                    Type any custom number of days manually (e.g. 3, 7, 15, 30, 90). Default matches Reverse KT duration.
                   </p>
                 </div>
 
