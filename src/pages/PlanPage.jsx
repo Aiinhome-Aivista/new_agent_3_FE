@@ -1400,7 +1400,7 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900 flex items-center space-x-2">
             <Clock size={16} className="text-blue-600 flex-shrink-0" />
             <span>
-              <strong>Phase Timeline Rule:</strong> Knowledge Acquisition (KA) Phase ➔ <strong>Final Assessment Window</strong> (Manager configured days) ➔ <strong>Shadow Resourcing (SR) Phase</strong> (Starts after assessment window count completes).
+              <strong>Phase Timeline Rule:</strong> Knowledge Acquisition (KA) Phase ➔ <strong>Final Assessment Window</strong> (Manager configured days) ➔ <strong>Shadow Support Phase</strong> ➔ <strong>Lead Support Phase</strong>.
             </span>
           </div>
 
@@ -1493,7 +1493,9 @@ const PlanCard = ({ plan, canApprove, handleApproveClick, handleCloseClick, pars
                                   rowSpan={rSpan}
                                   className="px-4 py-2.5 text-gray-700 whitespace-nowrap font-semibold align-middle border-r border-gray-100"
                                 >
-                                  {t.day_label || 'General'}
+                                  {(t.day_label || 'General')
+                                    .replace(/Shadow\s*(?:Resourcing\s*)?Phase/gi, 'Shadow Support Phase')
+                                    .replace(/Lead\s*(?:Resourcing\s*)?Phase/gi, 'Lead Support Phase')}
                                 </td>
                               )}
                               <td className="px-4 py-2.5 font-medium text-primary-text">{t.topic_name}</td>
@@ -2763,7 +2765,8 @@ const PlanPage = () => {
       const res = await downloadTentativeDoc({
         content: tentativePlan.generated_content,
         application_name: tentativePlan.application_name || formData.application_name || 'Track',
-        plan_type: tentativePlan.plan_type || formData.plan_type || 'KT'
+        plan_type: tentativePlan.plan_type || formData.plan_type || 'KT',
+        project_config: formData.project_config
       });
       const blob = new Blob([res.data], {
         type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -2973,8 +2976,12 @@ const PlanPage = () => {
     if (!text) return { __html: '' };
     let html = text.replace(/```markdown\n?/g, '').replace(/```\n?/g, '');
 
+    // Normalize any legacy Resourcing phase names to Support phase names
+    html = html.replace(/Shadow\s*Resourcing(?:\s*\(SR\))?\s*Phase/gi, 'Shadow Support Phase');
+    html = html.replace(/Lead\s*Resourcing(?:\s*\(LR\))?\s*Phase/gi, 'Lead Support Phase');
+
     // Format Phase headings as chip cards
-    const phaseRegex = /^[ \t]*(?:#{1,6}[ \t]+|\*\*)?(Knowledge Acquisition \(KA\) Phase|Final Assessment Evaluation Window|Shadow Resourcing \(SR\) Phase|Lead Resourcing \(LR\) Phase)(?:\*\*)?[ \t:]*/gim;
+    const phaseRegex = /^[ \t]*(?:#{1,6}[ \t]+|\*\*)?(Knowledge Acquisition(?:\s*\(KA\))?\s*Phase|Final Assessment Evaluation Window|Shadow Support\s*Phase|Lead Support\s*Phase)(?:\*\*)?[ \t:]*/gim;
     html = html.replace(phaseRegex, (match, title) => {
       return `<div class="mt-8 mb-4"><span class="inline-block px-4 py-1.5 bg-orange-100 text-orange-800 border border-orange-200 rounded-full text-sm font-bold shadow-sm">${title}</span></div>`;
     });
