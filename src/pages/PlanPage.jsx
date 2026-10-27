@@ -82,6 +82,21 @@ const checkboxConfig = [
   }
 ];
 
+const getPhaseCriteriaKeys = (phaseId) => {
+  const root = checkboxConfig.find(p => p.id === phaseId);
+  if (!root || !root.groups) return [];
+  const keys = [];
+  root.groups.forEach(g => {
+    (g.items || []).forEach(item => {
+      keys.push(item.id);
+      if (item.subItems) {
+        item.subItems.forEach(sub => keys.push(sub.id));
+      }
+    });
+  });
+  return keys;
+};
+
 const getNodeTotalDays = (node) => {
   if (!node) return 0;
   const opts = node.options || {};
@@ -367,6 +382,13 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
             lead_resourcing: true
           })
         };
+        ['ka', 'reverse_kt', 'shadow_resourcing', 'lead_resourcing'].forEach(pId => {
+          if (!opts[pId]) {
+            getPhaseCriteriaKeys(pId).forEach(k => {
+              delete opts[k];
+            });
+          }
+        });
         if (!opts.reverse_kt || !opts.rkt_assessment) {
           opts.assessment_80 = false;
         }
@@ -379,6 +401,13 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
               lead_resourcing: true
             })
           };
+          ['ka', 'reverse_kt', 'shadow_resourcing', 'lead_resourcing'].forEach(pId => {
+            if (!mOpts[pId]) {
+              getPhaseCriteriaKeys(pId).forEach(k => {
+                delete mOpts[k];
+              });
+            }
+          });
           if (!mOpts.reverse_kt || !mOpts.rkt_assessment) {
             mOpts.assessment_80 = false;
           }
@@ -415,17 +444,37 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
 
     const sanitizedTracks = tracks.map(t => {
       const opts = { ...t.options };
+      const inps = { ...(t.inputs || {}) };
+      ['ka', 'reverse_kt', 'shadow_resourcing', 'lead_resourcing'].forEach(pId => {
+        if (!opts[pId]) {
+          getPhaseCriteriaKeys(pId).forEach(k => {
+            delete opts[k];
+            delete inps[k];
+          });
+        }
+      });
       if (!opts.reverse_kt || !opts.rkt_assessment) {
-        opts.assessment_80 = false;
+        delete opts.assessment_80;
+        delete inps.assessment_80;
       }
       const modules = (t.modules || []).map(m => {
         const mOpts = { ...m.options };
+        const mInps = { ...(m.inputs || {}) };
+        ['ka', 'reverse_kt', 'shadow_resourcing', 'lead_resourcing'].forEach(pId => {
+          if (!mOpts[pId]) {
+            getPhaseCriteriaKeys(pId).forEach(k => {
+              delete mOpts[k];
+              delete mInps[k];
+            });
+          }
+        });
         if (!mOpts.reverse_kt || !mOpts.rkt_assessment) {
-          mOpts.assessment_80 = false;
+          delete mOpts.assessment_80;
+          delete mInps.assessment_80;
         }
-        return { ...m, options: mOpts };
+        return { ...m, options: mOpts, inputs: mInps, durations: m.durations };
       });
-      return { ...t, options: opts, modules };
+      return { ...t, options: opts, inputs: inps, durations: t.durations, modules };
     });
 
     return {
@@ -581,13 +630,24 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                   }
 
                   const newOptions = { ...m.options, [optionId]: !m.options[optionId] };
+                  const newInputs = { ...(m.inputs || {}) };
+
+                  if (isPhaseToggle && !newOptions[optionId]) {
+                    const subKeys = getPhaseCriteriaKeys(optionId);
+                    subKeys.forEach(k => {
+                      delete newOptions[k];
+                      delete newInputs[k];
+                    });
+                  }
+
                   if (optionId === 'upload_sud' && newOptions['upload_sud']) {
                     newOptions['sud_mandatory'] = true;
                   }
                   // Auto-uncheck assessment_80 if Reverse KT or its assessment exit criterion is unchecked
                   if ((optionId === 'rkt_assessment' && !newOptions['rkt_assessment']) ||
                     (optionId === 'reverse_kt' && !newOptions['reverse_kt'])) {
-                    newOptions['assessment_80'] = false;
+                    delete newOptions['assessment_80'];
+                    delete newInputs['assessment_80'];
                   }
 
                   let newDurations = m.durations;
@@ -596,7 +656,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                   } else if (isPhaseToggle && !newOptions[optionId]) {
                     newDurations = { ...(m.durations || {}), [optionId]: 0 };
                   }
-                  return { ...m, options: newOptions, durations: newDurations };
+                  return { ...m, options: newOptions, durations: newDurations, inputs: newInputs };
                 }
                 return m;
               })
@@ -609,13 +669,24 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
           }
 
           const newOptions = { ...t.options, [optionId]: !t.options[optionId] };
+          const newInputs = { ...(t.inputs || {}) };
+
+          if (isPhaseToggle && !newOptions[optionId]) {
+            const subKeys = getPhaseCriteriaKeys(optionId);
+            subKeys.forEach(k => {
+              delete newOptions[k];
+              delete newInputs[k];
+            });
+          }
+
           if (optionId === 'upload_sud' && newOptions['upload_sud']) {
             newOptions['sud_mandatory'] = true;
           }
           // Auto-uncheck assessment_80 if Reverse KT or its assessment exit criterion is unchecked
           if ((optionId === 'rkt_assessment' && !newOptions['rkt_assessment']) ||
             (optionId === 'reverse_kt' && !newOptions['reverse_kt'])) {
-            newOptions['assessment_80'] = false;
+            delete newOptions['assessment_80'];
+            delete newInputs['assessment_80'];
           }
 
           let newDurations = t.durations;
@@ -624,7 +695,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
           } else if (isPhaseToggle && !newOptions[optionId]) {
             newDurations = { ...(t.durations || {}), [optionId]: 0 };
           }
-          return { ...t, options: newOptions, durations: newDurations };
+          return { ...t, options: newOptions, durations: newDurations, inputs: newInputs };
         }
         return t;
       });
@@ -849,7 +920,7 @@ const AddProjectForm = ({ onCancel, onSave, onGeneratePlan, initialData, isEditM
                 onChange={(e) => setPlatform(e.target.value)}
                 className="w-full px-3 py-2 border border-light-border rounded-lg shadow-2xs text-sm focus:ring-primary-orange focus:border-primary-orange bg-white font-medium"
               >
-                <option value="Google Meet">Google Meet</option>
+
                 <option value="Microsoft Teams">Microsoft Teams</option>
               </select>
             </div>
@@ -1549,17 +1620,13 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
     if (!options || Object.keys(options).length === 0) return null;
 
     const selectedRootItems = checkboxConfig.filter(root => {
-      let isSelected = false;
-      const search = (nodes) => {
-        for (const n of nodes) {
-          if (options[n.id]) isSelected = true;
-          if (n.items) search(n.items);
-          if (n.subItems) search(n.subItems);
-        }
-      };
-      if (options[root.id]) isSelected = true;
-      if (root.groups) root.groups.forEach(g => search(g.items));
-      return isSelected;
+      // Phase must be selected in options
+      if (!options[root.id]) return false;
+      // If duration is explicitly 0, do not show
+      if (durations && durations[root.id] !== undefined && (parseInt(durations[root.id]) || 0) <= 0) {
+        return false;
+      }
+      return true;
     });
 
     if (selectedRootItems.length === 0) return null;
@@ -1579,17 +1646,15 @@ const ProjectDetailsView = ({ projectData, onClose, onGeneratePlan, canGenerate,
             return { ...group, items: activeItems };
           }).filter(g => g.items.length > 0);
 
-          if (!options[root.id] && activeGroups.length === 0) return null;
-
           return (
             <div key={root.id} className="bg-white p-3 rounded border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <h6 className="font-bold text-gray-800 text-sm">{root.label}</h6>
-                {durations && durations[root.id] && (
+                {durations && Number(durations[root.id]) > 0 ? (
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-orange-50 text-primary-orange border border-orange-200">
                     {durations[root.id]} days
                   </span>
-                )}
+                ) : null}
               </div>
 
               {activeGroups.length > 0 ? (
@@ -2433,6 +2498,14 @@ const PlanPage = () => {
           if (t.inputs && t.inputs[k]) filteredInputs[k] = t.inputs[k];
         }
       });
+      ['ka', 'reverse_kt', 'shadow_resourcing', 'lead_resourcing'].forEach(pId => {
+        if (!filteredOptions[pId]) {
+          getPhaseCriteriaKeys(pId).forEach(k => {
+            delete filteredOptions[k];
+            delete filteredInputs[k];
+          });
+        }
+      });
       if (!filteredOptions.reverse_kt || !filteredOptions.rkt_assessment) {
         delete filteredOptions.assessment_80;
         delete filteredInputs.assessment_80;
@@ -2445,6 +2518,14 @@ const PlanPage = () => {
           if (m.options[k]) {
             mOpts[k] = true;
             if (m.inputs && m.inputs[k]) mInps[k] = m.inputs[k];
+          }
+        });
+        ['ka', 'reverse_kt', 'shadow_resourcing', 'lead_resourcing'].forEach(pId => {
+          if (!mOpts[pId]) {
+            getPhaseCriteriaKeys(pId).forEach(k => {
+              delete mOpts[k];
+              delete mInps[k];
+            });
           }
         });
         if (!mOpts.reverse_kt || !mOpts.rkt_assessment) {
