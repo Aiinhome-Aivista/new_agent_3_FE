@@ -4,10 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { BookOpen, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 
 const DEMO_USERS = [
-  { name: 'Pabitra Sarkar', email: 'pabitra@gmail.com', password: '123456', role: 'Delivery / Engagement Manager' },
-  { name: 'Dipak Saha', email: 'dipak@gmail.com', password: '123456', role: 'Outgoing SME (Knowledge Giver)' },
-  { name: 'Ayan Manna', email: 'ayan@gmail.com', password: '123456', role: 'Incoming Team Member (Knowledge Receiver)' },
-  { name: 'Sanjib Sau', email: 'sanjib@gmail.com', password: '123456', role: 'PwC Leadership' },
+  { name: 'Pabitra Sarkar', email: 'sarkarpabi42@gmail.com', password: '123456', role: 'Delivery / Engagement Manager' },
+  { name: 'Dipak Saha', email: 'dsaha9797@gmail.com', password: '123456', role: 'Outgoing SME (Knowledge Giver)' },
+  { name: 'Ayan Manna', email: 'ayanmanna26genovation@gmail.com', password: '123456', role: 'Incoming Team Member (Knowledge Receiver)' },
+  { name: 'Sanjib Sau', email: 'sanjibsau709@gmail.com', password: '123456', role: 'PwC Leadership' },
 ];
 
 const LoginPage = () => {

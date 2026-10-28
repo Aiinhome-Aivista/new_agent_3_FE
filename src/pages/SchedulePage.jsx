@@ -2,7 +2,7 @@ import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
 import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, connectJiraAccount, getJiraProjects, getJiraTickets, importJiraTicketsToSchedule, getPlanTopicOptions } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck, Eye, EyeOff, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import * as XLSX from 'xlsx-js-style';
@@ -91,17 +91,46 @@ const SchedulePage = () => {
   const [shadowMappings, setShadowMappings] = useState([{ organizerId: '', participantIds: [] }]);
   const [selectedLeadRecipients, setSelectedLeadRecipients] = useState([]);
   const [selectedFinalAssessmentRecipients, setSelectedFinalAssessmentRecipients] = useState([]);
+  const [selectedRktRecipients, setSelectedRktRecipients] = useState([]);
+  const [selectedRktEvaluators, setSelectedRktEvaluators] = useState([]);
+  const [rktMeetingLink, setRktMeetingLink] = useState('');
+  const [rktScheduledAt, setRktScheduledAt] = useState('');
   const [activeGlobalTab, setActiveGlobalTab] = useState('KA');
+
+  // Meeting Link Option states (Same as Excel: Single Link for All Days vs Different Link for Each Day)
+  const [meetingLinkOption, setMeetingLinkOption] = useState('Single Link for All Days');
+  const [dailyMeetingLinks, setDailyMeetingLinks] = useState({});
+  const [planDays, setPlanDays] = useState(['Day 1', 'Day 2', 'Day 3']);
+
+  const [rktMeetingLinkOption, setRktMeetingLinkOption] = useState('Single Link for All Days');
+  const [rktDailyMeetingLinks, setRktDailyMeetingLinks] = useState({});
+  const [rktDays, setRktDays] = useState(['Reverse KT - Day 1', 'Reverse KT - Day 2']);
 
   // Computed requirement flags
   const [isSudMandatory, setIsSudMandatory] = useState(false);
   const [isFinalAssessmentMandatory, setIsFinalAssessmentMandatory] = useState(false);
+  const [isReverseKt, setIsReverseKt] = useState(false);
   const [isShadowResourcing, setIsShadowResourcing] = useState(false);
   const [isLeadResourcing, setIsLeadResourcing] = useState(false);
-  const [leadResourcingEntryCriteria, setLeadResourcingEntryCriteria] = useState('Only participants who have completed the Shadow Resourcing phase for this plan are eligible to be selected for Lead Resourcing.');
+  const [leadResourcingEntryCriteria, setLeadResourcingEntryCriteria] = useState('Only participants who have completed the Shadow Support phase for this plan are eligible to be selected for Lead Support.');
   const [shadowResourcingEntryCriteria, setShadowResourcingEntryCriteria] = useState('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
   const [mappedShadowResources, setMappedShadowResources] = useState([]);
   
+  const [phaseCriteria, setPhaseCriteria] = useState({
+    ka: { title: 'Knowledge Acquisition', entry: [], exit: [] },
+    reverse_kt: { title: 'Reverse KT', entry: [], exit: [] },
+    shadow_resourcing: { title: 'Shadow Support', entry: [], exit: [] },
+    lead_resourcing: { title: 'Lead Support', entry: [], exit: [] }
+  });
+
+  const getCurrentPhaseCriteria = () => {
+    let key = 'ka';
+    if (activeGlobalTab === 'RKT') key = 'reverse_kt';
+    else if (activeGlobalTab === 'SR') key = 'shadow_resourcing';
+    else if (activeGlobalTab === 'LR') key = 'lead_resourcing';
+    return phaseCriteria[key] || { title: '', entry: [], exit: [] };
+  };
+
   const [sudDocs, setSudDocs] = useState([]);
   const [assessmentResults, setAssessmentResults] = useState([]);
   const [isForcePushEnabled, setIsForcePushEnabled] = useState(false);
@@ -844,6 +873,26 @@ const SchedulePage = () => {
   useEffect(() => {
     if (formData.plan_id) {
       setActiveGlobalTab('KA');
+      getPlanTopicOptions(formData.plan_id)
+        .then(res => {
+          const topics = res.data?.data || [];
+          if (topics.length > 0) {
+            const daysFound = [];
+            topics.forEach(t => {
+              let d = t.day_label || 'Day 1';
+              d = d.replace(/:\s*\[Time:.*?\]/gi, '').replace(/\[Time:.*?\]/gi, '').trim();
+              if (d && !daysFound.includes(d)) {
+                daysFound.push(d);
+              }
+            });
+            if (daysFound.length > 0) {
+              setPlanDays(daysFound);
+            }
+          }
+        })
+        .catch(err => {
+          console.warn('Error fetching plan days:', err);
+        });
     }
   }, [formData.plan_id]);
 
@@ -851,12 +900,17 @@ const SchedulePage = () => {
   useEffect(() => {
     setIsSudMandatory(false);
     setIsFinalAssessmentMandatory(false);
+    setIsReverseKt(false);
     setIsShadowResourcing(false);
     setIsLeadResourcing(false);
     setSelectedSudRecipients([]);
     setShadowMappings([{ organizerId: '', participantIds: [] }]);
     setSelectedLeadRecipients([]);
     setSelectedFinalAssessmentRecipients([]);
+    setSelectedRktRecipients([]);
+    setSelectedRktEvaluators([]);
+    setRktMeetingLink('');
+    setRktScheduledAt('');
 
     if (!formData.plan_id) return;
     
@@ -910,72 +964,152 @@ const SchedulePage = () => {
           }
       }
 
-      if (activeOptions) {
-        setIsSudMandatory(!!activeOptions.sud_mandatory);
-        setIsFinalAssessmentMandatory(!!activeOptions.assessment);
-        setIsShadowResourcing(!!activeOptions.shadow_resourcing);
-        setIsLeadResourcing(!!activeOptions.lead_resourcing);
-        
-        setIsSudRequiredForSR(!!activeOptions.sud_doc_upload);
-        setIsAssessmentRequiredForSR(!!activeOptions.assessment_80);
+      const optHas = (k) => Boolean(activeOptions && activeOptions[k]);
+      const pSel = planConfig?.phaseSelected || config?.phaseSelected || [];
+      const hasRkt = optHas('reverse_kt') || optHas('rkt_assessment') || pSel.includes('reverse_kt');
+      const hasSr = optHas('shadow_resourcing') || optHas('assessment_80') || optHas('sud_doc_upload') || pSel.includes('shadow_resourcing');
+      const hasLr = optHas('lead_resourcing') || optHas('lr_ticket_resolving') || pSel.includes('lead_resourcing');
 
-        if (activeOptions.shadow_resourcing) {
-            getResourceMappings(formData.plan_id).then(res => {
-                if (res.data?.success) {
-                    setMappedShadowResources(res.data.data || []);
-                }
-            }).catch(err => console.error("Error fetching resource mappings:", err));
-            
-            if (activeOptions.sud_doc_upload) {
-                getSudDocuments(formData.plan_id).then(res => {
-                    setSudDocs(res.data?.data || []);
-                }).catch(err => console.error(err));
-            } else {
-                setSudDocs([]);
-            }
-            
-            if (activeOptions.assessment_80) {
-                getResults(formData.plan_id).then(res => {
-                    setAssessmentResults(res.data?.data || []);
-                }).catch(err => console.error(err));
-            } else {
-                setAssessmentResults([]);
-            }
-        } else {
-            setMappedShadowResources([]);
-            setSudDocs([]);
-            setAssessmentResults([]);
-        }
+      setIsSudMandatory(optHas('sud_mandatory'));
+      setIsFinalAssessmentMandatory(optHas('assessment') || optHas('rkt_assessment'));
+      setIsReverseKt(hasRkt);
+      setIsShadowResourcing(hasSr);
+      setIsLeadResourcing(hasLr);
+      
+      setIsSudRequiredForSR(optHas('sud_doc_upload'));
+      setIsAssessmentRequiredForSR(optHas('assessment_80'));
 
-        let srCriteria = [];
-        if (activeOptions.sud_doc_upload) {
-          srCriteria.push("submitted SUD documents");
+      // Dynamic criteria definition for all 4 phases matching project configuration
+      const dynamicCrit = {
+        ka: {
+          title: 'Knowledge Acquisition',
+          entry: [],
+          exit: []
+        },
+        reverse_kt: {
+          title: 'Reverse KT',
+          entry: [],
+          exit: []
+        },
+        shadow_resourcing: {
+          title: 'Shadow Support',
+          entry: [],
+          exit: []
+        },
+        lead_resourcing: {
+          title: 'Lead Support',
+          entry: [],
+          exit: []
         }
-        if (activeOptions.assessment_80) {
-          srCriteria.push("scored above 80% in the Final Assessment");
-        }
-        
-        if (srCriteria.length > 0) {
-          setShadowResourcingEntryCriteria(`Only participants who have ${srCriteria.join(' AND ')} are eligible.`);
-        } else {
-          setShadowResourcingEntryCriteria('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
-        }
+      };
 
-        let lrCriteria = [];
-        if (activeOptions.lr_ticket_resolving) {
-          const tickets = activeInputs?.lr_ticket_resolving || '';
-          lrCriteria.push(`Need to be involved in resolving ${tickets} tickets`);
-        }
-        if (activeOptions.lr_weeks_shadow) {
-          const weeks = activeInputs?.lr_weeks_shadow || '';
-          lrCriteria.push(`Required weeks for shadow resourcing: ${weeks}`);
-        }
-        
-        if (lrCriteria.length > 0) {
-          setLeadResourcingEntryCriteria(lrCriteria.join(' AND '));
-        } else {
-          setLeadResourcingEntryCriteria('Only participants who have completed the Shadow Resourcing phase for this plan are eligible to be selected for Lead Resourcing.');
-        }
+      // KA Criteria
+      if (optHas('kt_doc')) dynamicCrit.ka.entry.push('KT Plan Ready');
+      if (optHas('stakeholder_map')) dynamicCrit.ka.entry.push('Stakeholder Mapping Ready');
+      if (dynamicCrit.ka.entry.length === 0) {
+        dynamicCrit.ka.entry.push('KT Plan Ready', 'Stakeholder Mapping Ready');
+      }
+
+      if (optHas('project_kt_doc_ready')) dynamicCrit.ka.exit.push('Project KT Document Ready');
+      if (optHas('sud_mandatory')) dynamicCrit.ka.exit.push('SUD Mandatory (Signed document)');
+      if (dynamicCrit.ka.exit.length === 0) {
+        dynamicCrit.ka.exit.push('Project KT Document Ready');
+      }
+
+      // Reverse KT Criteria
+      if (optHas('ka_completed')) dynamicCrit.reverse_kt.entry.push('Knowledge Acquisition Completed');
+      if (optHas('rkt_project_kt_doc')) dynamicCrit.reverse_kt.entry.push('Project KT Document Ready');
+      if (dynamicCrit.reverse_kt.entry.length === 0) {
+        dynamicCrit.reverse_kt.entry.push('Knowledge Acquisition Completed', 'Project KT Document Ready');
+      }
+
+      if (optHas('rkt_assessment')) {
+        dynamicCrit.reverse_kt.exit.push('Assessment Passed (≥80%)');
+      } else {
+        dynamicCrit.reverse_kt.exit.push('Reverse KT Presentation & Assessment Passed (≥80%)');
+      }
+
+      // Shadow Support Criteria
+      if (optHas('assessment_80')) dynamicCrit.shadow_resourcing.entry.push('Final Assessment Passed (80% Above)');
+      if (optHas('sud_doc_upload')) dynamicCrit.shadow_resourcing.entry.push('Signed SUD Document Uploaded');
+      if (dynamicCrit.shadow_resourcing.entry.length === 0) {
+        dynamicCrit.shadow_resourcing.entry.push('Assessment Passed (80% Above)', 'SUD Document Uploaded');
+      }
+
+      if (optHas('ticket_resolving')) {
+        const count = activeInputs?.ticket_resolving || '5';
+        dynamicCrit.shadow_resourcing.exit.push(`Need to be involved in ticket resolving (${count} tickets)`);
+      } else {
+        dynamicCrit.shadow_resourcing.exit.push('Need to be involved in ticket resolving (5 tickets)');
+      }
+
+      // Lead Support Criteria
+      if (optHas('lr_ticket_resolving')) {
+        const count = activeInputs?.lr_ticket_resolving || '5';
+        dynamicCrit.lead_resourcing.entry.push(`Need to be involved in ticket resolving (${count} tickets)`);
+      } else {
+        dynamicCrit.lead_resourcing.entry.push('Need to be involved in ticket resolving (5 tickets)');
+      }
+      dynamicCrit.lead_resourcing.exit.push('Full Transition Sign-off & Handover Completed');
+
+      setPhaseCriteria(dynamicCrit);
+
+      if (hasSr) {
+          getResourceMappings(formData.plan_id).then(res => {
+              if (res.data?.success) {
+                  setMappedShadowResources(res.data.data || []);
+              }
+          }).catch(err => console.error("Error fetching resource mappings:", err));
+          
+          if (optHas('sud_doc_upload')) {
+              getSudDocuments(formData.plan_id).then(res => {
+                  setSudDocs(res.data?.data || []);
+              }).catch(err => console.error(err));
+          } else {
+              setSudDocs([]);
+          }
+          
+          if (optHas('assessment_80')) {
+              getResults(formData.plan_id).then(res => {
+                  setAssessmentResults(res.data?.data || []);
+              }).catch(err => console.error(err));
+          } else {
+              setAssessmentResults([]);
+          }
+      } else {
+          setMappedShadowResources([]);
+          setSudDocs([]);
+          setAssessmentResults([]);
+      }
+
+      let srCriteria = [];
+      if (optHas('sud_doc_upload')) {
+        srCriteria.push("submitted SUD documents");
+      }
+      if (optHas('assessment_80')) {
+        srCriteria.push("scored above 80% in the Final Assessment");
+      }
+      
+      if (srCriteria.length > 0) {
+        setShadowResourcingEntryCriteria(`Only participants who have ${srCriteria.join(' AND ')} are eligible.`);
+      } else {
+        setShadowResourcingEntryCriteria('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
+      }
+
+      let lrCriteria = [];
+      if (optHas('lr_ticket_resolving')) {
+        const tickets = activeInputs?.lr_ticket_resolving || '';
+        lrCriteria.push(`Need to be involved in resolving ${tickets} tickets`);
+      }
+      if (optHas('lr_weeks_shadow')) {
+        const weeks = activeInputs?.lr_weeks_shadow || '';
+        lrCriteria.push(`Required weeks for shadow support: ${weeks}`);
+      }
+      
+      if (lrCriteria.length > 0) {
+        setLeadResourcingEntryCriteria(lrCriteria.join(' AND '));
+      } else {
+        setLeadResourcingEntryCriteria('Only participants who have completed the Shadow Support phase for this plan are eligible to be selected for Lead Support.');
       }
     } catch (e) {
       console.error("Error parsing project config", e);
@@ -995,11 +1129,15 @@ const SchedulePage = () => {
       if (isFinalAssessmentMandatory) {
         setSelectedFinalAssessmentRecipients(prev => [...new Set([...prev, ...added])]);
       }
+      if (isReverseKt) {
+        setSelectedRktRecipients(prev => [...new Set([...prev, ...added])]);
+      }
     }
     
     if (removed.length > 0) {
       setSelectedSudRecipients(prev => prev.filter(id => !removed.includes(id)));
       setSelectedFinalAssessmentRecipients(prev => prev.filter(id => !removed.includes(id)));
+      setSelectedRktRecipients(prev => prev.filter(id => !removed.includes(id)));
       setShadowMappings(prev => prev.map(m => ({ ...m, participantIds: m.participantIds.filter(id => !removed.includes(id)) })));
       setSelectedLeadRecipients(prev => prev.filter(id => !removed.includes(id)));
     }
@@ -1009,15 +1147,24 @@ const SchedulePage = () => {
     e.preventDefault();
     const isSRAvailable = shadowMappings.some(m => m.organizerId && m.participantIds.length > 0);
     const hasInvalidSR = activeGlobalTab === 'SR' && shadowMappings.some(m => (!m.organizerId && m.participantIds.length > 0) || (m.organizerId && m.participantIds.length === 0));
-    const recipients = activeGlobalTab === 'SR' ? (isSRAvailable ? [1] : []) : selectedLeadRecipients;
     
     if (activeGlobalTab === 'SR' && hasInvalidSR) {
       setSchedulePopup({ message: 'Please ensure each mapping has both an Organizer and at least one Participant selected.', type: 'error' });
       return;
     }
+
+    if (activeGlobalTab === 'RKT' && selectedRktRecipients.length === 0) {
+      setSchedulePopup({ message: 'Please select at least one participant to notify for Reverse KT.', type: 'error' });
+      return;
+    }
     
-    if (recipients.length === 0 && (activeGlobalTab === 'SR' ? shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0) : true)) {
-      setSchedulePopup({ message: 'Please select at least one recipient to notify.', type: 'error' });
+    if (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0) {
+      setSchedulePopup({ message: 'Please select at least one recipient for Lead Support.', type: 'error' });
+      return;
+    }
+
+    if (activeGlobalTab === 'SR' && !isSRAvailable) {
+      setSchedulePopup({ message: 'Please select at least one mapping to notify.', type: 'error' });
       return;
     }
     
@@ -1026,15 +1173,18 @@ const SchedulePage = () => {
       const payload = {
         plan_id: formData.plan_id,
         shadow_mappings: (activeGlobalTab === 'SR' && isShadowResourcing) ? shadowMappings.filter(m => m.organizerId && m.participantIds.length > 0) : [],
-        lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
+        lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : [],
+        reverse_kt_recipients: (activeGlobalTab === 'RKT' && isReverseKt) ? selectedRktRecipients : []
       };
 
       const res = await notifyRequirements(payload);
       if (res.data.success) {
         if (activeGlobalTab === 'SR') {
           setShadowMappings([{ organizerId: '', participantIds: [] }]);
-        } else {
+        } else if (activeGlobalTab === 'LR') {
           setSelectedLeadRecipients([]);
+        } else if (activeGlobalTab === 'RKT') {
+          setSelectedRktRecipients([]);
         }
         setSchedulePopup({ message: res.data.message || 'Notification sent successfully!', type: 'success' });
       } else {
@@ -1549,19 +1699,40 @@ const SchedulePage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (selectedStakeholders.length === 0 && selectedOrganizers.length === 0) {
-      setSchedulePopup({ message: 'Please select at least one participant or organizer.', type: 'error' });
-      return;
+    const isRkt = activeGlobalTab === 'RKT';
+    if (isRkt) {
+      if (selectedRktRecipients.length === 0 && selectedRktEvaluators.length === 0) {
+        setSchedulePopup({ message: 'Please select presenters and evaluators for Reverse KT.', type: 'error' });
+        return;
+      }
+      if (!rktScheduledAt && !formData.scheduled_at) {
+        setSchedulePopup({ message: 'Please choose a session date for Reverse KT.', type: 'error' });
+        return;
+      }
+    } else {
+      if (selectedStakeholders.length === 0 && selectedOrganizers.length === 0) {
+        setSchedulePopup({ message: 'Please select at least one participant or organizer.', type: 'error' });
+        return;
+      }
     }
+
     startOperation('schedule-meeting');
     try {
+      const currentPlan = plans.find(p => p.id === parseInt(formData.plan_id));
       const payload = {
         plan_id: formData.plan_id,
-        scheduled_at: formData.scheduled_at,
-        meeting_link: formData.meeting_link,
-        stakeholder_ids: [...selectedOrganizers, ...selectedStakeholders],
+        scheduled_at: isRkt ? (rktScheduledAt || formData.scheduled_at) : formData.scheduled_at,
+        meeting_link_option: isRkt ? rktMeetingLinkOption : meetingLinkOption,
+        meeting_link: isRkt ? (rktMeetingLink || formData.meeting_link) : formData.meeting_link,
+        daily_meeting_links: isRkt ? rktDailyMeetingLinks : dailyMeetingLinks,
+        is_reverse_kt: isRkt,
+        title: isRkt ? `Reverse KT Presentation - ${currentPlan?.application_name || 'Session'}` : undefined,
+        stakeholder_ids: isRkt 
+          ? [...new Set([...selectedRktEvaluators, ...selectedRktRecipients])]
+          : [...selectedOrganizers, ...selectedStakeholders],
         sud_recipients: (activeGlobalTab === 'KA' && isSudMandatory) ? selectedSudRecipients : [],
-        final_assessment_recipients: (activeGlobalTab === 'KA' && isFinalAssessmentMandatory) ? selectedFinalAssessmentRecipients : [],
+        final_assessment_recipients: [],
+        reverse_kt_recipients: isRkt ? selectedRktRecipients : [],
         shadow_mappings: (activeGlobalTab === 'SR' && isShadowResourcing) ? shadowMappings.filter(m => m.organizerId && m.participantIds.length > 0) : [],
         lead_recipients: (activeGlobalTab === 'LR' && isLeadResourcing) ? selectedLeadRecipients : []
       };
@@ -1571,14 +1742,20 @@ const SchedulePage = () => {
         scheduled_at: '',
         meeting_link: ''
       });
+      setRktScheduledAt('');
+      setRktMeetingLink('');
+      setDailyMeetingLinks({});
+      setRktDailyMeetingLinks({});
       setSelectedStakeholders([]);
       setSelectedOrganizers([]);
       setSelectedSudRecipients([]);
       setSelectedFinalAssessmentRecipients([]);
+      setSelectedRktRecipients([]);
+      setSelectedRktEvaluators([]);
       setShadowMappings([{ organizerId: '', participantIds: [] }]);
       setSelectedLeadRecipients([]);
       fetchData();
-      setSchedulePopup({ message: 'Meeting scheduled successfully! Notifications triggered.', type: 'success' });
+      setSchedulePopup({ message: 'Meeting scheduled successfully with MS Teams! Notifications triggered.', type: 'success' });
     } catch (err) {
       setSchedulePopup({ message: 'Error creating meeting', type: 'error' });
     } finally {
@@ -1692,50 +1869,125 @@ const SchedulePage = () => {
       )}
 
       {canManage && formData.project_id && formData.plan_id && (
-        <div className="mb-6 border-b border-gray-200 flex justify-between items-end">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveGlobalTab('KA')}
-              className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'KA' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
-            >
-              Knowledge Acquisition
-            </button>
-            {isShadowResourcing && (
+        <>
+          <div className="mb-6 border-b border-gray-200 flex justify-between items-end">
+            <nav className="-mb-px flex space-x-8">
               <button
-                onClick={() => setActiveGlobalTab('SR')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'SR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                onClick={() => setActiveGlobalTab('KA')}
+                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'KA' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
               >
-                Shadow Resourcing
+                Knowledge Acquisition
               </button>
-            )}
-            {isLeadResourcing && (
+              {isReverseKt && (
+                <button
+                  onClick={() => setActiveGlobalTab('RKT')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'RKT' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                >
+                  Reverse KT
+                </button>
+              )}
+              {isShadowResourcing && (
+                <button
+                  onClick={() => setActiveGlobalTab('SR')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'SR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                >
+                  Shadow Support
+                </button>
+              )}
+              {isLeadResourcing && (
+                <button
+                  onClick={() => setActiveGlobalTab('LR')}
+                  className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'LR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                >
+                  Lead Support
+                </button>
+              )}
+            </nav>
+            <div className="pb-2 flex gap-3 items-center">
               <button
-                onClick={() => setActiveGlobalTab('LR')}
-                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeGlobalTab === 'LR' ? 'border-primary-orange text-primary-orange' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                onClick={handleViewSchedulePDF}
+                disabled={!formData.plan_id || !meetings.some(m => m.plan_id === parseInt(formData.plan_id))}
+                className={`inline-flex items-center gap-2 px-4 py-2 border rounded-md transition-colors shadow-sm text-sm ${(!formData.plan_id || !meetings.some(m => m.plan_id === parseInt(formData.plan_id))) ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-primary-orange border-primary-orange hover:bg-orange-50'}`}
               >
-                Lead Resourcing
+                <Eye size={16} />
+                View
               </button>
-            )}
-          </nav>
-          <div className="pb-2 flex gap-3 items-center">
-            <button
-              onClick={handleViewSchedulePDF}
-              disabled={!formData.plan_id || !meetings.some(m => m.plan_id === parseInt(formData.plan_id))}
-              className={`inline-flex items-center gap-2 px-4 py-2 border rounded-md transition-colors shadow-sm text-sm ${(!formData.plan_id || !meetings.some(m => m.plan_id === parseInt(formData.plan_id))) ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-primary-orange border-primary-orange hover:bg-orange-50'}`}
-            >
-              <Eye size={16} />
-              View
-            </button>
-            <button
-              onClick={handleDownloadTemplate}
-              disabled={isUploadingExcel}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-primary-orange border border-primary-orange rounded-md hover:bg-orange-50 transition-colors shadow-sm text-sm"
-            >
-              <Download size={16} />
-              Download Template
-            </button>
+              <button
+                onClick={handleDownloadTemplate}
+                disabled={isUploadingExcel}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white text-primary-orange border border-primary-orange rounded-md hover:bg-orange-50 transition-colors shadow-sm text-sm"
+              >
+                <Download size={16} />
+                Download Template
+              </button>
+            </div>
           </div>
-        </div>
+
+          {/* Dynamic Criteria Overview Banner */}
+          <div className="bg-gradient-to-r from-orange-50/70 via-white to-amber-50/50 rounded-xl p-4 border border-orange-200/70 shadow-sm mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-orange-100">
+              <div className="flex items-center gap-2">
+                <span className="flex h-2.5 w-2.5 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-orange opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary-orange"></span>
+                </span>
+                <h4 className="text-sm font-bold text-gray-900">
+                  {activeGlobalTab === 'KA' && 'Knowledge Acquisition Phase — Dynamic Criteria'}
+                  {activeGlobalTab === 'RKT' && 'Reverse KT Phase — Dynamic Criteria'}
+                  {activeGlobalTab === 'SR' && 'Shadow Support Phase — Dynamic Criteria'}
+                  {activeGlobalTab === 'LR' && 'Lead Support Phase — Dynamic Criteria'}
+                </h4>
+                <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-orange-100 text-primary-orange border border-orange-200">
+                  Track Synchronized
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+              {/* Entry Criteria */}
+              <div className="bg-emerald-50/60 rounded-lg p-3 border border-emerald-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                    Entry Criteria
+                  </span>
+                </div>
+                <ul className="space-y-1 text-xs text-gray-700">
+                  {getCurrentPhaseCriteria().entry && getCurrentPhaseCriteria().entry.length > 0 ? (
+                    getCurrentPhaseCriteria().entry.map((crit, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="text-emerald-600 font-bold">✓</span>
+                        <span className="font-medium text-gray-800">{crit}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-gray-400 italic">No entry criteria configured for this phase.</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Exit Criteria */}
+              <div className="bg-blue-50/60 rounded-lg p-3 border border-blue-100">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800">
+                    Exit Criteria
+                  </span>
+                </div>
+                <ul className="space-y-1 text-xs text-gray-700">
+                  {getCurrentPhaseCriteria().exit && getCurrentPhaseCriteria().exit.length > 0 ? (
+                    getCurrentPhaseCriteria().exit.map((crit, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="text-blue-600 font-bold">✓</span>
+                        <span className="font-medium text-gray-800">{crit}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-gray-400 italic">No exit criteria configured for this phase.</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {canManage && formData.project_id && formData.plan_id && (
@@ -1761,9 +2013,12 @@ const SchedulePage = () => {
             {(schedulingMode === 'manual' || activeGlobalTab !== 'KA') ? (
               <div>
                 <h3 className="text-lg font-semibold text-primary-text mb-4">
-                  {activeGlobalTab === 'KA' ? 'Schedule New Meeting Manually' : `Schedule ${activeGlobalTab === 'SR' ? 'Shadow' : 'Lead'} Resourcing Session`}
+                  {activeGlobalTab === 'KA' && 'Schedule New Meeting Manually'}
+                  {activeGlobalTab === 'RKT' && 'Schedule Reverse KT Presentation Session'}
+                  {activeGlobalTab === 'SR' && 'Schedule Shadow Support Session'}
+                  {activeGlobalTab === 'LR' && 'Schedule Lead Support Session'}
                 </h3>
-                <form onSubmit={activeGlobalTab === 'KA' ? handleSubmit : handleNotifySubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <form onSubmit={activeGlobalTab === 'KA' || activeGlobalTab === 'RKT' ? handleSubmit : handleNotifySubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   {activeGlobalTab === 'KA' && (
                     <>
                       <div>
@@ -1798,14 +2053,16 @@ const SchedulePage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link</label>
-                    <input
-                      type="url"
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                      value={formData.meeting_link}
-                      onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
-                      placeholder="https://meet.google.com/..."
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link Option</label>
+                    <select
+                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-white text-gray-800 text-sm focus:ring-primary-orange focus:border-primary-orange"
+                      value={meetingLinkOption}
+                      onChange={(e) => setMeetingLinkOption(e.target.value)}
+                    >
+                      <option value="Single Link for All Days">Single Link for All Days</option>
+                      <option value="Different Link for Each Day">Different Link for Each Day</option>
+                    </select>
+                    <p className="text-[11px] text-gray-400 mt-1">MS Teams link dynamically generated on schedule</p>
                   </div>
 
                   <div>
@@ -1818,8 +2075,69 @@ const SchedulePage = () => {
                       visibleCount={4}
                     />
                   </div>
-
                     </>
+                  )}
+
+                  {activeGlobalTab === 'RKT' && (
+                    <div className="md:col-span-4 bg-amber-50/40 p-4 rounded-xl border border-amber-200/70 mb-2">
+                      <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-100">
+                        <div className="flex items-center gap-2">
+                          <Video size={16} className="text-primary-orange" />
+                          <h4 className="text-sm font-bold text-gray-800">Reverse KT Presentation & Evaluation</h4>
+                        </div>
+                
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <MultiSelectDropdown
+                            label="Evaluators / Givers (SMEs)"
+                            placeholder="Select Evaluators..."
+                            options={knowledgeGivers}
+                            selected={selectedRktEvaluators}
+                            onChange={setSelectedRktEvaluators}
+                            visibleCount={3}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Session Date</label>
+                          <input
+                            type="date"
+                            className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-white text-gray-800"
+                            value={rktScheduledAt || formData.scheduled_at}
+                            onChange={(e) => {
+                              setRktScheduledAt(e.target.value);
+                              setFormData({ ...formData, scheduled_at: e.target.value });
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link Option</label>
+                          <select
+                            className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-white text-gray-800 text-sm focus:ring-primary-orange focus:border-primary-orange"
+                            value={rktMeetingLinkOption}
+                            onChange={(e) => setRktMeetingLinkOption(e.target.value)}
+                          >
+                            <option value="Single Link for All Days">Single Link for All Days</option>
+                            <option value="Different Link for Each Day">Different Link for Each Day</option>
+                          </select>
+                          <p className="text-[11px] text-gray-400 mt-1">MS Teams link dynamically generated on schedule</p>
+                        </div>
+
+                        <div>
+                          <MultiSelectDropdown
+                            label="Presenters (Knowledge Receivers)"
+                            placeholder="Select Presenters..."
+                            options={stakeholders}
+                            selected={selectedRktRecipients}
+                            onChange={setSelectedRktRecipients}
+                            visibleCount={3}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
@@ -1837,18 +2155,7 @@ const SchedulePage = () => {
                             />
                           </div>
                         )}
-                        {isFinalAssessmentMandatory && (
-                          <div className="bg-green-50/50 p-4 rounded-lg border border-green-100 h-full">
-                            <MultiSelectDropdown
-                              label="Final Assessment"
-                              placeholder="Select Participants..."
-                              options={stakeholders.filter(s => selectedStakeholders.includes(s.id))}
-                              selected={selectedFinalAssessmentRecipients}
-                              onChange={setSelectedFinalAssessmentRecipients}
-                              visibleCount={3}
-                            />
-                          </div>
-                        )}
+
                       </>
                     )}
 
@@ -1928,19 +2235,16 @@ const SchedulePage = () => {
                             + Add Another Mapping
                           </button>
                         </div>
-                        
-
                       </div>
                     )}
 
                     {activeGlobalTab === 'LR' && (
                       <div className="md:col-span-3 bg-orange-50/50 p-4 rounded-lg border border-orange-100 flex flex-col gap-4 h-full">
-                        
                         <div className="bg-white p-3 rounded shadow-sm border border-gray-100">
                           <MultiSelectDropdown
                             label={
                               <div className="flex justify-between items-center w-full">
-                                <span>Lead Resourcing</span>
+                                <span>Lead Support Participants</span>
                                 <label className="flex items-center space-x-1 cursor-pointer">
                                   <input 
                                     type="checkbox" 
@@ -1966,7 +2270,7 @@ const SchedulePage = () => {
                             onChange={(newIds) => {
                               const validIds = newIds.filter(id => !getLREligibilityReason(id));
                               if (validIds.length < newIds.length) {
-                                setSchedulePopup({ message: 'Some participants do not meet the Lead Resourcing criteria.', type: 'error' });
+                                setSchedulePopup({ message: 'Some participants do not meet the Lead Support criteria.', type: 'error' });
                               }
                               setSelectedLeadRecipients(validIds);
                             }}
@@ -1978,49 +2282,103 @@ const SchedulePage = () => {
                         </div>
                         
                         <div className="text-xs text-secondary-text mt-2 italic bg-orange-100/50 p-2 rounded border border-orange-100 shadow-sm">
-                          * Note: Lead Resourcing eligibility is automatically verified against solved Jira tickets (Done/Resolved status) assigned to each participant.
+                          * Note: Lead Support eligibility is automatically verified against solved Jira tickets (Done/Resolved status) assigned to each participant.
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="md:col-span-4 flex justify-end mt-2">
-                    <button
-                      type="submit"
-                      disabled={
-                        (activeGlobalTab === 'KA' && scheduling) ||
-                        (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']) ||
-                        (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                        (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
-                        (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
-                      }
-                      className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
-                        ((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']))
-                          ? 'bg-button-orange cursor-not-allowed'
-                          : (
-                              (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                              (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
-                              (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
-                            )
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-primary-orange hover:bg-hover-orange'
-                      }`}
-                    >
-                      {((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements'])) ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                          </svg>
-                          {activeGlobalTab === 'KA' ? 'Scheduling...' : 'Notifying...'}
-                        </>
-                      ) : (
-                        <>
-                          {activeGlobalTab === 'KA' ? <Calendar size={16} /> : <span style={{ fontSize: '16px' }}>🔔</span>}
-                          {activeGlobalTab === 'KA' ? 'Schedule' : 'Notify'}
-                        </>
-                      )}
-                    </button>
+                  <div className="md:col-span-4 flex justify-end gap-3 mt-2">
+                    {activeGlobalTab === 'RKT' ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleNotifySubmit}
+                          disabled={activeOperations['notify-requirements'] || selectedRktRecipients.length === 0}
+                          className={`inline-flex items-center gap-2 px-4 py-2 border rounded-md transition-colors text-sm font-medium ${
+                            (activeOperations['notify-requirements'] || selectedRktRecipients.length === 0)
+                              ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
+                              : 'bg-white text-primary-orange border-primary-orange hover:bg-orange-50'
+                          }`}
+                        >
+                          {activeOperations['notify-requirements'] ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 text-primary-orange" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                              </svg>
+                              Notifying...
+                            </>
+                          ) : (
+                            <>
+                              <Bell size={16} />
+                              Notify Reverse KT Requirements
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={scheduling || (selectedRktRecipients.length === 0 && selectedRktEvaluators.length === 0)}
+                          className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors text-sm font-medium ${
+                            (scheduling || (selectedRktRecipients.length === 0 && selectedRktEvaluators.length === 0))
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-primary-orange hover:bg-hover-orange'
+                          }`}
+                        >
+                          {scheduling ? (
+                            <>
+                              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                              </svg>
+                              Scheduling...
+                            </>
+                          ) : (
+                            <>
+                              <Calendar size={16} />
+                              Schedule Reverse KT Session
+                            </>
+                          )}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="submit"
+                        disabled={
+                          (activeGlobalTab === 'KA' && scheduling) ||
+                          (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']) ||
+                          (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
+                          (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
+                          (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
+                        }
+                        className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
+                          ((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']))
+                            ? 'bg-button-orange cursor-not-allowed'
+                            : (
+                                (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
+                                (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
+                                (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
+                              )
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-primary-orange hover:bg-hover-orange'
+                        }`}
+                      >
+                        {((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements'])) ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                            </svg>
+                            {activeGlobalTab === 'KA' ? 'Scheduling...' : 'Notifying...'}
+                          </>
+                        ) : (
+                          <>
+                            {activeGlobalTab === 'KA' ? <Calendar size={16} /> : <Bell size={16} />}
+                            {activeGlobalTab === 'KA' ? 'Schedule' : (activeGlobalTab === 'SR' ? 'Notify Shadow Support' : 'Notify Lead Support')}
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </form>
               </div>
@@ -2111,7 +2469,7 @@ const SchedulePage = () => {
           </div>
         </div>
       )}
-      {(!formData.plan_id || activeGlobalTab === 'KA') && (
+      {(!formData.plan_id || activeGlobalTab === 'KA' || activeGlobalTab === 'RKT') && (
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
