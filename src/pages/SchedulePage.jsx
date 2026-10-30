@@ -1,5 +1,5 @@
 import CustomSelect from '../components/CustomSelect';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, connectJiraAccount, getJiraProjects, getJiraTickets, importJiraTicketsToSchedule, getPlanTopicOptions } from '../api/api';
 import Loader from '../components/Loader';
 import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck, Eye, EyeOff, Video } from 'lucide-react';
@@ -1116,6 +1116,21 @@ const SchedulePage = () => {
     }
   }, [formData.plan_id, plans, projects]);
 
+  const displayedMeetings = useMemo(() => {
+    if (formData.plan_id) {
+      return meetings.filter(m => String(m.plan_id) === String(formData.plan_id));
+    }
+    if (formData.project_id) {
+      const projectPlanIds = new Set(
+        plans
+          .filter(p => String(p.project_id) === String(formData.project_id))
+          .map(p => String(p.id))
+      );
+      return meetings.filter(m => projectPlanIds.has(String(m.plan_id)));
+    }
+    return meetings;
+  }, [meetings, formData.plan_id, formData.project_id, plans]);
+
   const handleStakeholdersChange = (newStakeholders) => {
     const added = newStakeholders.filter(id => !selectedStakeholders.includes(id));
     const removed = selectedStakeholders.filter(id => !newStakeholders.includes(id));
@@ -1811,6 +1826,7 @@ const SchedulePage = () => {
 
   const canManage = user?.role === 'Delivery / Engagement Manager' || user?.role === 'Outgoing SME (Knowledge Giver)';
 
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center mb-4">
@@ -2497,7 +2513,21 @@ const SchedulePage = () => {
               </tr>
             </thead>
             <tbody className="bg-light-background divide-y divide-gray-200">
-              {meetings.map((m) => {
+              {displayedMeetings.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={user?.role === 'Delivery / Engagement Manager' ? 8 : (user?.role === 'Incoming Team Member (Knowledge Receiver)' ? 8 : 6)}
+                    className="px-6 py-8 text-center text-sm text-secondary-text italic"
+                  >
+                    {formData.plan_id
+                      ? "No meeting scheduled yet for this plan"
+                      : formData.project_id
+                      ? "No meetings scheduled yet for this project"
+                      : "No meetings scheduled yet"}
+                  </td>
+                </tr>
+              ) : (
+                displayedMeetings.map((m) => {
                 const dayStr = m.day_label || '-';
                 const cleanTitle = m.title.replace(/^.*?(Day\s*\d+[^:-]*[:-]\s*)/i, '').replace(/^Day\s*\d+\s*/i, '');
                 const isOverdue = isMeetingOverdue(m);
@@ -2644,7 +2674,7 @@ const SchedulePage = () => {
                     )}
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
