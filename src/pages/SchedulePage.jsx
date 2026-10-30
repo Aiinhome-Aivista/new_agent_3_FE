@@ -38,7 +38,7 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
       </div>
       {isOpen && (
         <div 
-          className="absolute z-10 mt-1 w-full bg-light-background border border-light-border rounded-md shadow-lg overflow-y-auto"
+          className="absolute z-30 mt-1 w-full bg-light-background border border-light-border rounded-md shadow-lg overflow-y-auto"
           style={{ maxHeight: `${(visibleCount * 32) + ((visibleCount - 1) * 4) + 16}px` }}
         >
           {options.length === 0 ? (
@@ -586,6 +586,8 @@ const SchedulePage = () => {
   const [rescheduleTarget, setRescheduleTarget] = useState(null); // meeting being rescheduled
   const [rescheduleDate, setRescheduleDate] = useState(''); // YYYY-MM-DD
   const [rescheduleTime, setRescheduleTime] = useState(''); // HH:MM
+  const [rescheduleGivers, setRescheduleGivers] = useState([]); // Giver stakeholder IDs
+  const [rescheduleReceivers, setRescheduleReceivers] = useState([]); // Receiver stakeholder IDs
   const [rescheduleReason, setRescheduleReason] = useState('');
   const [rescheduleSubsequent, setRescheduleSubsequent] = useState(false);
   const [resolveOverdueAsCompleted, setResolveOverdueAsCompleted] = useState(false);
@@ -698,7 +700,7 @@ const SchedulePage = () => {
     }
   };
 
-  const handleOpenRescheduleModal = (meeting) => {
+  const handleOpenRescheduleModal = async (meeting) => {
     // Pre-fill with existing time extracted from scheduled_at
     const existing = new Date(meeting.scheduled_at);
     const yyyy = existing.getUTCFullYear();
@@ -712,12 +714,64 @@ const SchedulePage = () => {
     setRescheduleSubsequent(false);
     setResolveOverdueAsCompleted(false);
     setRescheduleTarget(meeting);
+
+    // Initial pre-fill from meeting object
+    let initGivers = Array.isArray(meeting.knowledge_giver_ids) ? [...meeting.knowledge_giver_ids] : [];
+    let initReceivers = Array.isArray(meeting.knowledge_receiver_ids) ? [...meeting.knowledge_receiver_ids] : [];
+
+    if (initGivers.length === 0 && meeting.knowledge_giver_names && meeting.knowledge_giver_names !== 'N/A') {
+      const gNames = meeting.knowledge_giver_names.split(',').map(s => s.trim().toLowerCase());
+      initGivers = knowledgeGivers.filter(g => gNames.includes(g.name.toLowerCase())).map(g => g.id);
+    }
+    if (initReceivers.length === 0 && meeting.knowledge_receiver_names && meeting.knowledge_receiver_names !== 'N/A') {
+      const rNames = meeting.knowledge_receiver_names.split(',').map(s => s.trim().toLowerCase());
+      initReceivers = stakeholders.filter(s => rNames.includes(s.name.toLowerCase())).map(s => s.id);
+    }
+
+    setRescheduleGivers(initGivers);
+    setRescheduleReceivers(initReceivers);
     setIsRescheduleModalOpen(true);
+
+    try {
+      const res = await getAttendance(meeting.id);
+      const records = res.data?.data || [];
+      if (records.length > 0) {
+        const fetchedGivers = [];
+        const fetchedReceivers = [];
+        records.forEach(r => {
+          const rRole = (r.stakeholder_role || '').toLowerCase();
+          const sid = Number(r.stakeholder_id);
+          if (rRole.includes('giver') || rRole.includes('outgoing') || rRole === 'outgoing_sme') {
+            fetchedGivers.push(sid);
+          } else if (rRole.includes('receiver') || rRole.includes('incoming') || rRole === 'incoming_member') {
+            fetchedReceivers.push(sid);
+          } else {
+            if (knowledgeGivers.some(g => Number(g.id) === sid)) {
+              fetchedGivers.push(sid);
+            } else if (stakeholders.some(s => Number(s.id) === sid)) {
+              fetchedReceivers.push(sid);
+            }
+          }
+        });
+        if (fetchedGivers.length > 0) setRescheduleGivers(fetchedGivers);
+        if (fetchedReceivers.length > 0) setRescheduleReceivers(fetchedReceivers);
+      }
+    } catch (err) {
+      console.warn('Could not fetch attendance for reschedule modal:', err);
+    }
   };
 
   const handleReschedule = async () => {
     if (!rescheduleDate || !rescheduleTime) {
       setSchedulePopup({ message: 'Please select a new date and time.', type: 'error' });
+      return;
+    }
+    if (rescheduleGivers.length === 0) {
+      setSchedulePopup({ message: 'Please select at least one Knowledge Giver.', type: 'error' });
+      return;
+    }
+    if (rescheduleReceivers.length === 0) {
+      setSchedulePopup({ message: 'Please select at least one Knowledge Receiver.', type: 'error' });
       return;
     }
     startOperation('reschedule-meeting');
@@ -726,13 +780,17 @@ const SchedulePage = () => {
         new_date: rescheduleDate,
         new_time: rescheduleTime,
         reason: rescheduleReason.trim(),
-        reschedule_subsequent: rescheduleSubsequent
+        reschedule_subsequent: rescheduleSubsequent,
+        giver_ids: rescheduleGivers,
+        receiver_ids: rescheduleReceivers
       });
       setIsRescheduleModalOpen(false);
       setRescheduleTarget(null);
       setRescheduleDate('');
       setRescheduleTime('');
       setRescheduleReason('');
+      setRescheduleGivers([]);
+      setRescheduleReceivers([]);
       setRescheduleSubsequent(false);
       fetchData();
       setSchedulePopup({ message: res.data?.message || 'Meeting rescheduled successfully! All participants have been notified via email.', type: 'success' });
@@ -2785,7 +2843,7 @@ const SchedulePage = () => {
       {/* ── Reschedule Modal ── */}
       {isRescheduleModalOpen && rescheduleTarget && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-light-background rounded-xl shadow-xl max-w-lg w-full flex flex-col border border-amber-200 overflow-hidden max-h-[90vh]">
+          <div className="bg-light-background rounded-xl shadow-xl max-w-xl w-full flex flex-col border border-amber-200 overflow-hidden max-h-[90vh]">
 
             {/* Header */}
             <div className="bg-gradient-to-r from-amber-600 to-orange-500 text-white px-6 py-4 flex justify-between items-center">
@@ -2794,7 +2852,7 @@ const SchedulePage = () => {
                 <h3 className="text-lg font-semibold">Reschedule Meeting</h3>
               </div>
               <button
-                onClick={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); }}
+                onClick={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); setRescheduleGivers([]); setRescheduleReceivers([]); }}
                 className="text-white hover:text-amber-100 text-xl font-bold leading-none"
               >
                 &times;
@@ -2802,7 +2860,7 @@ const SchedulePage = () => {
             </div>
 
             {/* Content */}
-            <div className="p-6 space-y-5 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="p-6 space-y-4 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {/* Meeting Info Banner */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                 <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-1">Meeting</p>
@@ -2833,39 +2891,101 @@ const SchedulePage = () => {
                 <span>
                   {resolveOverdueAsCompleted
                     ? 'You can now record past attendance and immediately mark this meeting as completed.'
-                    : 'All participants (Knowledge Giver & Receiver) will be auto-notified via email with the new time once you save.'}
+                    : 'All participants (Knowledge Giver & Receiver) will be auto-notified via email with the updated schedule and participants once you save.'}
                 </span>
               </div>
 
               {!resolveOverdueAsCompleted && (
                 <>
-                  {/* New Date picker */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      New Date <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-primary-text text-sm"
-                      value={rescheduleDate}
-                      onChange={(e) => setRescheduleDate(e.target.value)}
-                    />
+                  {/* Date and Time row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* New Date picker */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        New Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-primary-text text-sm"
+                        value={rescheduleDate}
+                        onChange={(e) => setRescheduleDate(e.target.value)}
+                      />
+                    </div>
+
+                    {/* New time picker */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        New Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="reschedule-time-input"
+                        type="time"
+                        required
+                        className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-primary-text text-sm"
+                        value={rescheduleTime}
+                        onChange={(e) => setRescheduleTime(e.target.value)}
+                      />
+                    </div>
                   </div>
 
-                  {/* New time picker */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      New Time <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      id="reschedule-time-input"
-                      type="time"
-                      required
-                      className="w-full px-3 py-2 border border-amber-300 rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-primary-text text-sm"
-                      value={rescheduleTime}
-                      onChange={(e) => setRescheduleTime(e.target.value)}
-                    />
+                  {/* Knowledge Giver & Receiver row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Knowledge Giver(s) */}
+                    <div>
+                      <MultiSelectDropdown
+                        label={
+                          <span>
+                            Knowledge Giver(s) <span className="text-red-500">*</span>
+                          </span>
+                        }
+                        placeholder="Select Giver(s)..."
+                        options={knowledgeGivers}
+                        selected={rescheduleGivers}
+                        onChange={setRescheduleGivers}
+                        visibleCount={3}
+                      />
+                      {rescheduleGivers.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5 max-h-16 overflow-y-auto">
+                          {rescheduleGivers.map(id => {
+                            const g = knowledgeGivers.find(item => Number(item.id) === Number(id));
+                            return g ? (
+                              <span key={id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-900 border border-amber-200">
+                                {g.name}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Knowledge Receiver(s) */}
+                    <div>
+                      <MultiSelectDropdown
+                        label={
+                          <span>
+                            Knowledge Receiver(s) <span className="text-red-500">*</span>
+                          </span>
+                        }
+                        placeholder="Select Receiver(s)..."
+                        options={stakeholders}
+                        selected={rescheduleReceivers}
+                        onChange={setRescheduleReceivers}
+                        visibleCount={3}
+                      />
+                      {rescheduleReceivers.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5 max-h-16 overflow-y-auto">
+                          {rescheduleReceivers.map(id => {
+                            const r = stakeholders.find(item => Number(item.id) === Number(id));
+                            return r ? (
+                              <span key={id} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-primary-orange border border-orange-200">
+                                {r.name}
+                              </span>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Reason field */}
@@ -2873,7 +2993,7 @@ const SchedulePage = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-xs text-secondary-text">(optional — included in notification email)</span></label>
                     <textarea
                       id="reschedule-reason-input"
-                      rows={3}
+                      rows={2}
                       placeholder="e.g. Knowledge Giver is unavailable at the original time..."
                       className="w-full px-3 py-2 border border-light-border rounded-md focus:ring-2 focus:ring-amber-400 focus:border-amber-400 text-sm resize-none"
                       value={rescheduleReason}
@@ -2902,7 +3022,7 @@ const SchedulePage = () => {
             <div className="bg-amber-50 px-6 py-4 flex justify-end space-x-3 border-t border-amber-100">
               <button
                 type="button"
-                onClick={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); setResolveOverdueAsCompleted(false); }}
+                onClick={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); setRescheduleGivers([]); setRescheduleReceivers([]); setResolveOverdueAsCompleted(false); }}
                 className="px-4 py-2 border border-light-border rounded-md text-sm font-medium text-gray-700 hover:bg-input-background"
                 disabled={rescheduling}
               >
@@ -2926,7 +3046,7 @@ const SchedulePage = () => {
                   id="reschedule-save-btn"
                   type="button"
                   onClick={handleReschedule}
-                  disabled={rescheduling || !rescheduleTime}
+                  disabled={rescheduling || !rescheduleTime || !rescheduleDate || rescheduleGivers.length === 0 || rescheduleReceivers.length === 0}
                   className="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-300 text-white rounded-md text-sm font-medium transition-colors"
                 >
                   {rescheduling ? (
