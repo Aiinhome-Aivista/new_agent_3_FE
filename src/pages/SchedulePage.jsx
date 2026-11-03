@@ -1,8 +1,8 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect, useMemo } from 'react';
-import { getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, connectJiraAccount, getJiraProjects, getJiraTickets, importJiraTicketsToSchedule, getPlanTopicOptions } from '../api/api';
+import { getMeetingIntelligence, downloadMeetingReport, getMeetings, createMeeting, bulkScheduleMeetings, updateMeetingStatus, getPlans, getProjects, notifyMeeting, notifyRequirements, rescheduleMeeting, getStakeholders, getAttendance, markAttendance, getMeetingFeedback, submitMeetingFeedback, getResourceMappings, getSudDocuments, getResults, connectJiraAccount, getJiraProjects, getJiraTickets, importJiraTicketsToSchedule, getPlanTopicOptions } from '../api/api';
 import Loader from '../components/Loader';
-import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck, Eye, EyeOff, Video } from 'lucide-react';
+import { Calendar, Bell, CheckCircle, ClipboardList, Clock, Star, UploadCloud, File, X, Download, Link as LinkIcon, RefreshCw, Layers, CheckSquare, ExternalLink, ShieldCheck, Eye, EyeOff, Video, FileText, Bot, Sparkles, HelpCircle, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import * as XLSX from 'xlsx-js-style';
@@ -593,6 +593,59 @@ const SchedulePage = () => {
   const [resolveOverdueAsCompleted, setResolveOverdueAsCompleted] = useState(false);
   const [overdueOverrideMeetingId, setOverdueOverrideMeetingId] = useState(null);
   const rescheduling = activeOperations['reschedule-meeting'];
+
+  // AI Meeting Intelligence & PDF Report state
+  const formatSecondsToTime = (totalSeconds) => {
+    if (totalSeconds === null || totalSeconds === undefined) return '';
+    const secs = Math.floor(Number(totalSeconds));
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const [isIntelligenceModalOpen, setIsIntelligenceModalOpen] = useState(false);
+  const [selectedIntelligence, setSelectedIntelligence] = useState(null);
+  const [selectedIntelligenceMeeting, setSelectedIntelligenceMeeting] = useState(null);
+  const [fetchingIntelligence, setFetchingIntelligence] = useState(null);
+  const [downloadingReportId, setDownloadingReportId] = useState(null);
+
+  const handleOpenIntelligenceModal = async (meeting) => {
+    setFetchingIntelligence(meeting.id);
+    setSelectedIntelligenceMeeting(meeting);
+    try {
+      const res = await getMeetingIntelligence(meeting.id);
+      if (res.data?.success) {
+        setSelectedIntelligence(res.data.data);
+        setIsIntelligenceModalOpen(true);
+      } else {
+        setSchedulePopup({ message: res.data?.message || 'Error fetching meeting intelligence.', type: 'error' });
+      }
+    } catch (err) {
+      setSchedulePopup({ message: err?.response?.data?.message || 'Failed to load meeting intelligence report.', type: 'error' });
+    } finally {
+      setFetchingIntelligence(null);
+    }
+  };
+
+  const handleDownloadPDF = async (meeting) => {
+    setDownloadingReportId(meeting.id);
+    try {
+      const res = await downloadMeetingReport(meeting.id);
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `KT_Meeting_${meeting.id}_Intelligence_Report.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setSchedulePopup({ message: 'Failed to download meeting intelligence PDF report.', type: 'error' });
+    } finally {
+      setDownloadingReportId(null);
+    }
+  };
 
   // Feedback modal state
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
@@ -2684,6 +2737,26 @@ const SchedulePage = () => {
                     </td>
                     {canManage && (
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
+                        {m.status === 'completed' && (
+                          <button
+                            onClick={() => handleOpenIntelligenceModal(m)}
+                            disabled={fetchingIntelligence === m.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm mr-2"
+                            title="View AI Meeting Intelligence & Download PDF"
+                          >
+                            {fetchingIntelligence === m.id ? (
+                              <svg className="animate-spin h-3.5 w-3.5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                              </svg>
+                            ) : (
+                              <>
+                                <FileText size={14} className="text-purple-600" />
+                                <span>AI Report</span>
+                              </>
+                            )}
+                          </button>
+                        )}
                         {(!isOverdue && (m.status === 'completed' || isMeetingToday(m.scheduled_at))) && (
                           <button
                             onClick={() => handleOpenAttendanceModal(m)}
@@ -3086,6 +3159,234 @@ const SchedulePage = () => {
                   )}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AI Meeting Intelligence & PDF Report Modal ── */}
+      {isIntelligenceModalOpen && selectedIntelligenceMeeting && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full flex flex-col border border-gray-200 overflow-hidden max-h-[90vh]">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-6 py-4 flex justify-between items-center shadow-sm">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-purple-500/20 rounded-lg border border-purple-400/30">
+                  <Bot size={22} className="text-purple-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold">AI Meeting Intelligence</h3>
+                    <span className="px-2 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded bg-purple-500/30 text-purple-200 border border-purple-400/40">
+                      Automated
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300">
+                    {selectedIntelligenceMeeting.title}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDownloadPDF(selectedIntelligenceMeeting)}
+                  disabled={downloadingReportId === selectedIntelligenceMeeting.id}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-md shadow transition-colors disabled:opacity-50"
+                  title="Download Publication PDF Report"
+                >
+                  {downloadingReportId === selectedIntelligenceMeeting.id ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                      </svg>
+                      <span>Downloading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download size={14} />
+                      <span>Download PDF</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setIsIntelligenceModalOpen(false); setSelectedIntelligence(null); setSelectedIntelligenceMeeting(null); }}
+                  className="text-gray-400 hover:text-white text-2xl font-bold leading-none p-1 rounded-md hover:bg-white/10"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body with Scrollable Area */}
+            <div className="overflow-y-auto p-6 space-y-6 max-h-[calc(90vh-140px)] bg-slate-50/50">
+              {/* KPI Scorecard */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-center">
+                  <p className="text-xs text-slate-500 font-medium">Session Duration</p>
+                  <p className="text-lg font-bold text-slate-800">
+                    {selectedIntelligence?.total_duration_seconds ? `${Math.round(selectedIntelligence.total_duration_seconds / 60)} mins` : 'Completed'}
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-center">
+                  <p className="text-xs text-slate-500 font-medium">Active Speakers</p>
+                  <p className="text-lg font-bold text-slate-800">
+                    {selectedIntelligence?.total_speakers || 1}
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-center">
+                  <p className="text-xs text-slate-500 font-medium">Questions Tracked</p>
+                  <p className="text-lg font-bold text-teal-600">
+                    {selectedIntelligence?.questions?.length || 0}
+                  </p>
+                </div>
+                <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-center">
+                  <p className="text-xs text-slate-500 font-medium">Action Items</p>
+                  <p className="text-lg font-bold text-indigo-600">
+                    {selectedIntelligence?.action_items?.length || 0}
+                  </p>
+                </div>
+              </div>
+
+              {/* Executive Summary */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center gap-2 mb-2 text-slate-800 font-bold text-sm">
+                  <Sparkles size={16} className="text-amber-500" />
+                  <span>Executive Summary</span>
+                </div>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {selectedIntelligence?.executive_summary || "Knowledge Transfer session was completed and verified by the AI Meeting Agent."}
+                </p>
+              </div>
+
+              {/* Action Items */}
+              {selectedIntelligence?.action_items && selectedIntelligence.action_items.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3 text-slate-800 font-bold text-sm">
+                    <CheckSquare size={16} className="text-indigo-600" />
+                    <span>Action Items & Deliverables ({selectedIntelligence.action_items.length})</span>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedIntelligence.action_items.map((item, idx) => (
+                      <div key={idx} className="p-2.5 rounded-lg bg-indigo-50/50 border border-indigo-100 flex justify-between items-start gap-3">
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-slate-800">{item.task}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Assigned to: <span className="font-medium text-slate-700">{item.owner || "Unassigned"}</span>
+                          </p>
+                        </div>
+                        {item.deadline && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            Due: {item.deadline}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Q&A Discussions */}
+              {selectedIntelligence?.questions && selectedIntelligence.questions.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3 text-slate-800 font-bold text-sm">
+                    <HelpCircle size={16} className="text-teal-600" />
+                    <span>Technical Q&A Discussions ({selectedIntelligence.questions.length})</span>
+                  </div>
+                  <div className="space-y-2.5">
+                    {selectedIntelligence.questions.map((q, idx) => (
+                      <div key={idx} className="p-3 rounded-lg bg-slate-50 border border-slate-200">
+                        <div className="flex justify-between items-start gap-2 mb-1.5">
+                          <p className="text-xs font-bold text-slate-800">Q: {q.question}</p>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${q.is_answered ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                            {q.is_answered ? 'Answered' : 'Unanswered'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-600">
+                          <span className="font-semibold text-slate-700">{q.answered_by || 'Response'}:</span> {q.answer || "No direct answer recorded in session."}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Decisions */}
+              {selectedIntelligence?.decisions && selectedIntelligence.decisions.length > 0 && (
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-2 text-slate-800 font-bold text-sm">
+                    <ShieldCheck size={16} className="text-green-600" />
+                    <span>Agreed Decisions ({selectedIntelligence.decisions.length})</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-xs text-slate-700">
+                    {selectedIntelligence.decisions.map((dec, idx) => (
+                      <li key={idx} className="leading-relaxed">{dec}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Full Meeting Conversation Transcript */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
+                    <MessageSquare size={16} className="text-blue-600" />
+                    <span>Meeting Conversation Transcript {selectedIntelligence?.transcripts?.length ? `(${selectedIntelligence.transcripts.length})` : ''}</span>
+                  </div>
+                  {selectedIntelligence?.transcripts?.length > 0 && (
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                      Verbatim AI Capture
+                    </span>
+                  )}
+                </div>
+
+                {selectedIntelligence?.transcripts && selectedIntelligence.transcripts.length > 0 ? (
+                  <div className="space-y-2.5 max-h-72 overflow-y-auto pr-2 divide-y divide-slate-100">
+                    {selectedIntelligence.transcripts.map((t, idx) => (
+                      <div key={idx} className="pt-2.5 first:pt-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-800 border border-slate-200">
+                            {t.speaker_name || "Participant"}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {t.start_seconds !== undefined && t.start_seconds !== null ? `[${formatSecondsToTime(t.start_seconds)}]` : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700 leading-relaxed pl-1">
+                          {t.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500 italic">
+                    Full audio transcript was not captured for this session (live captions were inactive or unavailable during the call). Executive summary and decisions were compiled from meeting context.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-100 border-t border-slate-200 px-6 py-3 flex justify-between items-center">
+              <span className="text-xs text-slate-500 font-medium">
+                PwC AI Meeting Intelligence Facilitator
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleDownloadPDF(selectedIntelligenceMeeting)}
+                  disabled={downloadingReportId === selectedIntelligenceMeeting.id}
+                  className="px-4 py-1.5 bg-primary-orange hover:bg-hover-orange text-white text-xs font-semibold rounded-md shadow transition-colors flex items-center gap-1.5"
+                >
+                  <Download size={14} />
+                  <span>Download PDF Report</span>
+                </button>
+                <button
+                  onClick={() => { setIsIntelligenceModalOpen(false); setSelectedIntelligence(null); setSelectedIntelligenceMeeting(null); }}
+                  className="px-4 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-md transition-colors"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

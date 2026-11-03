@@ -91,6 +91,10 @@ export const getResourceMappings = (planId) => api.get(`/schedule/resource-mappi
 export const rescheduleMeeting = (id, data) => api.put(`/schedule/meetings/${id}/reschedule`, data);
 export const getMeetingFeedback = (id) => api.get(`/schedule/meetings/${id}/feedback`);
 export const submitMeetingFeedback = (id, data) => api.post(`/schedule/meetings/${id}/feedback`, data);
+export const getMeetingBotStatus = (id) => api.get(`/schedule/meetings/${id}/bot-status`);
+export const getMeetingIntelligence = (id) => api.get(`/schedule/meetings/${id}/intelligence`);
+export const downloadMeetingReport = (id) => api.get(`/schedule/meetings/${id}/report`, { responseType: 'blob' });
+export const botJoinNow = (id) => api.post(`/schedule/meetings/${id}/bot-join-now`);
 
 // Tracking
 export const markAttendance = (data) => api.post('/tracking/attendance', data);
