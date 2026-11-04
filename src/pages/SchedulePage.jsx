@@ -37,7 +37,7 @@ const MultiSelectDropdown = ({ options, selected, onChange, label, placeholder, 
         <svg className="w-4 h-4 text-secondary-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
       </div>
       {isOpen && (
-        <div 
+        <div
           className="absolute z-30 mt-1 w-full bg-light-background border border-light-border rounded-md shadow-lg overflow-y-auto"
           style={{ maxHeight: `${(visibleCount * 32) + ((visibleCount - 1) * 4) + 16}px` }}
         >
@@ -85,7 +85,7 @@ const SchedulePage = () => {
   const [knowledgeGivers, setKnowledgeGivers] = useState([]);
   const [selectedStakeholders, setSelectedStakeholders] = useState([]);
   const [selectedOrganizers, setSelectedOrganizers] = useState([]);
-  
+
   // Specific Requirement Email Recipients
   const [selectedSudRecipients, setSelectedSudRecipients] = useState([]);
   const [shadowMappings, setShadowMappings] = useState([{ organizerId: '', participantIds: [] }]);
@@ -115,7 +115,7 @@ const SchedulePage = () => {
   const [leadResourcingEntryCriteria, setLeadResourcingEntryCriteria] = useState('Only participants who have completed the Shadow Support phase for this plan are eligible to be selected for Lead Support.');
   const [shadowResourcingEntryCriteria, setShadowResourcingEntryCriteria] = useState('Only participants who have submitted SUD documents and scored above 80% in the Final Assessment are eligible.');
   const [mappedShadowResources, setMappedShadowResources] = useState([]);
-  
+
   const [phaseCriteria, setPhaseCriteria] = useState({
     ka: { title: 'Knowledge Acquisition', entry: [], exit: [] },
     reverse_kt: { title: 'Reverse KT', entry: [], exit: [] },
@@ -139,7 +139,7 @@ const SchedulePage = () => {
 
   const getAllowedSROrganizers = () => {
     if (!formData.plan_id) return [];
-    
+
     const planMeetings = meetings.filter(m => m.plan_id === parseInt(formData.plan_id));
     const validIds = new Set();
     planMeetings.forEach(m => {
@@ -161,9 +161,9 @@ const SchedulePage = () => {
 
   const getAllowedSRParticipants = () => {
     if (!formData.plan_id) return [];
-    
+
     const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
-    
+
     const planMeetings = meetings.filter(m => m.plan_id === parseInt(formData.plan_id));
     const validIds = new Set();
     planMeetings.forEach(m => {
@@ -171,7 +171,7 @@ const SchedulePage = () => {
         m.all_stakeholder_ids.forEach(id => validIds.add(id));
       }
     });
-    
+
     const allUsers = [...knowledgeGivers, ...stakeholders];
     const seen = new Set();
     return allUsers.filter(u => {
@@ -187,7 +187,7 @@ const SchedulePage = () => {
     if (!formData.plan_id) return 0;
     const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
     if (!selectedPlan) return 0;
-    
+
     const project = projects.find(p => p.id === selectedPlan.project_id);
     if (!project || !project.config) return 0;
 
@@ -195,42 +195,42 @@ const SchedulePage = () => {
       const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
       let planConfig = selectedPlan.project_config;
       if (typeof planConfig === 'string') {
-        try { planConfig = JSON.parse(planConfig); } catch(e) {}
+        try { planConfig = JSON.parse(planConfig); } catch (e) { }
       }
-      
+
       let track = null;
       if (planConfig && planConfig._meta && planConfig._meta.trackId) {
         track = (config.tracks || []).find(t => String(t.id) === String(planConfig._meta.trackId));
       }
       if (!track) {
-        track = (config.tracks || []).find(t => 
-          selectedPlan.application_name.trim() === t.name.trim() || 
+        track = (config.tracks || []).find(t =>
+          selectedPlan.application_name.trim() === t.name.trim() ||
           selectedPlan.application_name.includes(t.name.trim())
         );
       }
 
       let activeOptions = null;
       let activeInputs = null;
-      
+
       if (track) {
-          activeOptions = track.options;
-          activeInputs = track.inputs;
-          if (track.modules && track.modules.length > 0) {
-              let module = null;
-              if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
-                  module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
-              }
-              if (!module) {
-                  module = track.modules.find(m => 
-                      selectedPlan.application_name.trim() === m.name.trim() || 
-                      selectedPlan.application_name.includes(m.name.trim())
-                  );
-              }
-              if (module && module.options) {
-                  activeOptions = module.options;
-                  activeInputs = module.inputs;
-              }
+        activeOptions = track.options;
+        activeInputs = track.inputs;
+        if (track.modules && track.modules.length > 0) {
+          let module = null;
+          if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
+            module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
           }
+          if (!module) {
+            module = track.modules.find(m =>
+              selectedPlan.application_name.trim() === m.name.trim() ||
+              selectedPlan.application_name.includes(m.name.trim())
+            );
+          }
+          if (module && module.options) {
+            activeOptions = module.options;
+            activeInputs = module.inputs;
+          }
+        }
       }
       if (activeOptions && activeOptions.lr_ticket_resolving) {
         return parseInt(activeInputs?.lr_ticket_resolving) || 0;
@@ -265,10 +265,10 @@ const SchedulePage = () => {
 
   const getAllowedLRStakeholders = () => {
     if (!formData.plan_id) return [];
-    
+
     const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
     if (!selectedPlan || !selectedPlan.shadow_stakeholder_ids) return [];
-    
+
     const validIds = new Set(selectedPlan.shadow_stakeholder_ids);
     return stakeholders.filter(u => validIds.has(u.id));
   };
@@ -278,10 +278,10 @@ const SchedulePage = () => {
     const eligibleParticipantIds = new Set((selectedPlan?.shadow_eligible_stakeholder_ids || []).map(Number));
     const sudSubmittedIds = new Set((selectedPlan?.sud_submitted_stakeholder_ids || []).map(Number));
     const asmtPassedIds = new Set((selectedPlan?.assessment_passed_stakeholder_ids || []).map(Number));
-    
+
     const currentSelection = shadowMappings[mappingIndex].participantIds;
     const addedIds = newParticipantIds.filter(id => !currentSelection.includes(id));
-    
+
     for (const rawId of addedIds) {
       const id = Number(rawId);
       const isParticipant = stakeholders.some(s => Number(s.id) === id);
@@ -290,16 +290,16 @@ const SchedulePage = () => {
         let reasons = [];
         if (!sudSubmittedIds.has(id)) reasons.push("SUD Document not submitted");
         if (!asmtPassedIds.has(id)) reasons.push("Final Assessment score below 80%");
-        
+
         const reasonText = reasons.length > 0 ? ` (${reasons.join(' AND ')})` : '';
-        
+
         setSchedulePopup({
           message: `${userObj?.name} does not meet the Entry Criteria for Shadow Resourcing${reasonText}.`,
           type: 'error'
         });
         return; // Prevent selection
       }
-      
+
       const alreadySelectedInAnother = shadowMappings.some((mapping, idx) => idx !== mappingIndex && mapping.participantIds.includes(id));
       if (alreadySelectedInAnother) {
         const userObj = stakeholders.find(s => Number(s.id) === id);
@@ -310,7 +310,7 @@ const SchedulePage = () => {
         return; // Prevent selection
       }
     }
-    
+
     setShadowMappings(prev => {
       const newMappings = [...prev];
       newMappings[mappingIndex].participantIds = newParticipantIds;
@@ -320,7 +320,7 @@ const SchedulePage = () => {
 
   const handleShadowMappingOrganizerChange = (mappingIndex, newIds) => {
     const organizerId = newIds.length > 0 ? newIds[newIds.length - 1] : '';
-    
+
     if (organizerId) {
       const alreadySelected = shadowMappings.some((mapping, idx) => idx !== mappingIndex && String(mapping.organizerId) === String(organizerId));
       if (alreadySelected) {
@@ -331,7 +331,7 @@ const SchedulePage = () => {
         return;
       }
     }
-    
+
     setShadowMappings(prev => {
       const newMappings = [...prev];
       newMappings[mappingIndex].organizerId = organizerId;
@@ -439,7 +439,7 @@ const SchedulePage = () => {
         setJiraUser(res.data.user);
         const projects = res.data.projects || [];
         setJiraProjects(projects);
-        
+
         let initialProjKey = selectedJiraProject;
         if (projects.length > 0 && !initialProjKey) {
           initialProjKey = projects[0].key;
@@ -447,14 +447,14 @@ const SchedulePage = () => {
           localStorage.setItem('selectedJiraProject', initialProjKey);
         }
         setJiraActiveTab('tickets');
-        
+
         localStorage.setItem('jiraConfig', JSON.stringify(jiraConfig));
         localStorage.setItem('isJiraConnected', 'true');
         localStorage.setItem('jiraUser', JSON.stringify(res.data.user));
         localStorage.setItem('jiraProjects', JSON.stringify(projects));
 
         setSchedulePopup({ message: `Successfully connected to Jira as ${res.data.user?.displayName || 'User'}!`, type: 'success' });
-        
+
         if (initialProjKey) {
           handleFetchJiraTickets(initialProjKey);
         }
@@ -553,13 +553,13 @@ const SchedulePage = () => {
   const handleBulkSchedule = async () => {
     if (selectedExcelFiles.length === 0) return;
     setIsUploadingExcel(true);
-    
+
     try {
       const fd = new FormData();
       selectedExcelFiles.forEach(file => {
         fd.append('files', file);
       });
-      
+
       const res = await bulkScheduleMeetings(fd);
       if (res.data && res.data.success) {
         setSchedulePopup({ message: res.data.message || 'Files processed successfully! Automated scheduling complete.', type: 'success' });
@@ -929,12 +929,12 @@ const SchedulePage = () => {
         getProjects()
       ]);
       const fetchedMeetings = meetingsRes.data.data;
-      
+
       let allPlansData = plansRes.data.data || [];
       let myApprovedPlans = allPlansData.filter(p => p.status === 'approved' || p.status === 'closed');
-      
+
       const allowedPlanIds = myApprovedPlans.map(plan => plan.id);
-      
+
       let filteredMeetings = fetchedMeetings;
       if (user?.role === 'Delivery / Engagement Manager') {
         filteredMeetings = fetchedMeetings.filter(meeting => allowedPlanIds.includes(meeting.plan_id));
@@ -955,7 +955,7 @@ const SchedulePage = () => {
         }
         return { ...m, dayLabel: `Day ${planCounts[m.plan_id]}`, knowledge_giver_names: kgNames };
       });
-      
+
       setMeetings(processedMeetings);
       setPlans(myApprovedPlans);
       setStakeholders(receiversRes.data.data);
@@ -1024,55 +1024,55 @@ const SchedulePage = () => {
     setRktScheduledAt('');
 
     if (!formData.plan_id) return;
-    
+
     const selectedPlan = plans.find(p => p.id === parseInt(formData.plan_id));
     if (!selectedPlan) return;
-    
+
     const project = projects.find(p => p.id === selectedPlan.project_id);
     if (!project || !project.config) return;
-    
+
     try {
       const config = typeof project.config === 'string' ? JSON.parse(project.config) : project.config;
       let planConfig = selectedPlan.project_config;
       if (typeof planConfig === 'string') {
-        try { planConfig = JSON.parse(planConfig); } catch(e) {}
+        try { planConfig = JSON.parse(planConfig); } catch (e) { }
       }
-      
+
       let track = null;
       if (planConfig && planConfig._meta && planConfig._meta.trackId) {
         track = (config.tracks || []).find(t => String(t.id) === String(planConfig._meta.trackId));
       }
-      
+
       if (!track) {
-        track = (config.tracks || []).find(t => 
-          selectedPlan.application_name.trim() === t.name.trim() || 
+        track = (config.tracks || []).find(t =>
+          selectedPlan.application_name.trim() === t.name.trim() ||
           selectedPlan.application_name.includes(t.name.trim())
         );
       }
 
       let activeOptions = null;
       let activeInputs = null;
-      
+
       if (track) {
-          activeOptions = track.options;
-          activeInputs = track.inputs;
-          
-          if (track.modules && track.modules.length > 0) {
-              let module = null;
-              if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
-                  module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
-              }
-              if (!module) {
-                  module = track.modules.find(m => 
-                      selectedPlan.application_name.trim() === m.name.trim() || 
-                      selectedPlan.application_name.includes(m.name.trim())
-                  );
-              }
-              if (module && module.options) {
-                  activeOptions = module.options;
-                  activeInputs = module.inputs;
-              }
+        activeOptions = track.options;
+        activeInputs = track.inputs;
+
+        if (track.modules && track.modules.length > 0) {
+          let module = null;
+          if (planConfig && planConfig._meta && planConfig._meta.moduleId) {
+            module = track.modules.find(m => String(m.id) === String(planConfig._meta.moduleId));
           }
+          if (!module) {
+            module = track.modules.find(m =>
+              selectedPlan.application_name.trim() === m.name.trim() ||
+              selectedPlan.application_name.includes(m.name.trim())
+            );
+          }
+          if (module && module.options) {
+            activeOptions = module.options;
+            activeInputs = module.inputs;
+          }
+        }
       }
 
       const optHas = (k) => Boolean(activeOptions && activeOptions[k]);
@@ -1086,7 +1086,7 @@ const SchedulePage = () => {
       setIsReverseKt(hasRkt);
       setIsShadowResourcing(hasSr);
       setIsLeadResourcing(hasLr);
-      
+
       setIsSudRequiredForSR(optHas('sud_doc_upload'));
       setIsAssessmentRequiredForSR(optHas('assessment_80'));
 
@@ -1166,31 +1166,31 @@ const SchedulePage = () => {
       setPhaseCriteria(dynamicCrit);
 
       if (hasSr) {
-          getResourceMappings(formData.plan_id).then(res => {
-              if (res.data?.success) {
-                  setMappedShadowResources(res.data.data || []);
-              }
-          }).catch(err => console.error("Error fetching resource mappings:", err));
-          
-          if (optHas('sud_doc_upload')) {
-              getSudDocuments(formData.plan_id).then(res => {
-                  setSudDocs(res.data?.data || []);
-              }).catch(err => console.error(err));
-          } else {
-              setSudDocs([]);
+        getResourceMappings(formData.plan_id).then(res => {
+          if (res.data?.success) {
+            setMappedShadowResources(res.data.data || []);
           }
-          
-          if (optHas('assessment_80')) {
-              getResults(formData.plan_id).then(res => {
-                  setAssessmentResults(res.data?.data || []);
-              }).catch(err => console.error(err));
-          } else {
-              setAssessmentResults([]);
-          }
-      } else {
-          setMappedShadowResources([]);
+        }).catch(err => console.error("Error fetching resource mappings:", err));
+
+        if (optHas('sud_doc_upload')) {
+          getSudDocuments(formData.plan_id).then(res => {
+            setSudDocs(res.data?.data || []);
+          }).catch(err => console.error(err));
+        } else {
           setSudDocs([]);
+        }
+
+        if (optHas('assessment_80')) {
+          getResults(formData.plan_id).then(res => {
+            setAssessmentResults(res.data?.data || []);
+          }).catch(err => console.error(err));
+        } else {
           setAssessmentResults([]);
+        }
+      } else {
+        setMappedShadowResources([]);
+        setSudDocs([]);
+        setAssessmentResults([]);
       }
 
       let srCriteria = [];
@@ -1200,7 +1200,7 @@ const SchedulePage = () => {
       if (optHas('assessment_80')) {
         srCriteria.push("scored above 80% in the Final Assessment");
       }
-      
+
       if (srCriteria.length > 0) {
         setShadowResourcingEntryCriteria(`Only participants who have ${srCriteria.join(' AND ')} are eligible.`);
       } else {
@@ -1216,7 +1216,7 @@ const SchedulePage = () => {
         const weeks = activeInputs?.lr_weeks_shadow || '';
         lrCriteria.push(`Required weeks for shadow support: ${weeks}`);
       }
-      
+
       if (lrCriteria.length > 0) {
         setLeadResourcingEntryCriteria(lrCriteria.join(' AND '));
       } else {
@@ -1245,9 +1245,9 @@ const SchedulePage = () => {
   const handleStakeholdersChange = (newStakeholders) => {
     const added = newStakeholders.filter(id => !selectedStakeholders.includes(id));
     const removed = selectedStakeholders.filter(id => !newStakeholders.includes(id));
-    
+
     setSelectedStakeholders(newStakeholders);
-    
+
     if (added.length > 0) {
       if (isSudMandatory) {
         setSelectedSudRecipients(prev => [...new Set([...prev, ...added])]);
@@ -1259,7 +1259,7 @@ const SchedulePage = () => {
         setSelectedRktRecipients(prev => [...new Set([...prev, ...added])]);
       }
     }
-    
+
     if (removed.length > 0) {
       setSelectedSudRecipients(prev => prev.filter(id => !removed.includes(id)));
       setSelectedFinalAssessmentRecipients(prev => prev.filter(id => !removed.includes(id)));
@@ -1273,7 +1273,7 @@ const SchedulePage = () => {
     e.preventDefault();
     const isSRAvailable = shadowMappings.some(m => m.organizerId && m.participantIds.length > 0);
     const hasInvalidSR = activeGlobalTab === 'SR' && shadowMappings.some(m => (!m.organizerId && m.participantIds.length > 0) || (m.organizerId && m.participantIds.length === 0));
-    
+
     if (activeGlobalTab === 'SR' && hasInvalidSR) {
       setSchedulePopup({ message: 'Please ensure each mapping has both an Organizer and at least one Participant selected.', type: 'error' });
       return;
@@ -1283,7 +1283,7 @@ const SchedulePage = () => {
       setSchedulePopup({ message: 'Please select at least one participant to notify for Reverse KT.', type: 'error' });
       return;
     }
-    
+
     if (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0) {
       setSchedulePopup({ message: 'Please select at least one recipient for Lead Support.', type: 'error' });
       return;
@@ -1293,7 +1293,7 @@ const SchedulePage = () => {
       setSchedulePopup({ message: 'Please select at least one mapping to notify.', type: 'error' });
       return;
     }
-    
+
     startOperation('notify-requirements');
     try {
       const payload = {
@@ -1336,81 +1336,81 @@ const SchedulePage = () => {
     const sortedMeetings = [...planMeetings].sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
 
     const doc = new jsPDF('landscape');
-    
+
     doc.setFontSize(16);
     doc.text(`Meeting Schedule: ${projectName} - ${selectedPlan?.application_name || ''}`, 14, 20);
 
     let currentY = 30;
-    
+
     sortedMeetings.forEach((meeting, index) => {
-        let agenda = [];
-        try {
-            agenda = JSON.parse(meeting.description || '[]');
-        } catch(e) {
-            agenda = [];
-        }
+      let agenda = [];
+      try {
+        agenda = JSON.parse(meeting.description || '[]');
+      } catch (e) {
+        agenda = [];
+      }
 
-        const dateObj = new Date(meeting.scheduled_at);
-        const dateStr = dateObj.toLocaleDateString();
+      const dateObj = new Date(meeting.scheduled_at);
+      const dateStr = dateObj.toLocaleDateString();
 
-        const tableData = [];
+      const tableData = [];
 
-        if (agenda && agenda.length > 0) {
-            agenda.forEach(item => {
-                tableData.push([
-                    item.time_slot || '',
-                    item.topic || '',
-                    (item.duration ? `${item.duration} mins` : ''),
-                    item.giver || '',
-                    item.receiver || '',
-                    meeting.meeting_link || ''
-                ]);
-            });
-        } else {
-            tableData.push([
-                dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
-                meeting.title || '',
-                '',
-                '',
-                '',
-                meeting.meeting_link || ''
-            ]);
-        }
-
-        // Handle page overflow for text manually just in case
-        // We need at least 45 units for the title, table header, and first row
-        if (currentY > doc.internal.pageSize.getHeight() - 45) {
-            doc.addPage();
-            currentY = 20;
-        }
-
-        let windowTime = "";
-        if (agenda && agenda.length > 0) {
-            const startStr = agenda[0].time_slot?.split(' - ')[0] || '';
-            const endStr = agenda[agenda.length - 1].time_slot?.split(' - ')[1] || '';
-            if (startStr && endStr) {
-                windowTime = `(Session Window: ${startStr} - ${endStr})`;
-            }
-        }
-
-        doc.setFontSize(12);
-        doc.setTextColor(50, 50, 50);
-        doc.text(`Day ${index + 1}: ${dateStr} - ${meeting.title || ''} ${windowTime}`, 14, currentY);
-        currentY += 5;
-
-        autoTable(doc, {
-            startY: currentY,
-            head: [['Time Slot', 'Topic', 'Duration', 'Giver(s)', 'Receiver(s)', 'Meeting Link']],
-            body: tableData,
-            theme: 'grid',
-            headStyles: { fillColor: [208, 74, 2] },
-            styles: { fontSize: 10, cellPadding: 3, overflow: 'linebreak' },
-            columnStyles: {
-                5: { cellWidth: 50 }
-            }
+      if (agenda && agenda.length > 0) {
+        agenda.forEach(item => {
+          tableData.push([
+            item.time_slot || '',
+            item.topic || '',
+            (item.duration ? `${item.duration} mins` : ''),
+            item.giver || '',
+            item.receiver || '',
+            meeting.meeting_link || ''
+          ]);
         });
+      } else {
+        tableData.push([
+          dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          meeting.title || '',
+          '',
+          '',
+          '',
+          meeting.meeting_link || ''
+        ]);
+      }
 
-        currentY = doc.lastAutoTable.finalY + 15;
+      // Handle page overflow for text manually just in case
+      // We need at least 45 units for the title, table header, and first row
+      if (currentY > doc.internal.pageSize.getHeight() - 45) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      let windowTime = "";
+      if (agenda && agenda.length > 0) {
+        const startStr = agenda[0].time_slot?.split(' - ')[0] || '';
+        const endStr = agenda[agenda.length - 1].time_slot?.split(' - ')[1] || '';
+        if (startStr && endStr) {
+          windowTime = `(Session Window: ${startStr} - ${endStr})`;
+        }
+      }
+
+      doc.setFontSize(12);
+      doc.setTextColor(50, 50, 50);
+      doc.text(`Day ${index + 1}: ${dateStr} - ${meeting.title || ''} ${windowTime}`, 14, currentY);
+      currentY += 5;
+
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Time Slot', 'Topic', 'Duration', 'Giver(s)', 'Receiver(s)', 'Meeting Link']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [208, 74, 2] },
+        styles: { fontSize: 10, cellPadding: 3, overflow: 'linebreak' },
+        columnStyles: {
+          5: { cellWidth: 50 }
+        }
+      });
+
+      currentY = doc.lastAutoTable.finalY + 15;
     });
 
     const pdfBlobUrl = doc.output('bloburl');
@@ -1422,20 +1422,20 @@ const SchedulePage = () => {
       setSchedulePopup({ message: 'Please select a Project and a Plan first.', type: 'error' });
       return;
     }
-    
+
     try {
       startOperation('download-template');
       const res = await getPlanTopicOptions(formData.plan_id);
       const topics = res.data.data;
-      
+
       if (!topics || topics.length === 0) {
         setSchedulePopup({ message: "No topics found to export for the selected plan.", type: "error" });
         return;
       }
-      
+
       const plan = plans.find(p => String(p.id) === String(formData.plan_id));
       const project = projects.find(p => String(p.id) === String(formData.project_id));
-      
+
       let parsedConfig = plan?.project_config || {};
       if (typeof parsedConfig === 'string') {
         try {
@@ -1444,7 +1444,7 @@ const SchedulePage = () => {
           parsedConfig = {};
         }
       }
-      
+
       const projectName = project?.name || 'N/A';
       let trackName = 'N/A';
       if (parsedConfig?._meta?.trackId) {
@@ -1513,7 +1513,7 @@ const SchedulePage = () => {
       // SHEET 1: Stakeholders Dropdown Sheet
       // ==========================================
       const ws1 = wb.addWorksheet('Sheet1', { views: [{ showGridLines: true }] });
-      
+
       const uniqueDays = Array.from(new Set(cleanedTopics.map(t => t.clean_day)));
       const dayTopicsMap = {};
       cleanedTopics.forEach((t, i) => {
@@ -1527,7 +1527,7 @@ const SchedulePage = () => {
       ];
 
       cleanedTopics.forEach((t, i) => {
-        ws1Columns.push({ header: t.topic_name || `Topic ${i+1}`, key: `topic_${i}`, width: 20 });
+        ws1Columns.push({ header: t.topic_name || `Topic ${i + 1}`, key: `topic_${i}`, width: 20 });
       });
 
       uniqueDays.forEach((day, idx) => {
@@ -1563,41 +1563,41 @@ const SchedulePage = () => {
           type: st.stype
         };
         cleanedTopics.forEach((t, i) => {
-           rowData[`topic_${i}`] = 'No';
+          rowData[`topic_${i}`] = 'No';
         });
-        
+
         const row = ws1.addRow(rowData);
-        
+
         cleanedTopics.forEach((t, i) => {
-           const colIndex = 3 + i;
-           const cell = row.getCell(colIndex);
-           cell.dataValidation = {
-             type: 'list',
-             allowBlank: true,
-             formulae: ['"Yes,No"']
-           };
+          const colIndex = 3 + i;
+          const cell = row.getCell(colIndex);
+          cell.dataValidation = {
+            type: 'list',
+            allowBlank: true,
+            formulae: ['"Yes,No"']
+          };
         });
 
         uniqueDays.forEach((day, idx) => {
-           const giverColIdx = 3 + cleanedTopics.length + (2 * idx);
-           const receiverColIdx = giverColIdx + 1;
-           const topicLetters = dayTopicsMap[day].map(topicIndex => getExcelColName(3 + topicIndex));
-           const orCondition = topicLetters.length > 1 ? `OR(${topicLetters.map(letter => `${letter}${rIdx}="Yes"`).join(',')})` : `${topicLetters[0]}${rIdx}="Yes"`;
-           
-           if (rIdx === 2) {
-             row.getCell(giverColIdx).value = { formula: `IF(AND($B2="Knowledge Giver", ${orCondition}), $A2, "")` };
-             row.getCell(receiverColIdx).value = { formula: `IF(AND($B2="Knowledge Receiver", ${orCondition}), $A2, "")` };
-           } else {
-             const prevGiverCell = `${getExcelColName(giverColIdx)}${rIdx - 1}`;
-             const prevReceiverCell = `${getExcelColName(receiverColIdx)}${rIdx - 1}`;
-             row.getCell(giverColIdx).value = { formula: `IF(AND($B${rIdx}="Knowledge Giver", ${orCondition}), IF(${prevGiverCell}="", $A${rIdx}, ${prevGiverCell} & ", " & $A${rIdx}), ${prevGiverCell})` };
-             row.getCell(receiverColIdx).value = { formula: `IF(AND($B${rIdx}="Knowledge Receiver", ${orCondition}), IF(${prevReceiverCell}="", $A${rIdx}, ${prevReceiverCell} & ", " & $A${rIdx}), ${prevReceiverCell})` };
-           }
+          const giverColIdx = 3 + cleanedTopics.length + (2 * idx);
+          const receiverColIdx = giverColIdx + 1;
+          const topicLetters = dayTopicsMap[day].map(topicIndex => getExcelColName(3 + topicIndex));
+          const orCondition = topicLetters.length > 1 ? `OR(${topicLetters.map(letter => `${letter}${rIdx}="Yes"`).join(',')})` : `${topicLetters[0]}${rIdx}="Yes"`;
+
+          if (rIdx === 2) {
+            row.getCell(giverColIdx).value = { formula: `IF(AND($B2="Knowledge Giver", ${orCondition}), $A2, "")` };
+            row.getCell(receiverColIdx).value = { formula: `IF(AND($B2="Knowledge Receiver", ${orCondition}), $A2, "")` };
+          } else {
+            const prevGiverCell = `${getExcelColName(giverColIdx)}${rIdx - 1}`;
+            const prevReceiverCell = `${getExcelColName(receiverColIdx)}${rIdx - 1}`;
+            row.getCell(giverColIdx).value = { formula: `IF(AND($B${rIdx}="Knowledge Giver", ${orCondition}), IF(${prevGiverCell}="", $A${rIdx}, ${prevGiverCell} & ", " & $A${rIdx}), ${prevGiverCell})` };
+            row.getCell(receiverColIdx).value = { formula: `IF(AND($B${rIdx}="Knowledge Receiver", ${orCondition}), IF(${prevReceiverCell}="", $A${rIdx}, ${prevReceiverCell} & ", " & $A${rIdx}), ${prevReceiverCell})` };
+          }
         });
 
         rIdx++;
       });
-      
+
       const lastRowSheet1 = Math.max(rIdx - 1, 2);
 
       for (let r = 2; r <= lastRowSheet1; r++) {
@@ -1762,10 +1762,10 @@ const SchedulePage = () => {
             if (currentRowIndex - 1 > startDayRow) {
               ws2.mergeCells(startDayRow, 1, currentRowIndex - 1, 1);
               ws2.getCell(startDayRow, 1).alignment = { vertical: 'middle', horizontal: 'center' };
-              
+
               ws2.mergeCells(startDayRow, 4, currentRowIndex - 1, 4);
               ws2.getCell(startDayRow, 4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-              
+
               ws2.mergeCells(startDayRow, 5, currentRowIndex - 1, 5);
               ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
             }
@@ -1773,15 +1773,15 @@ const SchedulePage = () => {
             currentDay = t.clean_day;
           }
         }
-        
+
         if (idx === cleanedTopics.length - 1) {
           if (currentRowIndex > startDayRow) {
             ws2.mergeCells(startDayRow, 1, currentRowIndex, 1);
             ws2.getCell(startDayRow, 1).alignment = { vertical: 'middle', horizontal: 'center' };
-            
+
             ws2.mergeCells(startDayRow, 4, currentRowIndex, 4);
             ws2.getCell(startDayRow, 4).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-            
+
             ws2.mergeCells(startDayRow, 5, currentRowIndex, 5);
             ws2.getCell(startDayRow, 5).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
           }
@@ -1794,7 +1794,7 @@ const SchedulePage = () => {
         ws2.mergeCells(8, 6, currentRowIndex - 1, 6);
         const startDateCell = ws2.getCell(8, 6);
         startDateCell.alignment = { vertical: 'middle', horizontal: 'center' };
-        
+
         if (isFinalAssessmentMandatory) {
           const faIdx = tableHeaders.indexOf("Final Assessment") + 1;
           ws2.mergeCells(8, faIdx, currentRowIndex - 1, faIdx);
@@ -1853,7 +1853,7 @@ const SchedulePage = () => {
         daily_meeting_links: isRkt ? rktDailyMeetingLinks : dailyMeetingLinks,
         is_reverse_kt: isRkt,
         title: isRkt ? `Reverse KT Presentation - ${currentPlan?.application_name || 'Session'}` : undefined,
-        stakeholder_ids: isRkt 
+        stakeholder_ids: isRkt
           ? [...new Set([...selectedRktEvaluators, ...selectedRktRecipients])]
           : [...selectedOrganizers, ...selectedStakeholders],
         sud_recipients: (activeGlobalTab === 'KA' && isSudMandatory) ? selectedSudRecipients : [],
@@ -1919,17 +1919,17 @@ const SchedulePage = () => {
 
   const isParticipantEligible = (participantId) => {
     if (isForcePushEnabled) return true;
-    
+
     if (isSudRequiredForSR) {
       const hasSud = sudDocs.some(doc => doc.stakeholder_id === participantId);
       if (!hasSud) return false;
     }
-    
+
     if (isAssessmentRequiredForSR) {
       const result = assessmentResults.find(r => r.stakeholder_id === participantId && r.assessment_type === 'final');
       if (!result || parseFloat(result.overall_score) < 40) return false;
     }
-    
+
     return true;
   };
 
@@ -1988,7 +1988,7 @@ const SchedulePage = () => {
                   .filter(p => String(p.project_id) === String(formData.project_id))
                   .map(p => (
                     <option key={p.id} value={p.id}>{p.application_name}</option>
-                ))}
+                  ))}
               </CustomSelect>
             </div>
           </div>
@@ -2149,59 +2149,59 @@ const SchedulePage = () => {
                   {activeGlobalTab === 'KA' && (
                     <>
                       <div>
-                    {user?.role === 'Delivery / Engagement Manager' ? (
-                      <MultiSelectDropdown
-                        label="Organizers (Knowledge Givers)"
-                        placeholder="Select Givers..."
-                        options={knowledgeGivers}
-                        selected={selectedOrganizers}
-                        onChange={setSelectedOrganizers}
-                        visibleCount={3}
-                      />
-                    ) : (
-                      <>
-                        <label className="block text-sm font-medium text-gray-700">Organizer</label>
+                        {user?.role === 'Delivery / Engagement Manager' ? (
+                          <MultiSelectDropdown
+                            label="Organizers (Knowledge Givers)"
+                            placeholder="Select Givers..."
+                            options={knowledgeGivers}
+                            selected={selectedOrganizers}
+                            onChange={setSelectedOrganizers}
+                            visibleCount={3}
+                          />
+                        ) : (
+                          <>
+                            <label className="block text-sm font-medium text-gray-700">Organizer</label>
+                            <input
+                              type="text"
+                              disabled
+                              className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-input-background text-secondary-text cursor-not-allowed"
+                              value={user?.name ? `${user.name} (${user.role})` : ''}
+                            />
+                          </>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                         <input
-                          type="text"
-                          disabled
-                          className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-input-background text-secondary-text cursor-not-allowed"
-                          value={user?.name ? `${user.name} (${user.role})` : ''}
+                          type="date" required
+                          className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
+                          value={formData.scheduled_at}
+                          onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
                         />
-                      </>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input
-                      type="date" required
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md"
-                      value={formData.scheduled_at}
-                      onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link Option</label>
-                    <select
-                      className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-white text-gray-800 text-sm focus:ring-primary-orange focus:border-primary-orange"
-                      value={meetingLinkOption}
-                      onChange={(e) => setMeetingLinkOption(e.target.value)}
-                    >
-                      <option value="Single Link for All Days">Single Link for All Days</option>
-                      <option value="Different Link for Each Day">Different Link for Each Day</option>
-                    </select>
-                    <p className="text-[11px] text-gray-400 mt-1">MS Teams link dynamically generated on schedule</p>
-                  </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Meeting Link Option</label>
+                        <select
+                          className="mt-1 block w-full px-3 py-2 border border-light-border rounded-md bg-white text-gray-800 text-sm focus:ring-primary-orange focus:border-primary-orange"
+                          value={meetingLinkOption}
+                          onChange={(e) => setMeetingLinkOption(e.target.value)}
+                        >
+                          <option value="Single Link for All Days">Single Link for All Days</option>
+                          <option value="Different Link for Each Day">Different Link for Each Day</option>
+                        </select>
+                        <p className="text-[11px] text-gray-400 mt-1">MS Teams link dynamically generated on schedule</p>
+                      </div>
 
-                  <div>
-                    <MultiSelectDropdown
-                      label="Participants (Knowledge Receivers)"
-                      placeholder="Select Receivers..."
-                      options={stakeholders}
-                      selected={selectedStakeholders}
-                      onChange={handleStakeholdersChange}
-                      visibleCount={4}
-                    />
-                  </div>
+                      <div>
+                        <MultiSelectDropdown
+                          label="Participants (Knowledge Receivers)"
+                          placeholder="Select Receivers..."
+                          options={stakeholders}
+                          selected={selectedStakeholders}
+                          onChange={handleStakeholdersChange}
+                          visibleCount={4}
+                        />
+                      </div>
                     </>
                   )}
 
@@ -2212,9 +2212,9 @@ const SchedulePage = () => {
                           <Video size={16} className="text-primary-orange" />
                           <h4 className="text-sm font-bold text-gray-800">Reverse KT Presentation & Evaluation</h4>
                         </div>
-                
+
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                           <MultiSelectDropdown
@@ -2294,7 +2294,7 @@ const SchedulePage = () => {
                             {shadowResourcingEntryCriteria}
                           </div>
                         </div>
-                        
+
                         {shadowMappings.map((mapping, index) => (
                           <div key={index} className="flex flex-col md:flex-row gap-4 items-start bg-white p-3 rounded shadow-sm border border-gray-100">
                             <div className="flex-1">
@@ -2313,10 +2313,10 @@ const SchedulePage = () => {
                                   <div className="flex justify-between items-center w-full">
                                     <span>Participants (Shadows)</span>
                                     <label className="flex items-center space-x-1 cursor-pointer">
-                                      <input 
-                                        type="checkbox" 
+                                      <input
+                                        type="checkbox"
                                         className="rounded text-primary-orange focus:ring-orange-border"
-                                        checked={isForcePushEnabled} 
+                                        checked={isForcePushEnabled}
                                         onChange={(e) => {
                                           if (isForcePushEnabled) {
                                             setIsForcePushEnabled(false);
@@ -2325,7 +2325,7 @@ const SchedulePage = () => {
                                               setIsForcePushEnabled(true);
                                             }
                                           }
-                                        }} 
+                                        }}
                                       />
                                       <span className="text-xs text-secondary-text font-normal">Force push</span>
                                     </label>
@@ -2352,7 +2352,7 @@ const SchedulePage = () => {
                             )}
                           </div>
                         ))}
-                        
+
                         <div className="flex justify-start">
                           <button
                             type="button"
@@ -2373,10 +2373,10 @@ const SchedulePage = () => {
                               <div className="flex justify-between items-center w-full">
                                 <span>Lead Support Participants</span>
                                 <label className="flex items-center space-x-1 cursor-pointer">
-                                  <input 
-                                    type="checkbox" 
+                                  <input
+                                    type="checkbox"
                                     className="rounded text-primary-orange focus:ring-orange-border"
-                                    checked={isForcePushEnabled} 
+                                    checked={isForcePushEnabled}
                                     onChange={(e) => {
                                       if (isForcePushEnabled) {
                                         setIsForcePushEnabled(false);
@@ -2385,7 +2385,7 @@ const SchedulePage = () => {
                                           setIsForcePushEnabled(true);
                                         }
                                       }
-                                    }} 
+                                    }}
                                   />
                                   <span className="text-xs text-secondary-text font-normal">Force push</span>
                                 </label>
@@ -2407,7 +2407,7 @@ const SchedulePage = () => {
                             titleFn={(opt) => getLREligibilityReason(opt.id) || ''}
                           />
                         </div>
-                        
+
                         <div className="text-xs text-secondary-text mt-2 italic bg-orange-100/50 p-2 rounded border border-orange-100 shadow-sm">
                           * Note: Lead Support eligibility is automatically verified against solved Jira tickets (Done/Resolved status) assigned to each participant.
                         </div>
@@ -2422,11 +2422,10 @@ const SchedulePage = () => {
                           type="button"
                           onClick={handleNotifySubmit}
                           disabled={activeOperations['notify-requirements'] || selectedRktRecipients.length === 0}
-                          className={`inline-flex items-center gap-2 px-4 py-2 border rounded-md transition-colors text-sm font-medium ${
-                            (activeOperations['notify-requirements'] || selectedRktRecipients.length === 0)
+                          className={`inline-flex items-center gap-2 px-4 py-2 border rounded-md transition-colors text-sm font-medium ${(activeOperations['notify-requirements'] || selectedRktRecipients.length === 0)
                               ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
                               : 'bg-white text-primary-orange border-primary-orange hover:bg-orange-50'
-                          }`}
+                            }`}
                         >
                           {activeOperations['notify-requirements'] ? (
                             <>
@@ -2446,11 +2445,10 @@ const SchedulePage = () => {
                         <button
                           type="submit"
                           disabled={scheduling || (selectedRktRecipients.length === 0 && selectedRktEvaluators.length === 0)}
-                          className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors text-sm font-medium ${
-                            (scheduling || (selectedRktRecipients.length === 0 && selectedRktEvaluators.length === 0))
+                          className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors text-sm font-medium ${(scheduling || (selectedRktRecipients.length === 0 && selectedRktEvaluators.length === 0))
                               ? 'bg-gray-400 cursor-not-allowed'
                               : 'bg-primary-orange hover:bg-hover-orange'
-                          }`}
+                            }`}
                         >
                           {scheduling ? (
                             <>
@@ -2478,17 +2476,16 @@ const SchedulePage = () => {
                           (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
                           (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
                         }
-                        className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
-                          ((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']))
+                        className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements']))
                             ? 'bg-button-orange cursor-not-allowed'
                             : (
-                                (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
-                                (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
-                                (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
-                              )
+                              (activeGlobalTab === 'KA' && selectedStakeholders.length === 0 && selectedOrganizers.length === 0) ||
+                              (activeGlobalTab === 'SR' && shadowMappings.every(m => !m.organizerId && m.participantIds.length === 0)) ||
+                              (activeGlobalTab === 'LR' && selectedLeadRecipients.length === 0)
+                            )
                               ? 'bg-gray-400 cursor-not-allowed'
                               : 'bg-primary-orange hover:bg-hover-orange'
-                        }`}
+                          }`}
                       >
                         {((activeGlobalTab === 'KA' && scheduling) || (activeGlobalTab !== 'KA' && activeOperations['notify-requirements'])) ? (
                           <>
@@ -2514,7 +2511,7 @@ const SchedulePage = () => {
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold text-primary-text">Automatic Scheduling via Excel</h3>
                 </div>
-                <div 
+                <div
                   className="border-2 border-dashed border-light-border rounded-lg p-10 flex flex-col items-center justify-center hover:bg-light-background transition-colors cursor-pointer"
                   onDragOver={handleDragOverExcel}
                   onDrop={handleDropExcel}
@@ -2530,10 +2527,10 @@ const SchedulePage = () => {
                   <p className="text-secondary-text text-xs mt-1">
                     Supported formats: XLS, XLSX
                   </p>
-                  <input 
-                    type="file" 
-                    ref={excelFileInputRef} 
-                    className="hidden" 
+                  <input
+                    type="file"
+                    ref={excelFileInputRef}
+                    className="hidden"
                     accept=".xls,.xlsx"
                     multiple
                     onChange={handleFileSelectExcel}
@@ -2553,8 +2550,8 @@ const SchedulePage = () => {
                             <p className="text-xs text-secondary-text">{(file.size / 1024).toFixed(2)} KB</p>
                           </div>
                         </div>
-                        <button 
-                          onClick={() => handleRemoveExcelFile(idx)} 
+                        <button
+                          onClick={() => handleRemoveExcelFile(idx)}
                           className="text-secondary-text hover:text-red-500 transition p-1"
                           title="Remove file"
                         >
@@ -2569,11 +2566,10 @@ const SchedulePage = () => {
                   <button
                     onClick={handleBulkSchedule}
                     disabled={isUploadingExcel || selectedExcelFiles.length === 0}
-                    className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${
-                      isUploadingExcel || selectedExcelFiles.length === 0
+                    className={`inline-flex items-center gap-2 px-4 py-2 text-white rounded-md transition-colors ${isUploadingExcel || selectedExcelFiles.length === 0
                         ? 'bg-gray-400 cursor-not-allowed'
                         : 'bg-primary-orange hover:bg-hover-orange active:scale-95'
-                    }`}
+                      }`}
                   >
                     {isUploadingExcel ? (
                       <>
@@ -2600,216 +2596,216 @@ const SchedulePage = () => {
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-light-background">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Plan Name</th>
-                {user?.role === 'Delivery / Engagement Manager' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Knowledge Giver(s)</th>
-                )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Day</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Meeting Title</th>
-                {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
-                  <>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Meeting Link</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Attendance Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Feedback</th>
-                  </>
-                )}
-                {user?.role === 'Delivery / Engagement Manager' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Attendance Rate</th>
-                )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Status</th>
-                {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-secondary-text uppercase tracking-wider">Actions</th>}
-              </tr>
-            </thead>
-            <tbody className="bg-light-background divide-y divide-gray-200">
-              {displayedMeetings.length === 0 ? (
+              <thead className="bg-light-background">
                 <tr>
-                  <td
-                    colSpan={user?.role === 'Delivery / Engagement Manager' ? 8 : (user?.role === 'Incoming Team Member (Knowledge Receiver)' ? 8 : 6)}
-                    className="px-6 py-8 text-center text-sm text-secondary-text italic"
-                  >
-                    {formData.plan_id
-                      ? "No meeting scheduled yet for this plan"
-                      : formData.project_id
-                      ? "No meetings scheduled yet for this project"
-                      : "No meetings scheduled yet"}
-                  </td>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Plan Name</th>
+                  {user?.role === 'Delivery / Engagement Manager' && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Knowledge Giver(s)</th>
+                  )}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Day</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Meeting Title</th>
+                  {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
+                    <>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Meeting Link</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Attendance Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Feedback</th>
+                    </>
+                  )}
+                  {user?.role === 'Delivery / Engagement Manager' && (
+                    <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Attendance Rate</th>
+                  )}
+                  <th className="px-6 py-3 text-left text-xs font-medium text-secondary-text uppercase tracking-wider">Status</th>
+                  {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-secondary-text uppercase tracking-wider">Actions</th>}
                 </tr>
-              ) : (
-                displayedMeetings.map((m) => {
-                const dayStr = m.day_label || '-';
-                const cleanTitle = m.title.replace(/^.*?(Day\s*\d+[^:-]*[:-]\s*)/i, '').replace(/^Day\s*\d+\s*/i, '');
-                const isOverdue = isMeetingOverdue(m);
+              </thead>
+              <tbody className="bg-light-background divide-y divide-gray-200">
+                {displayedMeetings.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={user?.role === 'Delivery / Engagement Manager' ? 8 : (user?.role === 'Incoming Team Member (Knowledge Receiver)' ? 8 : 6)}
+                      className="px-6 py-8 text-center text-sm text-secondary-text italic"
+                    >
+                      {formData.plan_id
+                        ? "No meeting scheduled yet for this plan"
+                        : formData.project_id
+                          ? "No meetings scheduled yet for this project"
+                          : "No meetings scheduled yet"}
+                    </td>
+                  </tr>
+                ) : (
+                  displayedMeetings.map((m) => {
+                    const dayStr = m.day_label || '-';
+                    const cleanTitle = m.title.replace(/^.*?(Day\s*\d+[^:-]*[:-]\s*)/i, '').replace(/^Day\s*\d+\s*/i, '');
+                    const isOverdue = isMeetingOverdue(m);
 
-                return (
-                  <tr key={m.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text font-medium">
-                      {plans.find(p => p.id === m.plan_id)?.application_name || 'N/A'}
-                    </td>
-                    {user?.role === 'Delivery / Engagement Manager' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                        {m.knowledge_giver_names || 'N/A'}
-                      </td>
-                    )}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
-                      {m.dayLabel || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-primary-text break-words min-w-[150px] max-w-[200px]">{m.title}</td>
-                    {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
-                      <>
+                    return (
+                      <tr key={m.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text font-medium">
+                          {plans.find(p => p.id === m.plan_id)?.application_name || 'N/A'}
+                        </td>
+                        {user?.role === 'Delivery / Engagement Manager' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                            {m.knowledge_giver_names || 'N/A'}
+                          </td>
+                        )}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
-                          {m.meeting_link ? (
-                            <div className="relative group inline-block">
-                              {m.status === 'completed' ? (
-                                <span
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-gray-400 cursor-not-allowed"
-                                >
-                                  Join Meeting
-                                </span>
-                              ) : (
-                                <a
-                                  href={m.meeting_link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border transition-colors"
-                                >
-                                  Join Meeting
-                                </a>
-                              )}
-                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-sidebar text-white text-xs rounded py-1 px-2 shadow-lg">
-                                {m.meeting_link}
-                                <svg className="absolute text-primary-text h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
-                              </div>
-                            </div>
-                          ) : (
-                            'N/A'
-                          )}
+                          {m.dayLabel || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {m.status === 'completed' ? (
-                            Number(m.attended) === 1 ? (
-                              <span className="text-green-600">attended</span>
-                            ) : (
-                              <span className="text-red-600">missing</span>
-                            )
-                          ) : null}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          {m.status === 'completed' && Number(m.attended) === 1 ? (
-                            <button
-                              onClick={() => handleOpenFeedbackModal(m)}
-                              disabled={fetchingFeedback === m.id}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md hover:bg-amber-100 transition-colors text-xs font-semibold shadow-sm disabled:opacity-50"
-                              title="Give Feedback & Rating"
-                            >
-                              {fetchingFeedback === m.id ? (
-                                <svg className="animate-spin h-3.5 w-3.5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                                </svg>
-                              ) : (
-                                <>
-                                  <Star size={14} className="fill-amber-400 text-amber-500" />
-                                  Feedback
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-secondary-text italic">
-                              {m.status !== 'completed' ? 'Available after KT' : 'Not eligible'}
-                            </span>
-                          )}
-                        </td>
-                      </>
-                    )}
-                    {user?.role === 'Delivery / Engagement Manager' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text font-semibold text-primary-orange">
-                        {m.attendance_rate_percent !== undefined ? `${m.attendance_rate_percent}%` : 'N/A'}
-                      </td>
-                    )}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center justify-center px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${isOverdue ? 'bg-red-50 text-red-700 border-red-200' : m.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : m.status === 'cancelled' ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-input-background text-primary-orange border-primary-orange/20'}`}>
-                        {isOverdue ? 'Overdue' : m.status}
-                      </span>
-                    </td>
-                    {canManage && (
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
-                        {m.status === 'completed' && (
-                          <button
-                            onClick={() => handleOpenIntelligenceModal(m)}
-                            disabled={fetchingIntelligence === m.id}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm mr-2"
-                            title="View AI Meeting Intelligence & Download PDF"
-                          >
-                            {fetchingIntelligence === m.id ? (
-                              <svg className="animate-spin h-3.5 w-3.5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                              </svg>
-                            ) : (
-                              <>
-                                <FileText size={14} className="text-purple-600" />
-                                <span>AI Report</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                        {(!isOverdue && (m.status === 'completed' || isMeetingToday(m.scheduled_at))) && (
-                          <button
-                            onClick={() => handleOpenAttendanceModal(m)}
-                            disabled={fetchingAttendees === m.id}
-                            className="text-primary-orange hover:text-hover-orange mr-4 inline-flex items-center"
-                            title="Attendance"
-                          >
-                            {fetchingAttendees === m.id ? (
-                              <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-                              </svg>
-                            ) : (
-                              <ClipboardList size={20} />
-                            )}
-                          </button>
-                        )}
-                        {m.status === 'scheduled' && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">{new Date(m.scheduled_at).toLocaleString(undefined, { timeZone: 'UTC' })}</td>
+                        <td className="px-6 py-4 text-sm font-medium text-primary-text break-words min-w-[150px] max-w-[200px]">{m.title}</td>
+                        {user?.role === 'Incoming Team Member (Knowledge Receiver)' && (
                           <>
-                            {notifiedId === m.id ? (
-                              <span className="text-green-600 flex items-center mr-4 transition-all duration-300" title="Sent!">
-                                <CheckCircle size={20} />
-                              </span>
-                            ) : (
-                              <button onClick={() => handleNotify(m.id)} className="text-primary-orange hover:text-hover-orange mr-4" title="Notify">
-                                <Bell size={20} />
-                              </button>
-                            )}
-                            {user?.role === 'Delivery / Engagement Manager' && (
-                              <button
-                                onClick={() => handleOpenRescheduleModal(m)}
-                                className="text-amber-600 hover:text-amber-800 mr-4 inline-flex items-center"
-                                title="Reschedule"
-                              >
-                                <Clock size={20} />
-                              </button>
-                            )}
-                            {!isOverdue && (
-                              <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900" title="Complete">
-                                <CheckCircle size={20} />
-                              </button>
-                            )}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text">
+                              {m.meeting_link ? (
+                                <div className="relative group inline-block">
+                                  {m.status === 'completed' ? (
+                                    <span
+                                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-gray-400 cursor-not-allowed"
+                                    >
+                                      Join Meeting
+                                    </span>
+                                  ) : (
+                                    <a
+                                      href={m.meeting_link}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-primary-orange hover:bg-hover-orange focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-border transition-colors"
+                                    >
+                                      Join Meeting
+                                    </a>
+                                  )}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block z-10 w-max max-w-xs bg-sidebar text-white text-xs rounded py-1 px-2 shadow-lg">
+                                    {m.meeting_link}
+                                    <svg className="absolute text-primary-text h-2 w-full left-0 top-full" x="0px" y="0px" viewBox="0 0 255 255"><polygon className="fill-current" points="0,0 127.5,127.5 255,0" /></svg>
+                                  </div>
+                                </div>
+                              ) : (
+                                'N/A'
+                              )}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              {m.status === 'completed' ? (
+                                Number(m.attended) === 1 ? (
+                                  <span className="text-green-600">attended</span>
+                                ) : (
+                                  <span className="text-red-600">missing</span>
+                                )
+                              ) : null}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              {m.status === 'completed' && Number(m.attended) === 1 ? (
+                                <button
+                                  onClick={() => handleOpenFeedbackModal(m)}
+                                  disabled={fetchingFeedback === m.id}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-md hover:bg-amber-100 transition-colors text-xs font-semibold shadow-sm disabled:opacity-50"
+                                  title="Give Feedback & Rating"
+                                >
+                                  {fetchingFeedback === m.id ? (
+                                    <svg className="animate-spin h-3.5 w-3.5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                    </svg>
+                                  ) : (
+                                    <>
+                                      <Star size={14} className="fill-amber-400 text-amber-500" />
+                                      Feedback
+                                    </>
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="text-xs text-secondary-text italic">
+                                  {m.status !== 'completed' ? 'Available after KT' : 'Not eligible'}
+                                </span>
+                              )}
+                            </td>
                           </>
                         )}
-                      </td>
-                    )}
-                  </tr>
-                );
-              }))}
-            </tbody>
-          </table>
+                        {user?.role === 'Delivery / Engagement Manager' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-secondary-text font-semibold text-primary-orange">
+                            {m.attendance_rate_percent !== undefined ? `${m.attendance_rate_percent}%` : 'N/A'}
+                          </td>
+                        )}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center justify-center px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${isOverdue ? 'bg-red-50 text-red-700 border-red-200' : m.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : m.status === 'cancelled' ? 'bg-gray-50 text-gray-700 border-gray-200' : 'bg-input-background text-primary-orange border-primary-orange/20'}`}>
+                            {isOverdue ? 'Overdue' : m.status}
+                          </span>
+                        </td>
+                        {canManage && (
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 flex justify-end items-center h-full">
+                            {m.status === 'completed' && (
+                              <button
+                                onClick={() => handleOpenIntelligenceModal(m)}
+                                disabled={fetchingIntelligence === m.id}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-md bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm mr-2"
+                                title="View AI Meeting Intelligence & Download PDF"
+                              >
+                                {fetchingIntelligence === m.id ? (
+                                  <svg className="animate-spin h-3.5 w-3.5 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                  </svg>
+                                ) : (
+                                  <>
+                                    <FileText size={14} className="text-purple-600" />
+                                    <span>AI Report</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                            {(!isOverdue && (m.status === 'completed' || isMeetingToday(m.scheduled_at))) && (
+                              <button
+                                onClick={() => handleOpenAttendanceModal(m)}
+                                disabled={fetchingAttendees === m.id}
+                                className="text-primary-orange hover:text-hover-orange mr-4 inline-flex items-center"
+                                title="Attendance"
+                              >
+                                {fetchingAttendees === m.id ? (
+                                  <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                                  </svg>
+                                ) : (
+                                  <ClipboardList size={20} />
+                                )}
+                              </button>
+                            )}
+                            {m.status === 'scheduled' && (
+                              <>
+                                {notifiedId === m.id ? (
+                                  <span className="text-green-600 flex items-center mr-4 transition-all duration-300" title="Sent!">
+                                    <CheckCircle size={20} />
+                                  </span>
+                                ) : (
+                                  <button onClick={() => handleNotify(m.id)} className="text-primary-orange hover:text-hover-orange mr-4" title="Notify">
+                                    <Bell size={20} />
+                                  </button>
+                                )}
+                                {user?.role === 'Delivery / Engagement Manager' && (
+                                  <button
+                                    onClick={() => handleOpenRescheduleModal(m)}
+                                    className="text-amber-600 hover:text-amber-800 mr-4 inline-flex items-center"
+                                    title="Reschedule"
+                                  >
+                                    <Clock size={20} />
+                                  </button>
+                                )}
+                                {!isOverdue && (
+                                  <button onClick={() => handleStatusChange(m.id, 'completed')} className="text-green-600 hover:text-green-900" title="Complete">
+                                    <CheckCircle size={20} />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  }))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
       )}
       {(formData.plan_id && activeGlobalTab === 'SR') && (
         <div className="bg-light-background rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -2856,8 +2852,8 @@ const SchedulePage = () => {
                 {attendanceMeeting.status === 'completed'
                   ? 'View Attendance: '
                   : overdueOverrideMeetingId === attendanceMeeting.id
-                  ? 'Mark Past Attendance & Complete: '
-                  : 'Mark Attendance: '}
+                    ? 'Mark Past Attendance & Complete: '
+                    : 'Mark Attendance: '}
                 {attendanceMeeting.title}
               </h3>
               <button
@@ -2934,8 +2930,8 @@ const SchedulePage = () => {
                   {savingAttendance
                     ? 'Saving...'
                     : overdueOverrideMeetingId === attendanceMeeting.id
-                    ? 'Save Attendance & Mark Completed'
-                    : 'Save'}
+                      ? 'Save Attendance & Mark Completed'
+                      : 'Save'}
                 </button>
               )}
             </div>
@@ -3229,7 +3225,7 @@ const SchedulePage = () => {
                   </p>
                 </div>
                 <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm text-center">
-                  <p className="text-xs text-slate-500 font-medium">Active Speakers</p>
+                  <p className="text-xs text-slate-500 font-medium">Total Attendees</p>
                   <p className="text-lg font-bold text-slate-800">
                     {selectedIntelligence?.total_speakers || 1}
                   </p>
@@ -3564,11 +3560,10 @@ const SchedulePage = () => {
               <button
                 type="button"
                 onClick={() => setJiraActiveTab('connect')}
-                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
-                  jiraActiveTab === 'connect'
+                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${jiraActiveTab === 'connect'
                     ? 'border-primary-orange text-primary-orange'
                     : 'border-transparent text-gray-500 hover:text-gray-700 cursor-pointer'
-                }`}
+                  }`}
               >
                 <ShieldCheck className="w-4 h-4" />
                 <span>1. Connect Account</span>
@@ -3577,11 +3572,10 @@ const SchedulePage = () => {
                 type="button"
                 onClick={() => setJiraActiveTab('tickets')}
                 disabled={!isJiraConnected}
-                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${
-                  jiraActiveTab === 'tickets'
+                className={`py-3 text-sm font-semibold border-b-2 transition-colors flex items-center space-x-2 ${jiraActiveTab === 'tickets'
                     ? 'border-primary-orange text-primary-orange'
                     : `border-transparent ${!isJiraConnected ? 'text-gray-400 cursor-not-allowed' : 'text-gray-500 hover:text-gray-700 cursor-pointer'}`
-                }`}
+                  }`}
               >
                 <Layers className="w-4 h-4" />
                 <span>2. Fetch & Import Tickets</span>
@@ -3661,10 +3655,10 @@ const SchedulePage = () => {
                   {jiraUser && (
                     <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center space-x-3">
                       {jiraUser.avatarUrl && !jiraUser.avatarError ? (
-                        <img 
-                          src={jiraUser.avatarUrl} 
-                          alt="Avatar" 
-                          className="w-10 h-10 rounded-full bg-white object-cover" 
+                        <img
+                          src={jiraUser.avatarUrl}
+                          alt="Avatar"
+                          className="w-10 h-10 rounded-full bg-white object-cover"
                           onError={() => setJiraUser(prev => ({ ...prev, avatarError: true }))}
                         />
                       ) : (
@@ -3838,9 +3832,8 @@ const SchedulePage = () => {
                               return (
                                 <div
                                   key={ticket.key}
-                                  className={`p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-orange-50/60 transition-colors cursor-pointer ${
-                                    isSelected ? 'bg-orange-50/80 border-l-4 border-primary-orange' : ''
-                                  }`}
+                                  className={`p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-orange-50/60 transition-colors cursor-pointer ${isSelected ? 'bg-orange-50/80 border-l-4 border-primary-orange' : ''
+                                    }`}
                                   onClick={() => {
                                     if (isSelected) {
                                       setSelectedTicketKeys(selectedTicketKeys.filter((k) => k !== ticket.key));
@@ -3854,7 +3847,7 @@ const SchedulePage = () => {
                                       type="checkbox"
                                       className="mt-1 rounded text-primary-orange focus:ring-orange-border"
                                       checked={isSelected}
-                                      onChange={() => {}}
+                                      onChange={() => { }}
                                     />
                                     <div className="min-w-0 space-y-1">
                                       <div className="flex items-center space-x-2 flex-wrap gap-y-1">
@@ -3891,11 +3884,10 @@ const SchedulePage = () => {
                                     <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded border border-amber-200 font-medium">
                                       {ticket.priority}
                                     </span>
-                                    <span className={`px-2.5 py-1 font-semibold rounded-full text-xs ${
-                                      ticket.status === 'Done' || ticket.status === 'Resolved' || ticket.statusCategory === 'Done'
+                                    <span className={`px-2.5 py-1 font-semibold rounded-full text-xs ${ticket.status === 'Done' || ticket.status === 'Resolved' || ticket.statusCategory === 'Done'
                                         ? 'bg-green-100 text-green-800 border border-green-200'
                                         : 'bg-blue-50 text-blue-800 border border-blue-200'
-                                    }`}>
+                                      }`}>
                                       {ticket.status}
                                     </span>
                                   </div>
