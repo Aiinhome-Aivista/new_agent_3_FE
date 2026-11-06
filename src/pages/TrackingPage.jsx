@@ -73,7 +73,8 @@ const TrackingPage = () => {
     setErrorMsg('');
     setSuccessMsg('');
 
-    const isTopicUpdated = topics.some(t => t.topic === topicName);
+    const selectedOpt = topicOptions.find(opt => opt.topic_name === topicName);
+    const isTopicUpdated = topics.some(t => t.topic === topicName && (!selectedOpt?.day_label || t.day_label === selectedOpt.day_label));
     if (isTopicUpdated) {
       setErrorMsg('This topic already updated');
       return;
@@ -84,6 +85,7 @@ const TrackingPage = () => {
       await updateCompletion({
         plan_id: parseInt(selectedPlanId),
         topic: topicName,
+        day_label: selectedOpt?.day_label,
         completion_percent: parseInt(completionPct)
       });
       setTopicName('');
@@ -284,7 +286,7 @@ const TrackingPage = () => {
               <tbody className="bg-light-background divide-y divide-gray-200">
                 {currentTopics.map((t) => {
                   const matchingOption = topicOptions.find(opt => opt.topic_name === t.topic);
-                  const dayLabel = matchingOption && matchingOption.day_label && matchingOption.day_label !== 'General' ? matchingOption.day_label : 'N/A';
+                  const dayLabel = t.day_label || (matchingOption && matchingOption.day_label && matchingOption.day_label !== 'General' ? matchingOption.day_label : 'N/A');
                   return (
                   <tr key={t.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary-text">{dayLabel}</td>
