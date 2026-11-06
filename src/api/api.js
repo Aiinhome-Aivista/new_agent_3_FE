@@ -114,6 +114,7 @@ export const getAssignedRisks = () => api.get('/risks/assigned');
 export const addRiskComment = (id, comment) => api.post(`/risks/${id}/comments`, { comment });
 export const updateRiskStatus = (id, status) => api.put(`/risks/${id}/status`, { status });
 export const downloadRisksDoc = (planId) => api.get(`/risks/export-doc?plan_id=${planId}`, { responseType: 'blob' });
+export const getRiskSuggestions = (id, forceRefresh = false) => api.post(`/risks/${id}/suggestions`, { force_refresh: forceRefresh });
 
 // Assessments
 export const generateQuestions = (planId, assessmentType = 'final', dayLabel = null, stakeholderId = null) =>

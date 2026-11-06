@@ -1,8 +1,8 @@
 import CustomSelect from '../components/CustomSelect';
 import React, { useState, useEffect } from 'react';
-import { getPlans, getRisks, detectRisks, escalateRisk, getStakeholders, getAssignedRisks, addRiskComment, updateRiskStatus, downloadRisksDoc } from '../api/api';
+import { getPlans, getRisks, detectRisks, escalateRisk, getStakeholders, getAssignedRisks, addRiskComment, updateRiskStatus, downloadRisksDoc, getRiskSuggestions } from '../api/api';
 import Loader from '../components/Loader';
-import { AlertTriangle, AlertCircle, Send, Check, X, ChevronDown, ChevronUp, Loader2, Download } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Send, Check, X, ChevronDown, ChevronUp, Loader2, Download, Sparkles, Lightbulb, CheckCircle2, Clock, UserCheck, RefreshCw, Copy, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useOperations } from '../context/OperationsContext';
 import ManagerWiseRiskView from '../components/ManagerWiseRiskView';
@@ -110,6 +110,94 @@ const RisksPage = () => {
   const showToast = (message, type = 'success') => {
       setToast({ show: true, message, type });
       setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
+  // AI Suggestion Drawer state
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+  const [selectedRiskForAi, setSelectedRiskForAi] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState(null);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestionError, setSuggestionError] = useState(null);
+  const [copiedSuggestions, setCopiedSuggestions] = useState(false);
+  const [applyingComment, setApplyingComment] = useState(false);
+
+  const handleOpenAiDrawer = async (risk, forceRefresh = false) => {
+    setSelectedRiskForAi(risk);
+    setAiDrawerOpen(true);
+    setSuggestionError(null);
+    setCopiedSuggestions(false);
+
+    // If cached suggestions are already loaded on the risk and forceRefresh is not requested
+    if (!forceRefresh && risk.ai_suggestion) {
+      try {
+        const parsed = typeof risk.ai_suggestion === 'string' ? JSON.parse(risk.ai_suggestion) : risk.ai_suggestion;
+        if (parsed && (parsed.suggestions || parsed.action_steps)) {
+          setAiSuggestions(parsed);
+          setLoadingSuggestions(false);
+          return;
+        }
+      } catch (e) {
+        // Continue to fetch if parsing failed
+      }
+    }
+
+    setLoadingSuggestions(true);
+    try {
+      const res = await getRiskSuggestions(risk.id, forceRefresh);
+      if (res.data?.success && res.data?.data) {
+        const data = res.data.data;
+        setAiSuggestions(data);
+        // Cache in memory for both lists
+        setRisks(prev => prev.map(r => r.id === risk.id ? { ...r, ai_suggestion: data } : r));
+        setAssignedRisks(prev => prev.map(r => r.id === risk.id ? { ...r, ai_suggestion: data } : r));
+      } else {
+        setSuggestionError(res.data?.message || 'Failed to fetch AI suggestions.');
+      }
+    } catch (err) {
+      console.error('Error fetching AI suggestions:', err);
+      setSuggestionError(err.response?.data?.message || 'Failed to generate AI suggestions. Please try again.');
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  const handleCopySuggestions = () => {
+    if (!aiSuggestions || !selectedRiskForAi) return;
+    const list = aiSuggestions.suggestions || aiSuggestions.action_steps || [];
+    const formattedList = list.map((s, i) => `${i + 1}. ${s}`).join('\n\n');
+    const textToCopy = `[AI Suggestions to Resolve Risk #${selectedRiskForAi.id}]
+Risk: ${selectedRiskForAi.description}
+Severity: ${selectedRiskForAi.severity?.toUpperCase()}
+
+Suggested Ways to Resolve:
+${formattedList || 'N/A'}`;
+
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedSuggestions(true);
+    showToast('AI suggestions copied to clipboard!', 'success');
+    setTimeout(() => setCopiedSuggestions(false), 2500);
+  };
+
+  const handleApplySuggestionToComment = async () => {
+    if (!selectedRiskForAi || !aiSuggestions) return;
+    setApplyingComment(true);
+    try {
+      const list = aiSuggestions.suggestions || aiSuggestions.action_steps || [];
+      const formattedList = list.map((s, i) => `${i + 1}. ${s}`).join('\n');
+      const commentText = `[AI Suggested Resolution Plan]\n${formattedList}`;
+      await addRiskComment(selectedRiskForAi.id, commentText);
+      showToast('Resolution suggestions added as Risk Comment!', 'success');
+      if (user?.role === 'Delivery / Engagement Manager') {
+        fetchRisks();
+      } else {
+        fetchAssignedRisks();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to add suggestion as comment', 'error');
+    } finally {
+      setApplyingComment(false);
+    }
   };
 
   const [decisionModal, setDecisionModal] = useState({ isOpen: false, type: 'approve', riskId: null, note: '' });
@@ -435,9 +523,19 @@ const RisksPage = () => {
                     return (
                         <div key={risk.id} className={`rounded-xl shadow-sm border p-4 flex flex-col h-full ${isLocked ? 'bg-green-100 text-green-800 border-green-200' : getSeverityColor(risk.severity)} bg-opacity-30`}>
                             <div className="flex justify-between items-start mb-3">
-                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-light-background shadow-sm ${isLocked ? 'text-green-700' : ''}`}>
-                                    {isLocked ? 'CLOSED' : risk.severity}
-                                </span>
+                                <div className="flex items-center gap-2">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-light-background shadow-sm ${isLocked ? 'text-green-700' : ''}`}>
+                                        {isLocked ? 'CLOSED' : risk.severity}
+                                    </span>
+                                    <button
+                                        onClick={() => handleOpenAiDrawer(risk)}
+                                        className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm hover:from-orange-600 hover:to-amber-600 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+                                        title="Get AI Suggestions & Resolution Strategies"
+                                    >
+                                        <Sparkles size={12} className="text-amber-100" />
+                                        <span>AI suggestion</span>
+                                    </button>
+                                </div>
                                 <div className="flex items-center gap-3">
                                     {!isLocked && (
                                         <div className="text-xs font-bold text-secondary-text uppercase tracking-wide bg-light-background border border-light-border px-2 py-1 rounded shadow-sm">
@@ -620,9 +718,19 @@ const RisksPage = () => {
               return (
               <div key={risk.id} className={`rounded-xl shadow-sm border p-4 flex flex-col h-full ${isSolved ? 'bg-green-100 text-green-800 border-green-200' : getSeverityColor(risk.severity)} bg-opacity-50`}>
                 <div className="flex justify-between items-start mb-3">
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-light-background shadow-sm ${isSolved ? 'text-green-700' : ''}`}>
-                    {isSolved ? 'CLOSED' : risk.severity}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide bg-light-background shadow-sm ${isSolved ? 'text-green-700' : ''}`}>
+                      {isSolved ? 'CLOSED' : risk.severity}
+                    </span>
+                    <button
+                      onClick={() => handleOpenAiDrawer(risk)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm hover:from-orange-600 hover:to-amber-600 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+                      title="Get AI Suggestions & Resolution Strategies"
+                    >
+                      <Sparkles size={12} className="text-amber-100" />
+                      <span>AI suggestion</span>
+                    </button>
+                  </div>
                   <span className="text-xs font-medium opacity-75">{formatDateOnly(risk.created_at)}</span>
                 </div>
                 
@@ -854,6 +962,192 @@ const RisksPage = () => {
                   </div>
               </div>
           </div>
+      )}
+
+      {/* AI Suggestion Right-Side Drawer */}
+      {aiDrawerOpen && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in-overlay cursor-pointer"
+            onClick={() => setAiDrawerOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer container */}
+          <div className="fixed inset-y-0 right-0 max-w-full flex pl-6 sm:pl-10">
+            <div className="w-screen max-w-md md:max-w-xl bg-light-background shadow-2xl flex flex-col border-l border-light-border animate-slide-left z-50">
+              
+              {/* Drawer Header */}
+              <div className="p-5 border-b border-light-border bg-gradient-to-r from-orange-50 via-amber-50/60 to-white flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl text-white shadow-md">
+                    <Sparkles size={20} className="animate-pulse" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                      AI Risk Resolution Advisor
+                    </h3>
+                    <p className="text-xs text-secondary-text">
+                      Intelligent guidance & action plan to resolve this risk
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleOpenAiDrawer(selectedRiskForAi, true)}
+                    disabled={loadingSuggestions}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-40"
+                    title="Regenerate AI suggestions"
+                  >
+                    <RefreshCw size={16} className={loadingSuggestions ? "animate-spin text-primary-orange" : ""} />
+                  </button>
+                  <button
+                    onClick={() => setAiDrawerOpen(false)}
+                    className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Drawer Content Area */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 custom-scrollbar">
+                
+                {/* Target Risk Context Card */}
+                {selectedRiskForAi && (
+                  <div className="bg-input-background rounded-xl p-4 border border-orange-200/70 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${getSeverityColor(selectedRiskForAi.severity)} shadow-sm`}>
+                          {selectedRiskForAi.severity}
+                        </span>
+                        <span className="text-xs text-secondary-text font-medium">Risk #{selectedRiskForAi.id}</span>
+                      </div>
+                      <span className="text-[11px] text-secondary-text">
+                        {formatDateOnly(selectedRiskForAi.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-gray-800 leading-relaxed">
+                      {selectedRiskForAi.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* Loading State */}
+                {loadingSuggestions && (
+                  <div className="py-14 flex flex-col items-center justify-center text-center space-y-4">
+                    <div className="relative">
+                      <div className="w-12 h-12 rounded-full border-4 border-orange-200 border-t-primary-orange animate-spin"></div>
+                      <Sparkles size={18} className="absolute inset-0 m-auto text-amber-500 animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-primary-text">Consulting AI Resolution Engine...</p>
+                      <p className="text-xs text-secondary-text mt-1 max-w-xs mx-auto">
+                        Analyzing Knowledge Transfer plan context, attendance data, and action items to provide optimal resolutions.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Error State */}
+                {!loadingSuggestions && suggestionError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center space-y-3">
+                    <AlertTriangle className="mx-auto text-red-500" size={28} />
+                    <p className="text-xs font-medium text-red-700">{suggestionError}</p>
+                    <button
+                      onClick={() => handleOpenAiDrawer(selectedRiskForAi, true)}
+                      className="px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-md hover:bg-red-700 transition-colors shadow-sm"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+
+                {/* Suggestions Display */}
+                {!loadingSuggestions && !suggestionError && aiSuggestions && (
+                  <div className="space-y-4 animate-fadeIn">
+                    {(() => {
+                      const suggestionList = aiSuggestions.suggestions || aiSuggestions.action_steps || [];
+                      return (
+                        <div className="bg-white rounded-xl p-5 border border-light-border shadow-sm">
+                          <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+                            <div className="flex items-center gap-2 text-primary-orange">
+                              <Lightbulb size={18} />
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-gray-800">
+                                Suggested Ways to Resolve This Risk
+                              </h4>
+                            </div>
+                            <span className="text-[11px] font-semibold bg-orange-50 text-primary-orange border border-orange-200 px-2.5 py-0.5 rounded-full">
+                              {suggestionList.length} Suggestions
+                            </span>
+                          </div>
+
+                          {suggestionList.length > 0 ? (
+                            <div className="space-y-3">
+                              {suggestionList.map((suggestion, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className="flex items-start gap-3 p-3.5 rounded-lg border border-gray-100 bg-gray-50/70 hover:bg-orange-50/40 hover:border-orange-200 transition-colors"
+                                >
+                                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-button-orange text-white font-bold text-xs flex items-center justify-center mt-0.5 shadow-sm">
+                                    {idx + 1}
+                                  </span>
+                                  <p className="text-xs text-gray-800 leading-relaxed font-medium">
+                                    {suggestion}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-secondary-text italic">
+                              No suggestions available. Try clicking regenerate above.
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+
+              {/* Drawer Footer Actions */}
+              <div className="p-4 border-t border-light-border bg-gray-50 flex items-center justify-between gap-3">
+                <button
+                  onClick={handleCopySuggestions}
+                  disabled={loadingSuggestions || !aiSuggestions}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-light-border bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-40 transition-colors shadow-sm"
+                  title="Copy formatted suggestions to clipboard"
+                >
+                  {copiedSuggestions ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
+                  <span>{copiedSuggestions ? 'Copied!' : 'Copy Suggestions'}</span>
+                </button>
+
+                {isManager && selectedRiskForAi && selectedRiskForAi.status !== 'solved' && selectedRiskForAi.status !== 'resolved' && (
+                  <button
+                    onClick={handleApplySuggestionToComment}
+                    disabled={loadingSuggestions || !aiSuggestions || applyingComment}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-button-orange text-white hover:bg-hover-orange disabled:opacity-40 transition-colors shadow-sm"
+                    title="Post suggestions as a comment on this risk"
+                  >
+                    {applyingComment ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                    <span>Post to Updates</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setAiDrawerOpen(false)}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg border border-transparent text-secondary-text hover:text-primary-text transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Toast Notification */}
